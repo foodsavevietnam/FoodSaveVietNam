@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FoodSave kết nối cửa hàng có thực phẩm còn tốt với các tổ chức từ thiện để giảm lãng phí và hỗ trợ cộng đồng.">
+  <title>FoodSave</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #e5e7eb;
+      --paper: #ffffff;
+      --soft: #f7f8f5;
+      --green-dark: #166534;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--soft);
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .shell {
+      width: min(1120px, calc(100% - 40px));
+      min-height: 100vh;
+      margin: 0 auto;
+      display: grid;
+      align-content: center;
+      gap: 34px;
+      padding: 42px 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      letter-spacing: 0;
+      font-size: 22px;
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--green-dark);
+      box-shadow: 0 14px 34px rgba(22, 163, 74, .28);
+      font-weight: 900;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .intro {
+      padding: 44px;
+      background: transparent;
+    }
+
+    .eyebrow {
+      margin: 0 0 16px;
+      color: var(--green-dark);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: 72px;
+      line-height: .98;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 690px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1.65;
+      font-weight: 600;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .stat {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .72);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1;
+      color: var(--green-dark);
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .choices {
+      display: grid;
+      gap: 16px;
+    }
+
+    .choice {
+      position: relative;
+      min-height: 220px;
+      padding: 28px;
+      overflow: hidden;
+      border: 1px solid rgba(17, 24, 39, .08);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 18px 50px rgba(17, 24, 39, .08);
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+
+    .choice:hover {
+      transform: translateY(-4px);
+      border-color: rgba(22, 163, 74, .35);
+      box-shadow: 0 24px 64px rgba(17, 24, 39, .13);
+    }
+
+    .choice .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: #ecfdf5;
+      color: var(--green-dark);
+      font-weight: 900;
+    }
+
+    .choice.store .tag {
+      background: #fef9c3;
+      color: #854d0e;
+    }
+
+    .choice h2 {
+      position: relative;
+      margin: 22px 0 10px;
+      font-size: 27px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .choice p {
+      position: relative;
+      max-width: 410px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .arrow {
+      position: absolute;
+      right: 28px;
+      top: 28px;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--ink);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .intro { padding: 12px 0 0; }
+      h1 { font-size: 52px; }
+      .stats { grid-template-columns: 1fr; }
+      footer { flex-direction: column; }
+    }
+
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 28px, 1120px); padding: 24px 0; }
+      .choice { padding: 24px; }
+      h1 { font-size: 42px; }
+      .choice { min-height: 200px; }
+      .arrow { right: 22px; top: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <a class="brand" href="index.html" aria-label="FoodSave">
+      <span class="mark">FS</span>
+      <span>FoodSave</span>
+    </a>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="intro">
+        <p class="eyebrow">Nền tảng chống lãng phí thực phẩm</p>
+        <h1 id="hero-title">Thực phẩm còn tốt nên được đi tiếp.</h1>
+        <p class="lead">FoodSave kết nối các cửa hàng với tổ chức từ thiện để điều phối thực phẩm minh bạch, nhanh gọn và có trách nhiệm hơn.</p>
+
+        <div class="stats" aria-label="Điểm nổi bật">
+          <div class="stat">
+            <strong>2</strong>
+            <span>Cổng truy cập riêng</span>
+          </div>
+          <div class="stat">
+            <strong>QR</strong>
+            <span>Bàn giao có xác nhận</span>
+          </div>
+          <div class="stat">
+            <strong>ESG</strong>
+            <span>Báo cáo cho đối tác</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="choices" aria-label="Chọn khu vực sử dụng">
+        <a class="choice charity" href="CHARITY.html">
+          <span class="tag">01</span>
+          <span class="arrow" aria-hidden="true">&rarr;</span>
+          <h2>Dành cho tổ chức từ thiện</h2>
+          <p>Tiếp nhận lô thực phẩm, điều phối tình nguyện viên và lưu biên bản bàn giao.</p>
+        </a>
+
+        <a class="choice store" href="PARTNER_TINH.html">
+          <span class="tag">02</span>
+          <span class="arrow" aria-hidden="true">&rarr;</span>
+          <h2>Dành cho cửa hàng</h2>
+          <p>Đăng lô thực phẩm còn tốt, theo dõi đơn tiếp nhận và xem báo cáo tác động.</p>
+        </a>
+      </nav>
+    </section>
+
+    <footer>
+      <span>FoodSave Việt Nam</span>
+      <span>Giảm lãng phí thực phẩm, tăng giá trị cộng đồng.</span>
+    </footer>
+  </main>
+</body>
+</html>

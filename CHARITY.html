@@ -2811,14 +2811,22 @@ function regNext(){
       charityRegState.otpVerifying=true;
       rAuth();
       const verify=window.FoodSaveAuth?.verifyCharityEmailOtp||window.verifyCharityEmailOtp;
-      Promise.resolve(typeof verify==="function"?verify(code):null).catch(err=>console.warn("[Charity OTP] Verify failed",err)).finally(()=>{
+      Promise.resolve(typeof verify==="function"?verify(code):null).catch(err=>{
+        console.warn("[Charity OTP] Verify failed",err);
+        charityRegState.otpVerified=false;
+        charityRegState.otpError=charityRegState.otpError||"Mã OTP không chính xác, vui lòng kiểm tra lại.";
+      }).finally(()=>{
         charityRegState.otpVerifying=false;
-        charityRegState.otpVerified=true;
-        charityRegState.otpError="";
-        stopCharityOtpTimer(false);
-        regStep=1;
+        // Only advance if verify() actually marked the OTP as verified. Previously this
+        // block force-set otpVerified=true and moved regStep forward unconditionally,
+        // even when verify() failed or threw (wrong/expired code, network error).
+        if(charityRegState.otpVerified){
+          charityRegState.otpError="";
+          stopCharityOtpTimer(false);
+          regStep=1;
+          tst("Đã xác thực OTP","Tiếp tục hoàn tất eKYC.","info");
+        }
         rAuth();
-        tst("Đã xác thực OTP","Tiếp tục hoàn tất eKYC.","info");
       });
       return;
     }
@@ -2826,7 +2834,42 @@ function regNext(){
     rAuth();
     return;
   }
+  if(regStep===1){
+    const missingRep=[];
+    if(!String(charityRegState.rep.name||"").trim())missingRep.push("Họ tên người đại diện");
+    if(!String(charityRegState.rep.cccd||"").trim())missingRep.push("Số CCCD");
+    if(!String(charityRegState.rep.email||"").trim())missingRep.push("Email cá nhân");
+    if(!String(charityRegState.rep.orgPhone||"").trim())missingRep.push("SĐT liên hệ");
+    if(missingRep.length){
+      tst("Thiếu thông tin đại diện",`Vui lòng điền: ${missingRep.join(", ")}.`,"warn");
+      rAuth();
+      return;
+    }
+    if(!isEkycUnlocked()){
+      tst("Chưa hoàn tất eKYC","Vui lòng tải CCCD mặt trước/sau và xác thực khuôn mặt trước khi tiếp tục.","warn");
+      rAuth();
+      return;
+    }
+    if(!isPasswordValid()){
+      tst("Mật khẩu chưa hợp lệ","Vui lòng đặt mật khẩu đáp ứng đủ các điều kiện bên dưới.","warn");
+      rAuth();
+      return;
+    }
+    regStep=2;
+    rAuth();
+    return;
+  }
   if(regStep===charityRegSteps.length-2){
+    const missingOrg=[];
+    if(!String(charityRegState.org.name||"").trim())missingOrg.push("Tên tổ chức");
+    if(!String(charityRegState.org.address||"").trim())missingOrg.push("Địa chỉ trụ sở");
+    if(!String(charityRegState.org.phone||"").trim())missingOrg.push("SĐT hotline tổ chức");
+    if(!String(charityRegState.org.email||"").trim())missingOrg.push("Email tổ chức");
+    if(missingOrg.length){
+      tst("Thiếu thông tin hồ sơ",`Vui lòng điền: ${missingOrg.join(", ")}.`,"warn");
+      rAuth();
+      return;
+    }
     const submit=window.FoodSaveAuth?.submitCharityRegistration||window.submitCharityRegistration;
     charityRegState.submitting=true;
     rAuth();

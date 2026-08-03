@@ -5,8 +5,8 @@
   const API_PATH = "/api/v1";
   const AUTH_STORAGE_KEY = "foodsave.auth.session";
   const PHONE_OTP_STORAGE_KEY = "foodsave.auth.phoneOtp";
-  const SUPABASE_URL = "https://uqyqayrwhcicuctfnwix.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_tUk1J3EpJfW4h9SkPDg_hg_FAJPOUuX";
+  const SUPABASE_URL = "https://idhpydhlgnxjjtyrgfkj.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf";
   let oauthNoticeTimer = 0;
   let customerLoginPending = false;
   let customerRegisterPending = false;
@@ -2873,7 +2873,10 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       state.otpExpired = false;
       state.otpVerified = false;
       state.otpSentAt = new Date().toISOString();
-      setCharityStep(1);
+      // NOTE: do NOT advance the step here. Advancing must only happen after the OTP
+      // code is actually verified (see verifyCharityEmailOtp -> setCharityStep(2)).
+      // The previous setCharityStep(1) call here caused the wizard to skip the OTP
+      // input entirely as soon as the email was sent.
       notify("Đã gửi OTP", `Kiểm tra email ${email} để lấy mã 6 số.`, "info");
     } catch (error) {
       state.otpError = error.message || "Không thể gửi OTP. Vui lòng thử lại.";

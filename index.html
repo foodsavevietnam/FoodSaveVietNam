@@ -1,282 +1,1077 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="google-site-verification" content="ygctrGwqOt7WLItIROO5Lo1XHhpRzUzvP86v02kTVtI" />
-  <title>FoodSave Việt Nam</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="FoodSave kết nối cửa hàng có thực phẩm còn tốt với các tổ chức từ thiện để giảm lãng phí và hỗ trợ cộng đồng.">
-  <title>FoodSave</title>
+  <title>FoodSave - Cứu thực phẩm, Bảo vệ hành tinh</title>
+  <meta name="description" content="FoodSave kết nối doanh nghiệp có thực phẩm còn dùng tốt với tổ chức từ thiện. Phi lợi nhuận, không thu phí, không thương mại hóa thực phẩm quyên góp.">
+
+  <!-- Open Graph / Facebook sharing preview -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://foodsavevietnam.netlify.app/">
+  <meta property="og:title" content="FoodSave - Cứu thực phẩm, Bảo vệ hành tinh">
+  <meta property="og:description" content="FoodSave kết nối doanh nghiệp có thực phẩm còn dùng tốt với tổ chức từ thiện. Phi lợi nhuận, không thu phí, không thương mại hóa thực phẩm quyên góp.">
+  <meta property="og:image" content="https://foodsavevietnam.netlify.app/foodsave-og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="vi_VN">
+
+  <!-- Twitter/X card (dùng ké cùng bộ ảnh og:image) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="FoodSave - Cứu thực phẩm, Bảo vệ hành tinh">
+  <meta name="twitter:description" content="FoodSave kết nối doanh nghiệp có thực phẩm còn dùng tốt với tổ chức từ thiện.">
+  <meta name="twitter:image" content="https://foodsavevietnam.netlify.app/foodsave-og.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #111827;
-      --muted: #5b6472;
-      --line: #e5e7eb;
+      --green-950: #0a0a0a;
+      --green-900: #131313;
+      --green-800: #16a34a;
+      --green-700: #22c55e;
+      --green-600: #34d058;
+      --green-100: #dcfce7;
+      --green-50: #f0fdf4;
+      --yellow: #facc15;
+      --yellow-soft: #fef9c3;
+      --orange-600: #ca8a04;
       --paper: #ffffff;
-      --soft: #f7f8f5;
-      --green-dark: #166534;
+      --soft: #fafafa;
+      --ink: #1a1a1a;
+      --ink-soft: #181818;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --red: #dc2626;
+      --red-soft: #fee2e2;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .12);
+      --shadow-lg: 0 30px 90px rgba(0, 0, 0, .18);
+      --ease: cubic-bezier(.16, 1, .3, 1);
     }
 
     * { box-sizing: border-box; }
-
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      min-height: 100vh;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       color: var(--ink);
       background: var(--soft);
+      line-height: 1.65;
+      font-size: 16px;
+      font-weight: 500;
+      overflow-x: hidden;
     }
-
+    body.locked { overflow: hidden; }
     a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    img, svg { display: block; max-width: 100%; }
+    section { padding: 96px 0; }
+    .wrap { width: min(1320px, calc(100% - 48px)); margin: 0 auto; }
 
-    .shell {
-      width: min(1120px, calc(100% - 40px));
-      min-height: 100vh;
-      margin: 0 auto;
-      display: grid;
-      align-content: center;
+    h1, h2, h3 {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", "Satoshi", "Inter", system-ui, sans-serif;
+      color: var(--green-950);
+      letter-spacing: 0;
+      line-height: 1.12;
+    }
+    h1 {
+      max-width: 980px;
+      font-size: 82px;
+      font-weight: 800;
+    }
+    h2 {
+      font-size: 54px;
+      font-weight: 800;
+    }
+    h3 {
+      font-size: 24px;
+      font-weight: 800;
+    }
+    p { margin: 0; color: var(--muted); }
+
+    .mission-strip {
+      position: relative;
+      height: 38px;
+      overflow: hidden;
+      background: linear-gradient(90deg, var(--green-950) 0%, var(--green-800) 50%, var(--green-950) 100%);
+      color: rgba(255, 255, 255, .92);
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+    .mission-strip::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(250, 204, 21, .65), transparent);
+    }
+    .mission-strip .wrap {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .live-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+      padding: 4px 11px 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(250, 204, 21, .38);
+      background: rgba(250, 204, 21, .14);
+      color: #fde047;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .live-pulse .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #fde047;
+      animation: livePulseDot 1.6s var(--ease) infinite;
+    }
+    .ticker-window {
+      overflow: hidden;
+      flex: 1;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .ticker-track {
+      display: inline-flex;
       gap: 34px;
-      padding: 42px 0;
+      min-width: 100%;
+      animation: tickerMove 24s linear infinite;
+    }
+    .ticker-track span::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: var(--yellow);
+      vertical-align: middle;
     }
 
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(255, 255, 255, .86);
+      border-bottom: 1px solid rgba(229, 231, 235, .9);
+      backdrop-filter: blur(16px);
+    }
+    .nav {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
     .brand {
       display: inline-flex;
       align-items: center;
       gap: 12px;
-      font-weight: 900;
-      letter-spacing: 0;
-      font-size: 22px;
+      min-width: 210px;
     }
-
-    .mark {
+    .brand-mark {
       width: 42px;
       height: 42px;
-      border-radius: 8px;
       display: grid;
       place-items: center;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--green-700), var(--green-800));
       color: #fff;
-      background: var(--green-dark);
-      box-shadow: 0 14px 34px rgba(22, 163, 74, .28);
-      font-weight: 900;
+      box-shadow: 0 16px 34px rgba(34, 197, 94, .3);
+      transform: rotate(-4deg);
     }
-
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
-      gap: 34px;
-      align-items: stretch;
-    }
-
-    .intro {
-      padding: 44px;
-      background: transparent;
-    }
-
-    .eyebrow {
-      margin: 0 0 16px;
-      color: var(--green-dark);
-      font-size: 13px;
-      font-weight: 900;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      max-width: 780px;
-      margin: 0;
-      font-size: 72px;
-      line-height: .98;
-      letter-spacing: 0;
-    }
-
-    .lead {
-      max-width: 690px;
-      margin: 24px 0 0;
-      color: var(--muted);
-      font-size: 20px;
-      line-height: 1.65;
-      font-weight: 600;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 34px;
-    }
-
-    .stat {
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, .72);
-    }
-
-    .stat strong {
+    .brand-mark svg { width: 24px; height: 24px; }
+    .wordmark {
       display: block;
-      font-size: 24px;
+      color: var(--green-950);
+      font-family: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 27px;
+      font-weight: 900;
       line-height: 1;
-      color: var(--green-dark);
+      text-transform: uppercase;
+      letter-spacing: 0;
     }
-
-    .stat span {
+    .tagline {
       display: block;
-      margin-top: 8px;
+      margin-top: 3px;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.35;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0;
     }
-
-    .choices {
-      display: grid;
-      gap: 16px;
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 800;
     }
+    .nav-links a:hover { color: var(--green-800); }
 
-    .choice {
+    .btn {
       position: relative;
-      min-height: 220px;
-      padding: 28px;
-      overflow: hidden;
-      border: 1px solid rgba(17, 24, 39, .08);
-      border-radius: 8px;
-      background: var(--paper);
-      box-shadow: 0 18px 50px rgba(17, 24, 39, .08);
-      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-    }
-
-    .choice:hover {
-      transform: translateY(-4px);
-      border-color: rgba(22, 163, 74, .35);
-      box-shadow: 0 24px 64px rgba(17, 24, 39, .13);
-    }
-
-    .choice .tag {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
-      background: #ecfdf5;
-      color: var(--green-dark);
-      font-weight: 900;
-    }
-
-    .choice.store .tag {
-      background: #fef9c3;
-      color: #854d0e;
-    }
-
-    .choice h2 {
-      position: relative;
-      margin: 22px 0 10px;
-      font-size: 27px;
-      line-height: 1.12;
-      letter-spacing: 0;
-    }
-
-    .choice p {
-      position: relative;
-      max-width: 410px;
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.55;
-      font-weight: 600;
-    }
-
-    .arrow {
-      position: absolute;
-      right: 28px;
-      top: 28px;
-      width: 42px;
-      height: 42px;
+      gap: 10px;
+      min-height: 48px;
+      padding: 12px 18px;
       border-radius: 999px;
+      border: 1px solid var(--green-950);
+      background: var(--green-950);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      transition: transform .24s var(--ease), box-shadow .24s var(--ease), background .24s var(--ease);
+    }
+    .btn::after {
+      content: "->";
       display: grid;
       place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--green-700);
+      color: var(--green-950);
+      font-weight: 900;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, .16);
+    }
+    .btn.yellow {
+      border-color: var(--yellow);
+      background: var(--yellow);
+      color: var(--green-950);
+    }
+    .btn.yellow::after {
+      background: var(--green-950);
       color: #fff;
-      background: var(--ink);
-      font-size: 22px;
-      line-height: 1;
+    }
+    .btn.light {
+      border-color: rgba(255, 255, 255, .42);
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+      backdrop-filter: blur(8px);
+    }
+    .btn.light::after { background: var(--yellow); color: var(--green-950); }
+    .btn.ghost {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--green-950);
     }
 
-    footer {
+    .hero {
+      position: relative;
+      min-height: 82svh;
+      display: grid;
+      align-items: center;
+      overflow: hidden;
+      isolation: isolate;
+      background: var(--green-950);
+    }
+    .hero-media {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: .55;
+      filter: saturate(1.15) contrast(1.05);
+      transform: scale(1.02);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background:
+        linear-gradient(90deg, rgba(10, 10, 10, .92) 0%, rgba(10, 10, 10, .68) 45%, rgba(10, 10, 10, .2) 100%),
+        linear-gradient(0deg, rgba(10, 10, 10, .68), transparent 42%);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      height: 180px;
+      background: linear-gradient(0deg, var(--soft), transparent);
+      pointer-events: none;
+    }
+    .hero .wrap {
+      position: relative;
+      z-index: 3;
+      padding: 86px 0 128px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      color: var(--yellow);
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 22px;
+      height: 2px;
+      border-radius: 999px;
+      background: var(--green-700);
+    }
+    .hero-title {
+      color: #fff;
+      text-wrap: balance;
+    }
+    .hero-title .accent {
+      display: block;
+      color: var(--green-700);
+      text-shadow: 0 0 34px rgba(34, 197, 94, .28);
+    }
+    .hero-title .shine {
+      position: relative;
+      display: inline-block;
+      color: var(--yellow);
+      overflow: hidden;
+    }
+    .hero-title .shine::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -45%;
+      width: 32%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .62), transparent);
+      transform: skewX(-18deg);
+      animation: shineSweep 4.8s var(--ease) infinite;
+    }
+    .hero-copy {
+      max-width: 730px;
+      margin: 28px 0 34px;
+      color: rgba(255, 255, 255, .86);
+      font-size: 21px;
+      font-weight: 700;
+    }
+    .hero-actions {
       display: flex;
-      justify-content: space-between;
-      gap: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hero-stats {
+      width: min(820px, 100%);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 46px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .12);
+      box-shadow: 0 20px 70px rgba(0, 0, 0, .22);
+    }
+    .hero-stat {
+      padding: 20px 22px;
+      background: rgba(255, 255, 255, .1);
+      backdrop-filter: blur(8px);
+    }
+    .hero-stat strong {
+      display: block;
+      color: #fff;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 35px;
+      line-height: 1;
+    }
+    .hero-stat span {
+      display: block;
+      margin-top: 7px;
+      color: rgba(255, 255, 255, .72);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .section-head {
+      max-width: 840px;
+      margin: 0 0 38px;
+    }
+    .section-head.center {
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 14px;
+      color: var(--green-800);
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .section-kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--yellow);
+    }
+    .section-head p {
+      margin-top: 14px;
+      font-size: 18px;
+      font-weight: 600;
       color: var(--muted);
-      font-size: 14px;
+    }
+    .grid { display: grid; gap: 20px; }
+    .two { grid-template-columns: repeat(2, 1fr); }
+    .three { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      position: relative;
+      min-height: 100%;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, .06);
+      overflow: hidden;
+      transition: transform .24s var(--ease), box-shadow .24s var(--ease);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+    .card.dark {
+      border-color: var(--green-950);
+      background: var(--green-950);
+      color: #fff;
+      box-shadow: var(--shadow-lg);
+    }
+    .card h3 {
+      margin-top: 14px;
+      margin-bottom: 12px;
+    }
+    .card p {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .card.dark p { color: rgba(255, 255, 255, .72); }
+    .card-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 29px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: var(--green-100);
+      color: var(--green-800);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .card.dark .card-tag {
+      background: rgba(250, 204, 21, .14);
+      color: var(--yellow);
+    }
+
+    .brand-band {
+      position: relative;
+      overflow: hidden;
+      padding: 54px 0;
+      background: linear-gradient(135deg, var(--green-950), var(--green-800));
+      color: #fff;
+    }
+    .brand-band::before {
+      content: "FoodSave";
+      position: absolute;
+      right: -16px;
+      bottom: -32px;
+      color: rgba(255, 255, 255, .07);
+      font-family: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 126px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .brand-band .wrap {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+    .brand-band h2 {
+      color: #fff;
+      font-size: 40px;
+    }
+    .brand-band p {
+      color: rgba(255, 255, 255, .82);
+      font-size: 18px;
       font-weight: 700;
     }
 
-    @media (max-width: 860px) {
-      .hero { grid-template-columns: 1fr; }
-      .intro { padding: 12px 0 0; }
-      h1 { font-size: 52px; }
-      .stats { grid-template-columns: 1fr; }
-      footer { flex-direction: column; }
+    .label-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .label-card {
+      position: relative;
+      padding: 30px;
+      min-height: 270px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, .06);
+    }
+    .label-card::after {
+      content: "";
+      position: absolute;
+      right: -32px;
+      top: -32px;
+      width: 150px;
+      height: 150px;
+      border-radius: 44px;
+      border: 22px solid currentColor;
+      opacity: .14;
+      transform: rotate(20deg);
+    }
+    .label-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      color: currentColor;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .label-chip::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .label-card h3 {
+      margin: 30px 0 12px;
+      font-size: 30px;
+    }
+    .label-card p {
+      max-width: 300px;
+      color: #344039;
+      font-weight: 650;
+    }
+    .label-green { color: var(--green-800); background: var(--green-100); }
+    .label-yellow { color: var(--orange-600); background: var(--yellow-soft); }
+    .label-red { color: var(--red); background: var(--red-soft); }
+
+    .portal {
+      position: relative;
+      color: #fff;
+      background: var(--green-950);
+      overflow: hidden;
+    }
+    .portal::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(10, 10, 10, .88), rgba(10, 10, 10, .42)),
+        url("https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=1800&q=82") center/cover;
+      opacity: .86;
+    }
+    .portal .wrap {
+      position: relative;
+      z-index: 1;
+    }
+    .portal h2 { color: #fff; }
+    .portal .section-head p { color: rgba(255, 255, 255, .76); }
+    .portal-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .portal-card {
+      padding: 34px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .1);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, .22);
+    }
+    .portal-card h3 {
+      color: #fff;
+      margin: 16px 0 12px;
+      font-size: 32px;
+    }
+    .portal-card p {
+      min-height: 80px;
+      margin-bottom: 24px;
+      color: rgba(255, 255, 255, .74);
+      font-weight: 650;
     }
 
-    @media (max-width: 520px) {
-      .shell { width: min(100% - 28px, 1120px); padding: 24px 0; }
-      .choice { padding: 24px; }
-      h1 { font-size: 42px; }
-      .choice { min-height: 200px; }
-      .arrow { right: 22px; top: 22px; }
+    .flow { counter-reset: step; }
+    .step {
+      padding-top: 76px;
+    }
+    .step::before {
+      counter-increment: step;
+      content: counter(step, decimal-leading-zero);
+      position: absolute;
+      top: 28px;
+      left: 30px;
+      color: var(--yellow);
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(10, 10, 10, .62);
+      backdrop-filter: blur(8px);
+    }
+    .modal.open { display: grid; }
+    .dialog {
+      width: min(540px, 100%);
+      max-height: 90svh;
+      overflow: auto;
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: var(--shadow-lg);
+    }
+    .dialog-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 26px 26px 0;
+    }
+    .dialog-head h2 {
+      font-size: 32px;
+    }
+    .close {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--soft);
+      color: var(--green-950);
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .dialog-body {
+      padding: 22px 26px 28px;
+    }
+    .roles {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .role {
+      min-height: 50px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--green-950);
+      font-weight: 900;
+    }
+    .role.active {
+      border-color: var(--yellow);
+      background: var(--yellow);
+    }
+    .form {
+      display: grid;
+      gap: 14px;
+    }
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .field input {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .form-note {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .notice {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--green-100);
+      color: var(--green-800);
+      font-weight: 800;
+    }
+
+    footer {
+      padding: 42px 0;
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    .footer-grid {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    @keyframes livePulseDot {
+      0% { box-shadow: 0 0 0 0 rgba(253, 224, 71, .75); }
+      70% { box-shadow: 0 0 0 9px rgba(253, 224, 71, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(253, 224, 71, 0); }
+    }
+    @keyframes tickerMove {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @keyframes shineSweep {
+      0%, 58% { left: -45%; }
+      100% { left: 120%; }
+    }
+
+    @media (max-width: 980px) {
+      section { padding: 76px 0; }
+      h1 { font-size: 58px; }
+      h2 { font-size: 42px; }
+      .mission-strip .wrap { width: 100%; }
+      .live-pulse { margin-left: 16px; }
+      .nav { align-items: flex-start; flex-direction: column; padding: 16px 0; }
+      .nav-links { flex-wrap: wrap; gap: 14px; }
+      .hero-stats,
+      .three,
+      .brand-band .wrap,
+      .label-grid,
+      .portal-cards { grid-template-columns: 1fr; }
+      .portal-card p { min-height: 0; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(100% - 28px, 1320px); }
+      section { padding: 62px 0; }
+      .nav-links a:not(.btn) { display: none; }
+      .brand { min-width: 0; }
+      h1 { font-size: 40px; }
+      h2 { font-size: 32px; }
+      .hero-copy { font-size: 18px; }
+      .hero .wrap { padding: 64px 0 108px; }
+      .hero-stats,
+      .roles,
+      .two { grid-template-columns: 1fr; }
+      .brand-band::before { font-size: 76px; }
+      .card,
+      .portal-card,
+      .label-card { border-radius: 14px; padding: 24px; }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <a class="brand" href="index.html" aria-label="FoodSave">
-      <span class="mark">FS</span>
-      <span>FoodSave</span>
-    </a>
-
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="intro">
-        <p class="eyebrow">Nền tảng chống lãng phí thực phẩm</p>
-        <h1 id="hero-title">Thực phẩm còn tốt nên được đi tiếp.</h1>
-        <p class="lead">FoodSave kết nối các cửa hàng với tổ chức từ thiện để điều phối thực phẩm minh bạch, nhanh gọn và có trách nhiệm hơn.</p>
-
-        <div class="stats" aria-label="Điểm nổi bật">
-          <div class="stat">
-            <strong>2</strong>
-            <span>Cổng truy cập riêng</span>
-          </div>
-          <div class="stat">
-            <strong>QR</strong>
-            <span>Bàn giao có xác nhận</span>
-          </div>
-          <div class="stat">
-            <strong>ESG</strong>
-            <span>Báo cáo cho đối tác</span>
-          </div>
+  <div class="mission-strip" aria-label="Thông báo sứ mệnh FoodSave">
+    <div class="wrap">
+      <span class="live-pulse"><span class="dot"></span> Live</span>
+      <div class="ticker-window">
+        <div class="ticker-track">
+          <span>FoodSave là tổ chức kết nối thực phẩm phi lợi nhuận</span>
+          <span>Không thu phí từ doanh nghiệp hoặc tổ chức từ thiện</span>
+          <span>Nhãn màu giúp ưu tiên nhận và sử dụng thực phẩm an toàn</span>
+          <span>Doanh nghiệp -> FoodSave -> Tổ chức từ thiện</span>
+          <span>FoodSave là tổ chức kết nối thực phẩm phi lợi nhuận</span>
+          <span>Không thu phí từ doanh nghiệp hoặc tổ chức từ thiện</span>
+          <span>Nhãn màu giúp ưu tiên nhận và sử dụng thực phẩm an toàn</span>
+          <span>Doanh nghiệp -> FoodSave -> Tổ chức từ thiện</span>
         </div>
       </div>
+    </div>
+  </div>
 
-      <nav class="choices" aria-label="Chọn khu vực sử dụng">
-        <a class="choice charity" href="CHARITY.html">
-          <span class="tag">01</span>
-          <span class="arrow" aria-hidden="true">&rarr;</span>
-          <h2>Dành cho tổ chức từ thiện</h2>
-          <p>Tiếp nhận lô thực phẩm, điều phối tình nguyện viên và lưu biên bản bàn giao.</p>
-        </a>
+  <header class="topbar">
+    <nav class="wrap nav" aria-label="Điều hướng chính">
+      <a class="brand" href="#top" aria-label="FoodSave">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false">
+            <path d="M26.4 4.7c-7.7.2-13.8 2.6-17.3 6.8-3 3.6-3.6 8.4-1.6 13.2 5.1.4 9.5-1.2 12.4-4.7 3.4-4 5.3-9.3 6.5-15.3Z" fill="currentColor"/>
+            <path d="M6.5 26.8c4.9-7.3 9.6-11.2 16.2-14.3" fill="none" stroke="#0a0a0a" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>
+          <span class="wordmark">FoodSave</span>
+          <span class="tagline">Cứu thực phẩm, bảo vệ hành tinh</span>
+        </span>
+      </a>
+      <div class="nav-links">
+        <a href="#story">Giới thiệu</a>
+        <a href="#labels">Nhãn màu</a>
+        <a href="#flow">Cách hoạt động</a>
+        <button class="btn yellow" type="button" data-open-login>Đăng nhập</button>
+      </div>
+    </nav>
+  </header>
 
-        <a class="choice store" href="PARTNER_TINH.html">
-          <span class="tag">02</span>
-          <span class="arrow" aria-hidden="true">&rarr;</span>
-          <h2>Dành cho cửa hàng</h2>
-          <p>Đăng lô thực phẩm còn tốt, theo dõi đơn tiếp nhận và xem báo cáo tác động.</p>
-        </a>
-      </nav>
+  <main id="top">
+    <section class="hero" aria-label="FoodSave">
+      <img class="hero-media" src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1800&q=82" alt="Thực phẩm tươi được chuẩn bị để chia sẻ">
+      <div class="wrap">
+        <span class="eyebrow">Tổ chức kết nối thực phẩm phi lợi nhuận</span>
+        <h1 class="hero-title">
+          Cứu thực phẩm,
+          <span class="accent">Bảo vệ <span class="shine">hành tinh.</span></span>
+        </h1>
+        <p class="hero-copy">FoodSave giữ tinh thần cũ, nhưng mô hình mới chỉ còn doanh nghiệp và tổ chức từ thiện. Chúng tôi kết nối thực phẩm còn dùng tốt đến đúng nơi cần, phi lợi nhuận, không hoa hồng, không thu kinh phí hoạt động từ hai bên.</p>
+        <div class="hero-actions">
+          <a class="btn yellow" href="PARTNER_TINH.html">Đăng nhập doanh nghiệp</a>
+          <a class="btn light" href="CHARITY.html">Đăng nhập tổ chức</a>
+        </div>
+        <div class="hero-stats" aria-label="Cam kết chính">
+          <div class="hero-stat"><strong>0đ</strong><span>phí nền tảng</span></div>
+          <div class="hero-stat"><strong>2 vai trò</strong><span>doanh nghiệp và từ thiện</span></div>
+          <div class="hero-stat"><strong>3 nhãn</strong><span>xanh, vàng, đỏ</span></div>
+        </div>
+      </div>
     </section>
 
-    <footer>
-      <span>FoodSave Việt Nam</span>
-      <span>Giảm lãng phí thực phẩm, tăng giá trị cộng đồng.</span>
-    </footer>
+    <section id="story">
+      <div class="wrap">
+        <header class="section-head center">
+          <span class="section-kicker">Brand Story</span>
+          <h2>FoodSave là cầu nối thực phẩm phi lợi nhuận.</h2>
+          <p>Trang này chỉ là trang giới thiệu thương hiệu và điểm vào đăng nhập. Các flow đăng nguồn, nhận nguồn, xác nhận và báo cáo sẽ nằm trong cổng riêng sau đó.</p>
+        </header>
+        <div class="grid three">
+          <article class="card dark">
+            <span class="card-tag">Phi lợi nhuận</span>
+            <h3>Không thu bất kỳ khoản phí nào</h3>
+            <p>FoodSave không lấy tiền từ doanh nghiệp, không thu phí tổ chức từ thiện và không thương mại hóa thực phẩm được kết nối.</p>
+          </article>
+          <article class="card">
+            <span class="card-tag">Doanh nghiệp</span>
+            <h3>Chia sẻ nguồn còn dùng tốt</h3>
+            <p>Nhà hàng, khách sạn, siêu thị, bếp ăn hoặc nhà sản xuất có thể đưa thực phẩm dư vào mạng lưới kết nối.</p>
+          </article>
+          <article class="card">
+            <span class="card-tag">Từ thiện</span>
+            <h3>Tiếp nhận theo năng lực thật</h3>
+            <p>Mái ấm, bếp ăn cộng đồng, nhóm cứu trợ hoặc tổ chức xã hội nhận thực phẩm theo địa điểm, thời gian và khả năng xử lý.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="brand-band">
+      <div class="wrap">
+        <h2>Giữ điều hay nhất: nhãn màu để biết nhận thực phẩm và ưu tiên sử dụng thế nào.</h2>
+        <p>Nhãn màu là ngôn ngữ nhận diện của FoodSave. Nó giúp hai bên nói cùng một ngôn ngữ về thời hạn, mức ưu tiên và trách nhiệm an toàn khi tiếp nhận thực phẩm.</p>
+      </div>
+    </section>
+
+    <section id="labels">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="section-kicker">Color System</span>
+          <h2>Nhãn màu FoodSave</h2>
+          <p>Mỗi nhãn là một tín hiệu ưu tiên. Tổ chức tiếp nhận vẫn cần kiểm tra thực tế, điều kiện bảo quản và khả năng chế biến trước khi phân phối.</p>
+        </header>
+        <div class="label-grid">
+          <article class="label-card label-green">
+            <span class="label-chip">Nhãn xanh</span>
+            <h3>Dùng trong 48 giờ</h3>
+            <p>Thực phẩm còn ổn định, phù hợp để nhận theo kế hoạch và phân phối trong ngày hôm sau.</p>
+          </article>
+          <article class="label-card label-yellow">
+            <span class="label-chip">Nhãn vàng</span>
+            <h3>Dùng trong 24 giờ</h3>
+            <p>Nguồn cần được ưu tiên nhận sớm, kiểm tra nhanh và chế biến trong ngày.</p>
+          </article>
+          <article class="label-card label-red">
+            <span class="label-chip">Nhãn đỏ</span>
+            <h3>Dùng trong 6-12 giờ</h3>
+            <p>Chỉ nhận khi có đội xử lý ngay, không để qua đêm nếu chưa có điều kiện bảo quản phù hợp.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="section-kicker">How It Works</span>
+          <h2>Một trang brand, hai cổng đăng nhập.</h2>
+          <p>FoodSave giữ trang giới thiệu tinh gọn. Người dùng chọn vai trò rồi đi tiếp sang flow riêng mà bạn sẽ xây sau.</p>
+        </header>
+        <div class="grid three flow">
+          <article class="card step">
+            <h3>Doanh nghiệp đăng nhập</h3>
+            <p>Quản lý nguồn thực phẩm còn dùng tốt, thời gian bàn giao, nhãn màu và trạng thái kết nối.</p>
+          </article>
+          <article class="card step">
+            <h3>Tổ chức từ thiện đăng nhập</h3>
+            <p>Xem nguồn phù hợp, xác nhận nhu cầu, cập nhật năng lực vận chuyển và tiếp nhận.</p>
+          </article>
+          <article class="card step">
+            <h3>FoodSave điều phối</h3>
+            <p>Ưu tiên theo nhãn màu, khoảng cách, thời hạn sử dụng và khả năng xử lý thực tế.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="portal" aria-label="Cổng đăng nhập FoodSave">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="section-kicker">Access Portal</span>
+          <h2>Cổng đăng nhập FoodSave</h2>
+          <p>Chọn đúng vai trò. FoodSave hiện chỉ mở cổng cho doanh nghiệp và tổ chức từ thiện.</p>
+        </header>
+        <div class="portal-cards">
+          <article class="portal-card">
+            <span class="card-tag">Business</span>
+            <h3>Doanh nghiệp</h3>
+            <p>Dành cho đơn vị có nguồn thực phẩm còn dùng tốt và muốn kết nối miễn phí với mạng lưới từ thiện.</p>
+            <a class="btn yellow" href="PARTNER_TINH.html">Đăng nhập doanh nghiệp</a>
+          </article>
+          <article class="portal-card">
+            <span class="card-tag">Charity</span>
+            <h3>Tổ chức từ thiện</h3>
+            <p>Dành cho mái ấm, bếp ăn cộng đồng, nhóm cứu trợ và tổ chức xã hội có nhu cầu tiếp nhận.</p>
+            <a class="btn light" href="CHARITY.html">Đăng nhập tổ chức</a>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <a class="brand" href="#top" aria-label="FoodSave">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false">
+            <path d="M26.4 4.7c-7.7.2-13.8 2.6-17.3 6.8-3 3.6-3.6 8.4-1.6 13.2 5.1.4 9.5-1.2 12.4-4.7 3.4-4 5.3-9.3 6.5-15.3Z" fill="currentColor"/>
+            <path d="M6.5 26.8c4.9-7.3 9.6-11.2 16.2-14.3" fill="none" stroke="#0a0a0a" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>
+          <span class="wordmark">FoodSave</span>
+          <span class="tagline">Cứu thực phẩm, bảo vệ hành tinh</span>
+        </span>
+      </a>
+      <span>Kết nối thực phẩm phi lợi nhuận cho doanh nghiệp và tổ chức từ thiện.</span>
+      <a href="mailto:connect@foodsave.vn">connect@foodsave.vn</a>
+    </div>
+  </footer>
+
+  <div class="modal" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="dialog">
+      <div class="dialog-head">
+        <div>
+          <span class="section-kicker">Login</span>
+          <h2 id="loginTitle">Đăng nhập FoodSave</h2>
+        </div>
+        <button class="close" type="button" data-close-login aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="roles" aria-label="Chọn vai trò đăng nhập">
+          <button class="role active" type="button" data-set-role="business">Doanh nghiệp</button>
+          <button class="role" type="button" data-set-role="charity">Tổ chức từ thiện</button>
+        </div>
+        <form class="form" id="loginForm">
+          <div class="field">
+            <label for="email">Email đăng nhập</label>
+            <input id="email" name="email" type="email" autocomplete="email" required placeholder="ten@donvi.vn">
+          </div>
+          <div class="field">
+            <label for="password">Mật khẩu</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu">
+          </div>
+          <button class="btn yellow" type="submit" id="loginSubmit">Tiếp tục với vai trò doanh nghiệp</button>
+          <p class="form-note">Điểm vào tạm thời cho trang brand. Sau này nút này có thể nối sang flow đăng nhập thật.</p>
+          <div class="notice" id="loginNotice">Đã ghi nhận vai trò đăng nhập. Sẵn sàng nối sang flow thật.</div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.querySelector("#loginModal");
+    const roles = document.querySelectorAll("[data-set-role]");
+    const title = document.querySelector("#loginTitle");
+    const submit = document.querySelector("#loginSubmit");
+    const notice = document.querySelector("#loginNotice");
+    let currentRole = "business";
+
+    function setRole(role) {
+      currentRole = role || "business";
+      roles.forEach(button => button.classList.toggle("active", button.dataset.setRole === currentRole));
+      const label = currentRole === "business" ? "doanh nghiệp" : "tổ chức từ thiện";
+      title.textContent = "Đăng nhập " + label;
+      submit.textContent = "Tiếp tục với vai trò " + label;
+    }
+
+    function openLogin(role) {
+      setRole(role);
+      modal.classList.add("open");
+      document.body.classList.add("locked");
+      document.querySelector("#email").focus();
+    }
+
+    function closeLogin() {
+      modal.classList.remove("open");
+      document.body.classList.remove("locked");
+      notice.style.display = "none";
+    }
+
+    document.querySelectorAll("[data-open-login]").forEach(button => {
+      button.addEventListener("click", () => openLogin(button.dataset.role || currentRole));
+    });
+    document.querySelector("[data-close-login]").addEventListener("click", closeLogin);
+    roles.forEach(button => button.addEventListener("click", () => setRole(button.dataset.setRole)));
+    modal.addEventListener("click", event => {
+      if (event.target === modal) closeLogin();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && modal.classList.contains("open")) closeLogin();
+    });
+    document.querySelector("#loginForm").addEventListener("submit", event => {
+      event.preventDefault();
+      localStorage.setItem("foodsave_login_role", currentRole);
+      notice.style.display = "block";
+    });
+  </script>
 </body>
 </html>

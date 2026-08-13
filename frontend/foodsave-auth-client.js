@@ -2229,7 +2229,11 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     }
   }
 
-  const CHARITY_REGISTER_LAST_STEP = 5;
+  // Must match CHARITY.html's actual charityRegSteps/charityCurrentStepHtml array length - 1:
+  // [regContactVerify(0), regRepresentativeEkyc(1), regCharityProfileAndLegal(2), regComplete(3)].
+  // This used to be 5 (a leftover from an older 6-step wizard), which desynced every
+  // setCharityStep()/charityStep() call below from what CHARITY.html actually renders.
+  const CHARITY_REGISTER_LAST_STEP = 3;
 
   function charityState() {
     try {
@@ -2368,7 +2372,9 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const passwordError = passwordErrorText(passwordVar, credentials.confirmVar);
 
     if (passwordError) {
-      setCharityStep(2);
+      // Password field lives on the rep/eKYC step, which is index 1 in CHARITY.html's
+      // actual step array (was incorrectly 2, matching an older 6-step wizard layout).
+      setCharityStep(1);
       renderCharityAuth();
       throw new Error(passwordError);
     }
@@ -2429,7 +2435,15 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
   function charityAddressParts(address) {
     const source = address && typeof address === "object" ? address : {};
     const formatted = String(source.formattedAddress || source.address || (typeof address === "string" ? address : "") || "").trim();
-    const parts = formatted.split(",").map((item) => item.trim()).filter(Boolean);
+    // Reverse-geocoded / Google Places formatted addresses often end with the country name
+    // ("..., Vietnam" or "..., Việt Nam"). Taking the last comma-separated segment as the
+    // city/province without stripping this made city end up literally "Vietnam" whenever
+    // org.city wasn't already set from structured place data (see parseVietnamAddressFromPlace).
+    const rawParts = formatted.split(",").map((item) => item.trim()).filter(Boolean);
+    const isCountryName = (value) => /^viet\s*nam$|^vn$/i.test(String(value || "").trim());
+    const parts = rawParts.length > 1 && isCountryName(rawParts[rawParts.length - 1])
+      ? rawParts.slice(0, -1)
+      : rawParts;
     return {
       address: formatted || "Chưa cập nhật",
       street: source.street || parts[0] || "",
@@ -2757,6 +2771,10 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const locationInfo = charityOrgLocationInfo(org);
     const documentUrls = charityLegalDocumentUrls(state);
     const name = String(org.name || "").trim() || "Chưa cập nhật";
+    const serviceRadiusKm = (() => {
+      const parsed = Number(String(scale.radius ?? "").trim().replace(",", "."));
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    })();
 
     return {
       owner_id: userId,
@@ -2768,6 +2786,10 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       registration_number: charityFormValue("orgTaxId", org.taxId || org.tax_id || "") || null,
       representative_title: charityFormValue("repTitle", rep.role || "") || null,
       representative_cccd: charityFormValue("repID", rep.cccd || "") || null,
+      representative_email: normalizeCharityEmail(charityFormValue("repEmail", rep.email || "")) || null,
+      representative_phone: normalizePhone(charityFormValue("orgPhone", rep.orgPhone || "")) || null,
+      organization_type: charityFormValue("orgType", org.type || "") || null,
+      mission: charityFormValue("orgMission", org.mission || "") || null,
       description: charityFormValue("orgDesc", org.description || "") || null,
       public_email: email,
       public_hotline: phone || null,
@@ -2784,6 +2806,12 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       latitude: locationInfo.latitude ?? null,
       longitude: locationInfo.longitude ?? null,
       beneficiaries_count: charityNumber(scale.people),
+      // Số tình nguyện viên tổ chức hiện có (tự khai báo lúc đăng ký) - khác với bảng
+      // public.volunteers, nơi lưu danh sách tình nguyện viên thật được thêm/quản lý
+      // sau khi hồ sơ được admin duyệt.
+      volunteers_count: charityNumber(scale.volunteers),
+      meals_per_day: charityNumber(scale.meals),
+      service_radius_km: serviceRadiusKm,
       status: "pending"
     };
   }
@@ -2805,16 +2833,20 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
   function charityOrganizationProfilePayload(profilePayload) {
     const {
       owner_id, name, slug, registration_number, representative_title, representative_cccd,
+      representative_email, representative_phone, organization_type, mission,
       description, public_email, public_hotline, avatar_url, cover_url, cccd_front_url,
       cccd_back_url, establishment_decision_url, operating_license_url, financial_report_url,
-      street, ward, city, latitude, longitude, beneficiaries_count, status
+      street, ward, city, latitude, longitude, beneficiaries_count, volunteers_count,
+      meals_per_day, service_radius_km, status
     } = profilePayload;
 
     return {
       owner_id, name, slug, registration_number, representative_title, representative_cccd,
+      representative_email, representative_phone, organization_type, mission,
       description, public_email, public_hotline, avatar_url, cover_url, cccd_front_url,
       cccd_back_url, establishment_decision_url, operating_license_url, financial_report_url,
-      street, ward, city, latitude, longitude, beneficiaries_count, status
+      street, ward, city, latitude, longitude, beneficiaries_count, volunteers_count,
+      meals_per_day, service_radius_km, status
     };
   }
 
@@ -2935,7 +2967,8 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       state.authUserId = user?.id || state.authUserId || "";
       state.authEmail = user?.email || email;
       state.otpError = "";
-      setCharityStep(2);
+      // Advance from the merged contact+OTP step (0) to the rep/eKYC step (1).
+      setCharityStep(1);
       notify("Xác thực thành công", "Email đã được xác minh bằng OTP.", "info");
     } catch (error) {
       state.otpVerified = false;
@@ -2953,9 +2986,20 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       ...profilePayload,
       email: normalizeCharityEmail(user.email || profilePayload.email)
     });
+    // public.profiles has no INSERT RLS policy for regular users - only
+    // profiles_select_self_or_admin and profiles_update_self_or_admin (see
+    // 014_foodsave_partner_charity_refactor.sql). The row for this user already exists by
+    // this point: the public.handle_new_user() trigger (security definer) inserts it
+    // synchronously as soon as the auth user is created during OTP signup. Using upsert()
+    // here made PostgREST attempt an INSERT ... ON CONFLICT DO UPDATE, and Postgres RLS
+    // requires the INSERT policy to pass even when it will resolve to the UPDATE branch -
+    // with no INSERT policy at all, that always came back 403 Forbidden. A plain update()
+    // only needs the (existing) UPDATE policy.
+    const { id, ...updatable } = payload;
     const { error } = await supabaseClient
       .from("profiles")
-      .upsert(payload, { onConflict: "id" });
+      .update(updatable)
+      .eq("id", user.id);
 
     if (error) throw error;
   }
@@ -2998,7 +3042,8 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const state = charityState();
 
     if (!state.otpVerified) {
-      setCharityStep(1);
+      // Contact + OTP is step 0 in CHARITY.html's actual step array.
+      setCharityStep(0);
       state.otpError = "Vui lòng xác minh OTP trước khi gửi hồ sơ.";
       renderCharityAuth();
       notify("Chưa xác minh OTP", state.otpError, "warn");
@@ -3007,7 +3052,8 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
 
     if (!String(state.org?.name || "").trim()) {
       notify("Thiếu tên tổ chức", "Vui lòng nhập hoặc sửa tên tổ chức trước khi gửi hồ sơ.", "warn");
-      setCharityStep(3);
+      // Org/legal profile is step 2 in CHARITY.html's actual step array.
+      setCharityStep(2);
       renderCharityAuth();
       return;
     }
@@ -3050,7 +3096,8 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
         }, "charity");
       }
 
-      setCharityStep(5);
+      // regComplete is the last step, index 3, in CHARITY.html's actual step array.
+      setCharityStep(3);
       notify("Đăng ký thành công", portalConfig.charity.pendingMessage, "info");
     } catch (error) {
       notify("Gửi hồ sơ thất bại", error.message || "Không thể lưu hồ sơ tổ chức.", "error");
@@ -3204,44 +3251,88 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       return;
     }
     const step = charityStep();
-    if (step === 2) initPartnerFaceScan({ role: "charity" });
+    // Rep/eKYC (face scan) is step 1, org/legal (address map) is step 2 in CHARITY.html's
+    // actual step array (these were 2/3, matching an older 6-step wizard layout).
+    if (step === 1) initPartnerFaceScan({ role: "charity" });
     else stopFoodSaveFaceStream();
-    if (step === 3) window.setTimeout(initCharityMap, 150);
+    if (step === 2) window.setTimeout(initCharityMap, 150);
   }
 
+  // Real step map used by CHARITY.html (charityCurrentStepHtml / charityRegSteps):
+  //   0 = regContactVerify      -> contact email + OTP send/verify, MERGED into one step
+  //   1 = regRepresentativeEkyc -> representative info + CCCD/face eKYC + account password
+  //   2 = regCharityProfileAndLegal -> organization profile/legal info, submits registration
+  //   3 = regComplete           -> final "pending approval" screen, no next action
+  // This previously assumed an older 6-step layout (send=0, verify=1, eKYC=2, legal=3, ...,
+  // complete=5), which no longer matches CHARITY.html's actual markup. Because step 0 covers
+  // both "send OTP" and "verify OTP" without ever changing charityStep(), clicking "Xác nhận
+  // OTP" kept re-entering the step===0 branch and calling sendCharityEmailOtp() again instead
+  // of verifyCharityEmailOtp() - the OTP confirm button never advanced past step 0.
   async function nextCharityRegisterStep() {
     setCharityAuthState("register");
     syncCharityRegisterValues();
+    const state = charityState();
     const step = charityStep();
+
     if (step === 0) {
-      await sendCharityEmailOtp();
+      const alreadySent = typeof charityHasSentOtp === "function"
+        ? charityHasSentOtp()
+        : !!(state.otpEmail || state.otpVerified);
+      if (!alreadySent) {
+        await sendCharityEmailOtp();
+      } else if (!state.otpVerified) {
+        await verifyCharityEmailOtp();
+      } else {
+        setCharityStep(1);
+        renderCharityAuth();
+      }
       return;
     }
+
     if (step === 1) {
-      await verifyCharityEmailOtp();
-      return;
-    }
-    if (step === 2) {
-      const passwordError = charityRegistrationPasswordError();
-      if (passwordError) {
-        notify("Máº­t kháº©u chÆ°a há»£p lá»‡", passwordError, "warn");
+      const missingRep = [];
+      if (!String(state.rep?.name || "").trim()) missingRep.push("Họ tên người đại diện");
+      if (!String(state.rep?.cccd || "").trim()) missingRep.push("Số CCCD");
+      if (!String(state.rep?.email || "").trim()) missingRep.push("Email cá nhân");
+      if (!String(state.rep?.orgPhone || "").trim()) missingRep.push("SĐT liên hệ");
+      if (missingRep.length) {
+        notify("Thiếu thông tin đại diện", `Vui lòng điền: ${missingRep.join(", ")}.`, "warn");
         renderCharityAuth();
         return;
       }
-    }
-    if (step >= CHARITY_REGISTER_LAST_STEP - 1) {
-      await submitCharityRegistration();
-      return;
-    }
-    if (step < CHARITY_REGISTER_LAST_STEP) {
-      setCharityStep(step + 1);
+      if (typeof isEkycUnlocked === "function" && !isEkycUnlocked()) {
+        notify("Chưa hoàn tất eKYC", "Vui lòng tải CCCD mặt trước/sau và xác thực khuôn mặt trước khi tiếp tục.", "warn");
+        renderCharityAuth();
+        return;
+      }
+      const passwordError = charityRegistrationPasswordError();
+      if (passwordError) {
+        notify("Mật khẩu chưa hợp lệ", passwordError, "warn");
+        renderCharityAuth();
+        return;
+      }
+      setCharityStep(2);
       renderCharityAuth();
       return;
     }
-    setCharityAuthState("login");
-    setCharityStep(0);
-    renderCharityAuth();
-    notify("Đăng ký thành công", portalConfig.charity.pendingMessage, "info");
+
+    if (step === 2) {
+      const missingOrg = [];
+      if (!String(state.org?.name || "").trim()) missingOrg.push("Tên tổ chức");
+      if (!String(state.org?.address || "").trim()) missingOrg.push("Địa chỉ trụ sở");
+      if (!String(state.org?.phone || "").trim()) missingOrg.push("SĐT hotline tổ chức");
+      if (!String(state.org?.email || "").trim()) missingOrg.push("Email tổ chức");
+      if (missingOrg.length) {
+        notify("Thiếu thông tin hồ sơ", `Vui lòng điền: ${missingOrg.join(", ")}.`, "warn");
+        renderCharityAuth();
+        return;
+      }
+      await submitCharityRegistration();
+      return;
+    }
+
+    // step 3 (regComplete) has no further "next" action - the wizard footer hides the
+    // next/back buttons entirely on the last step (see charityFooter() in CHARITY.html).
   }
 
   function backCharityRegisterStep() {
@@ -4625,39 +4716,39 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
   }
 
   function partnerProfileStatus(partnerProfile) {
-    const metadata = partnerProfile?.metadata && typeof partnerProfile.metadata === "object" ? partnerProfile.metadata : {};
-    return normalizeProfileStatus(partnerProfile?.onboarding_status || metadata.onboarding_status || partnerProfile?.status);
+    // public.stores.status is the single source of truth now (partner_profiles was
+    // merged into stores by the 014 migration; there is no metadata/onboarding_status
+    // column on stores anymore).
+    return normalizeProfileStatus(partnerProfile?.status);
   }
 
   function partnerStoreContext(partnerProfile, user, email) {
-    const metadata = partnerProfile?.metadata && typeof partnerProfile.metadata === "object" ? partnerProfile.metadata : {};
-    const storeMeta = metadata.store && typeof metadata.store === "object" ? metadata.store : {};
-    const name = storeMeta.name
+    const name = partnerProfile?.name
       || partnerProfile?.legal_name
       || user?.user_metadata?.store_name
       || user?.user_metadata?.full_name
       || email
       || portalConfig.partner.defaultName;
     return {
-      id: partnerProfile?.store_id || null,
+      id: partnerProfile?.id || null,
       name,
       status: partnerProfileStatus(partnerProfile) || "pending"
     };
   }
 
+  // NOTE: public.partner_profiles no longer exists (014 migration merged it into
+  // public.stores). This now reads the store row owned by the logged-in user directly.
   async function loadSupabasePartnerAuthContext(supabaseClient, user) {
-    // PARTNER SECTION START
     const { data, error } = await supabaseClient
-      .from("partner_profiles")
-      .select("profile_id,email,phone,representative_name,status,onboarding_status,store_id,legal_name")
-      .eq("profile_id", user.id)
+      .from("stores")
+      .select("id,owner_id,name,legal_name,public_email,public_hotline,status,street,ward,city,avatar_url")
+      .eq("owner_id", user.id)
       .maybeSingle();
-    // PARTNER SECTION END
 
-    console.log("=== DATA PARTNER TRẢ VỀ ===", { data, error });
+    console.log("=== DATA PARTNER (stores) TRẢ VỀ ===", { data, error });
 
     if (error) {
-      console.warn("[FoodSave Partner Login] partner_profiles lookup failed", partnerSupabaseErrorInfo(error));
+      console.warn("[FoodSave Partner Login] stores lookup failed", partnerSupabaseErrorInfo(error));
     }
 
     return { partnerProfile: data || null, partnerError: error || null };
@@ -4668,11 +4759,11 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     try {
       let query = supabaseClient
         .from("stores")
-        .select("id,name,address,logo_url")
+        .select("id,name,street,ward,city,avatar_url,status")
         .limit(1);
 
-      query = partnerProfile?.store_id
-        ? query.eq("id", partnerProfile.store_id)
+      query = partnerProfile?.id
+        ? query.eq("id", partnerProfile.id)
         : query.eq("owner_id", user.id);
 
       const { data, error } = await query.maybeSingle();
@@ -4686,8 +4777,11 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
           ...storeContext,
           id: data.id || storeContext.id,
           name: data.name || storeContext.name,
-          address: data.address || "",
-          logo_url: data.logo_url || ""
+          // Kept as "address" for backward compatibility with dashboard code that reads
+          // context.store.address; the underlying column is now "street".
+          address: data.street || "",
+          logo_url: data.avatar_url || "",
+          status: normalizeProfileStatus(data.status) || storeContext.status
         };
       }
     } catch (error) {
@@ -4719,6 +4813,20 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const { partnerProfile } = await loadSupabasePartnerAuthContext(supabaseClient, user);
     const storeContext = await loadSupabasePartnerStoreContext(supabaseClient, partnerProfile, user, email);
 
+    // Chỉ cho vào dashboard khi cửa hàng đã được Admin duyệt (status = "active" trên
+    // public.stores). Trước đây hàm này luôn gán status "active" bất kể trạng thái thật.
+    const effectiveStatus = normalizeProfileStatus(storeContext.status || partnerProfile?.status);
+    if (effectiveStatus !== "active") {
+      await supabaseClient.auth.signOut();
+      const message = effectiveStatus === "rejected"
+        ? "Hồ sơ cửa hàng đã bị từ chối. Vui lòng liên hệ FoodSave để biết thêm chi tiết."
+        : effectiveStatus === "suspended"
+          ? "Tài khoản cửa hàng đang bị tạm khóa."
+          : portalConfig.partner.pendingMessage;
+      notify("Tài khoản đang chờ duyệt", message, "warn");
+      return;
+    }
+
     const representativeName = String(
       partnerProfile?.representative_name
       || user.user_metadata?.representative_name
@@ -4734,8 +4842,8 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
         email: user.email || email,
         full_name: representativeName || user.email || email,
         representative_name: representativeName,
-        store_id: storeContext.id || partnerProfile?.store_id || null,
-        status: "active"
+        store_id: storeContext.id || partnerProfile?.id || null,
+        status: effectiveStatus
       },
       context: {
         store: storeContext
@@ -4791,9 +4899,10 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
   async function loadSupabaseCharityAuthContext(supabaseClient, user) {
     const contextErrors = [];
     let profile = charityFallbackProfile(user);
+    // public.profiles has no "metadata" column as of the 014 migration.
     let profileResult = await supabaseClient
       .from("profiles")
-      .select("id, role, email, full_name, phone, status, metadata")
+      .select("id, role, email, full_name, phone, status")
       .eq("id", user.id)
       .limit(1);
 
@@ -4801,7 +4910,7 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       warnCharityLogin("profiles lookup failed; retrying with compatible columns", profileResult.error);
       profileResult = await supabaseClient
         .from("profiles")
-        .select("id, role, full_name, phone, status, metadata")
+        .select("id, role, full_name, phone, status")
         .eq("id", user.id)
         .limit(1);
     }

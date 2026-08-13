@@ -440,7 +440,7 @@ function partnerMeta(p){return obj(p?.metadata||partnerProfileOwner(p).metadata)
 function partnerStoreMeta(p){const meta=partnerMeta(p);return obj(meta.store)}
 function partnerDocs(p){const meta=partnerMeta(p);return obj(p?.documents||meta.documents)}
 function partnerDocUrl(doc){return doc?.url||doc?.preview||doc?.dataUrl||doc?.data_url||doc?.image_url||doc?.file_url||doc?.publicUrl||doc?.public_url||doc?.path||''}
-function partnerBusinessLicenseDoc(p){const docs=partnerDocs(p);return docs.businessLicense||docs.business_license||docs.license||docs.businessLicenseExtra||null}
+function partnerBusinessLicenseDoc(p){const docs=partnerDocs(p);return docs.businessLicense||docs.business_license||docs.license||docs.businessLicenseExtra||p?.business_license_url||null}
 function renderPartnerBusinessLicense(p){
 const raw=partnerBusinessLicenseDoc(p);
 if(!raw)return'<div style="padding:12px 18px;color:var(--t3);font-size:.78rem">ChÆ°a cÃ³ dá»¯ liá»‡u giáº¥y phÃ©p kinh doanh.</div>';
@@ -452,19 +452,20 @@ const link=canOpen?`<a class="bt" style="display:inline-block;margin-top:8px" hr
 return`<div style="padding:12px 18px"><div style="border:1px solid var(--bd);border-radius:8px;padding:10px;background:var(--bg2)"><div style="font-size:.72rem;font-weight:800;color:var(--t2)">Giáº¥y phÃ©p kinh doanh</div><div style="font-size:.75rem;margin-top:4px">${val(doc.name||doc.fileName||doc.filename||url)}</div><div style="font-size:.68rem;color:var(--t3);margin-top:3px">Tráº¡ng thÃ¡i: ${val(doc.status||'Ä‘Ã£ gá»­i')}</div>${img}${link}</div></div>`;
 }
 function partnerReviewActions(p){
-const id=p?.profile_id||'';
+const id=p?.id||'';
 if(!id)return'';
 return Sec('Kiá»ƒm duyá»‡t',`<div style="padding:12px 18px;display:flex;gap:8px;flex-wrap:wrap"><button class="bt bt-p" onclick="approvePartner('${jsQ(id)}')">Duyá»‡t</button><button class="bt" style="border-color:var(--err);color:var(--err)" onclick="rejectPartner('${jsQ(id)}')">Tá»« chá»‘i</button></div>`);
 }
 function openPartnerDetail(i){
 const row=MR[i]||[];
 const p=row[11]||{};
-const owner=partnerProfileOwner(p),store=partnerStore(p),meta=partnerMeta(p),storeMeta=partnerStoreMeta(p);
-const status=p.onboarding_status||meta.onboarding_status||store.status||owner.status||row[5]||'pending';
-const title=store.name||storeMeta.name||p.legal_name||row[1]||'Cá»­a hÃ ng';
+const owner=partnerProfileOwner(p);
+const status=p.status||row[5]||'pending';
+const area=[p.ward,p.city].filter(Boolean).join(', ')||row[3]||'—';
+const title=p.name||p.legal_name||row[1]||'Cá»­a hÃ ng';
 oD(title,
-Sec('ThÃ´ng tin cá»­a hÃ ng',R([['MÃ£ há»“ sÆ¡',mn(val(p.profile_id||row[0]))],['TÃªn cá»­a hÃ ng','<strong>'+val(title)+'</strong>'],['PhÃ¡p nhÃ¢n',val(p.legal_name)],['Loáº¡i hÃ¬nh',val(p.business_type||storeMeta.business_type||row[2])],['MÃ£ sá»‘ thuáº¿',mn(val(p.tax_code))],['Hotline',mn(val(p.public_hotline||p.phone))],['Email',val(p.email||owner.email)],['Khu vá»±c',val(store.district||meta.address?.district||row[3])],['Tráº¡ng thÃ¡i',sB(status)],['NgÃ y gá»­i',mn(timeText(p.created_at))]]))+
-Sec('NgÆ°á»i Ä‘áº¡i diá»‡n',R([['Há» tÃªn','<strong>'+val(p.representative_name||owner.full_name)+'</strong>'],['Chá»©c vá»¥',val(p.representative_title)],['Email quáº£n trá»‹',val(p.admin_email||p.email)],['Äiá»‡n thoáº¡i',mn(val(p.admin_phone||p.phone))],['CCCD',mn(val(p.cccd_number))]]))+
+Sec('ThÃ´ng tin cá»­a hÃ ng',R([['MÃ£ há»“ sÆ¡',mn(val(p.id||row[0]))],['TÃªn cá»­a hÃ ng','<strong>'+val(title)+'</strong>'],['PhÃ¡p nhÃ¢n',val(p.legal_name)],['Loáº¡i hÃ¬nh',val(p.business_type||row[2])],['MÃ£ sá»‘ thuáº¿',mn(val(p.tax_code))],['Hotline',mn(val(p.public_hotline))],['Email',val(p.public_email||owner.email)],['Khu vá»±c',val(area)],['Tráº¡ng thÃ¡i',sB(status)],['NgÃ y gá»­i',mn(timeText(p.created_at))]]))+
+Sec('NgÆ°á»i Ä‘áº¡i diá»‡n',R([['Há» tÃªn','<strong>'+val(owner.full_name)+'</strong>'],['Chá»©c vá»¥',val(p.representative_title)],['Email quáº£n trá»‹',val(p.admin_email||p.email)],['Äiá»‡n thoáº¡i',mn(val(p.admin_phone||p.phone))],['CCCD',mn(val(p.cccd_number))]]))+
 Sec('Giáº¥y phÃ©p kinh doanh',renderPartnerBusinessLicense(p))+
 Sec('TÃ i chÃ­nh',R([['NgÃ¢n hÃ ng',val(p.bank_name)],['Sá»‘ tÃ i khoáº£n',mn(val(p.bank_account_number))],['Chá»§ tÃ i khoáº£n',val(p.bank_account_holder)]]),false)+
 partnerReviewActions(p)+
@@ -604,7 +605,7 @@ renderedIndex+=1;
 parent.appendChild(wrap);
 }
 function partnerActions(parent,p){
-const id=p?.profile_id||'';
+const id=p?.id||'';
 if(!id)return;
 const wrap=document.createElement('div');
 wrap.style.cssText='padding:12px 18px;display:flex;gap:8px;flex-wrap:wrap';
@@ -631,7 +632,7 @@ const status=partnerAdminStatus(p,row[5]||'pending');
 const title=store.name||storeMeta.name||p.legal_name||row[1]||'Cửa hàng';
 const body=partnerOpenDomModal(title);
 let section=partnerSection(body,'Thông tin cửa hàng');
-partnerRow(section,'Mã hồ sơ',p.profile_id||row[0]);
+partnerRow(section,'Mã hồ sơ',p.id||row[0]);
 partnerRow(section,'Tên cửa hàng',title);
 partnerRow(section,'Pháp nhân',p.legal_name||storeMeta.legal_name);
 partnerRow(section,'Loại hình',p.business_type||storeMeta.business_type||row[2]);
@@ -668,14 +669,17 @@ function charityInfo(c){const meta=charityMeta(c);return obj(meta.organization_i
 function charityDocs(c){
 const meta=charityMeta(c);
 const docs=obj(c?.documents||meta.documents||meta.charity_profile?.documents);
+// c.*_url below are the real public.charity_profiles columns populated at registration;
+// meta.* are kept only as a fallback for any legacy/imported rows that still carry the
+// old nested metadata shape.
 return Object.keys(docs).length?docs:{
 avatar_logo:{label:'Ảnh đại diện / Logo tổ chức',url:c?.avatar_url||meta.avatar_logo_url||''},
-cover_banner:{label:'Ảnh bìa / Banner',url:meta.cover_image_url||meta.cover_banner_url||''},
-cccd_front:{label:'Ảnh CCCD mặt trước',url:meta.cccd_front_url||''},
-cccd_back:{label:'Ảnh CCCD mặt sau',url:meta.cccd_back_url||''},
-establishment_decision:{label:'Ảnh Giấy quyết định thành lập',url:meta.decision_image_url||meta.establishment_decision_url||''},
-operating_license:{label:'Giấy phép hoạt động của tổ chức',url:meta.license_image_url||meta.operating_license_url||''},
-financial_report:{label:'Ảnh Báo cáo tài chính',url:meta.financial_report_url||''}
+cover_banner:{label:'Ảnh bìa / Banner',url:c?.cover_url||meta.cover_image_url||meta.cover_banner_url||''},
+cccd_front:{label:'Ảnh CCCD mặt trước',url:c?.cccd_front_url||meta.cccd_front_url||''},
+cccd_back:{label:'Ảnh CCCD mặt sau',url:c?.cccd_back_url||meta.cccd_back_url||''},
+establishment_decision:{label:'Ảnh Giấy quyết định thành lập',url:c?.establishment_decision_url||meta.decision_image_url||meta.establishment_decision_url||''},
+operating_license:{label:'Giấy phép hoạt động của tổ chức',url:c?.operating_license_url||meta.license_image_url||meta.operating_license_url||''},
+financial_report:{label:'Ảnh Báo cáo tài chính',url:c?.financial_report_url||meta.financial_report_url||''}
 };
 }
 function charityOrderedDocKeys(c){
@@ -707,13 +711,16 @@ return Sec('Kiểm duyệt',`<div style="padding:12px 18px;display:flex;gap:8px;
 }
 function openCharityDetail(i){
 const c=CR[i]?.[7]||{};
-const owner=charityOwner(c),meta=charityMeta(c),info=charityInfo(c),profile=obj(meta.charity_profile),rep=obj(meta.representative),scale=obj(meta.scale);
-const status=c.status||meta.onboarding_status||owner.status||'pending';
-const title=c.name||info.organization_name||profile.name||'Tổ chức từ thiện';
+// public.charity_profiles stores everything as flat columns (no "metadata" JSON column -
+// that was dropped by the 014 migration), so read column values directly instead of the
+// old nested metadata/info/rep/profile/scale lookup, which was always empty.
+const owner=charityOwner(c);
+const status=c.status||owner.status||'pending';
+const title=c.name||'Tổ chức từ thiện';
 oD(title,
-Sec('Thông tin tổ chức',R([['Mã hồ sơ',mn(val(c.id||CR[i]?.[0]))],['Tên tổ chức','<strong>'+val(c.name||info.organization_name||profile.name)+'</strong>'],['Mã số thuế / Mã tổ chức',mn(val(info.tax_id||meta.tax_id))],['Email',val(c.email||info.organization_email||profile.email||owner.email)],['Điện thoại',mn(val(c.phone||info.organization_phone||profile.phone||owner.phone))],['Địa chỉ',val(c.address||info.address||meta.address||profile.address)],['Quận/Huyện',val(c.district||info.district||profile.district)],['Tỉnh/Thành phố',val(c.city||info.city||profile.city)],['Trạng thái',sB(status)],['Ngày đăng ký',mn(timeText(c.created_at))]]))+
-Sec('Người đại diện',R([['Họ tên','<strong>'+val(info.representative_name||rep.name||owner.full_name)+'</strong>'],['Chức vụ',val(info.representative_role||rep.role)],['Email',val(info.representative_email||rep.email)],['Điện thoại',mn(val(info.representative_phone||rep.phone||c.phone))],['CCCD',mn(val(info.representative_cccd||rep.cccd))]]))+
-Sec('Quy mô & nhu cầu',R([['Số người thụ hưởng',val(c.beneficiaries_count??info.beneficiaries_count??scale.people)],['Suất ăn/ngày',val(info.meals_per_day??scale.meals)],['Tình nguyện viên',val(info.volunteers_count??scale.volunteers)],['Bán kính nhận hàng',val(info.pickup_radius||scale.radius)],['Loại tổ chức',val(info.organization_type||profile.organization_type)],['Mô tả',val(info.description||meta.description||profile.description)],['Sứ mệnh',val(info.mission||meta.mission||profile.mission)]]),false)+
+Sec('Thông tin tổ chức',R([['Mã hồ sơ',mn(val(c.id||CR[i]?.[0]))],['Tên tổ chức','<strong>'+val(c.name)+'</strong>'],['Loại tổ chức',val(c.organization_type)],['Mã số thuế / Mã tổ chức',mn(val(c.registration_number))],['Email',val(c.public_email||c.email||owner.email)],['Điện thoại',mn(val(c.public_hotline||owner.phone))],['Địa chỉ',val(c.street)],['Quận/Huyện',val(c.ward)],['Tỉnh/Thành phố',val(c.city)],['Trạng thái',sB(status)],['Ngày đăng ký',mn(timeText(c.created_at))]]))+
+Sec('Người đại diện',R([['Họ tên','<strong>'+val(owner.full_name)+'</strong>'],['Chức vụ',val(c.representative_title)],['Email',val(c.representative_email)],['Điện thoại',mn(val(c.representative_phone))],['CCCD',mn(val(c.representative_cccd))]]))+
+Sec('Quy mô & nhu cầu',R([['Số người thụ hưởng',val(c.beneficiaries_count)],['Suất ăn/ngày',val(c.meals_per_day)],['Tình nguyện viên hiện có',val(c.volunteers_count)],['Bán kính phục vụ (km)',val(c.service_radius_km)],['Mô tả',val(c.description)],['Sứ mệnh',val(c.mission)]]),false)+
 Sec('Giấy tờ scan',renderCharityDocuments(c))+
 charityReviewActions(c)+
 Sec('Dữ liệu gốc',`<pre style="padding:12px 18px;margin:0;white-space:pre-wrap;word-break:break-word;font-size:.68rem;color:var(--t2);font-family:var(--m)">${esc(JSON.stringify(c,null,2))}</pre>`,false)
@@ -941,7 +948,7 @@ pg.merchants = () => {
 <div class="K"><div class="K-l">Đang hoạt động</div><div class="K-v" style="color:var(--ok)">${activeCount}</div></div>
 <div class="K"><div class="K-l">Chờ duyệt</div><div class="K-v" style="color:var(--warn)">${pendingCount}</div></div>
 <div class="K"><div class="K-l">Từ chối/Tạm ngưng</div><div class="K-v" style="color:var(--err)">${rejectedCount}</div></div>
-</div><div class="P"><div class="P-h"><div class="P-t">Danh sách cửa hàng từ partner_profiles</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Cửa hàng</th><th>Pháp nhân</th><th>Loại</th><th>Khu vực</th><th>Trạng thái</th><th>Giấy phép</th><th>Thao tác</th></tr></thead><tbody>
+</div><div class="P"><div class="P-h"><div class="P-t">Danh sách cửa hàng</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Cửa hàng</th><th>Pháp nhân</th><th>Loại</th><th>Khu vực</th><th>Trạng thái</th><th>Giấy phép</th><th>Thao tác</th></tr></thead><tbody>
 ${MR.length ? MR.map((m, i) => {
     const p = m[11] || {};
     const storeMeta = partnerStoreMeta(p);
@@ -952,35 +959,21 @@ ${MR.length ? MR.map((m, i) => {
 </tbody></table></div></div>`;
 };
 
+// NOTE: public.partner_profiles was merged into public.stores by the 014 migration.
+// This now reads directly from public.stores (joined with the owner's profile row).
 async function syncPartnersFromSupabase() {
     try {
-        let directPartnerResult = null;
-        {
-            const supabase = foodsaveAdminSupabase;
-            console.log("=== ĐANG FETCH PARTNER ===");
-            const { data, error } = await supabase.from('partner_profiles').select('*');
-            console.log("=== KẾT QUẢ FETCH PARTNER ===", { data, error });
-            if (!error && Array.isArray(data) && data.length === 0) {
-                console.warn("=== PARTNER FETCH RỖNG === Nếu Supabase có dữ liệu, hãy kiểm tra RLS hoặc session admin đang dùng cho foodsaveAdminSupabase.");
-            }
-            directPartnerResult = { data, error };
-        }
-
         let result = await foodsaveAdminSupabase
-            .from('partner_profiles')
-            .select('*, owner:profiles!partner_profiles_profile_id_fkey(id, full_name, email, phone, status, metadata), store:stores!partner_profiles_store_id_fkey(id, name, address, district, city, status, onboarding_status, is_open, service_tier, rating)')
+            .from('stores')
+            .select('*, owner:profiles(id, full_name, email, phone, status)')
             .order('created_at', { ascending: false });
 
         if (result.error) {
-            console.warn('Không lấy được owner/store partner, thử lại chỉ với partner_profiles:', result.error);
+            console.warn('Không lấy được owner cho stores, thử lại chỉ với stores:', result.error);
             result = await foodsaveAdminSupabase
-                .from('partner_profiles')
+                .from('stores')
                 .select('*')
                 .order('created_at', { ascending: false });
-        }
-
-        if (directPartnerResult && !directPartnerResult.error) {
-            result = directPartnerResult;
         }
 
         const { data, error } = result;
@@ -989,24 +982,19 @@ async function syncPartnersFromSupabase() {
         MR.length = 0;
         (data || []).forEach((p, index) => {
             const owner = partnerProfileOwner(p);
-            const store = partnerStore(p);
-            const meta = partnerMeta(p);
-            const storeMeta = partnerStoreMeta(p);
-            const address = obj(meta.address);
-            const metrics = obj(meta.metrics || p.metrics);
-            const shortId = p.profile_id ? String(p.profile_id).substring(0, 8).toUpperCase() : `P-${3000 + index}`;
-            const status = partnerAdminStatus(p, 'pending');
-            const name = store.name || storeMeta.name || p.legal_name || p.email || owner.email || 'Chưa có tên';
-            const businessType = p.business_type || storeMeta.business_type || 'other';
-            const area = [store.district || address.district, store.city || address.city].filter(Boolean).join(', ') || address.address || '—';
-            const tier = store.service_tier || 'Starter';
-            const rating = store.rating ?? metrics.rating ?? '—';
-            const orders30 = metrics.orders_30d ?? metrics.orders30 ?? 0;
-            const revenue = metrics.revenue_30d_cents
-                ? moneyFromCents(metrics.revenue_30d_cents)
-                : (metrics.revenue_30d ? Number(metrics.revenue_30d).toLocaleString('vi-VN') + 'đ' : '—');
-            const cancelRate = metrics.cancel_rate_30d ?? metrics.cancelRate ?? '—';
-            const legalName = p.legal_name || storeMeta.legal_name || '—';
+            const shortId = p.id ? String(p.id).substring(0, 8).toUpperCase() : `P-${3000 + index}`;
+            const status = p.status || 'pending';
+            const name = p.name || p.legal_name || p.public_email || owner.email || 'Chưa có tên';
+            const businessType = p.business_type || 'other';
+            const area = [p.ward, p.city].filter(Boolean).join(', ') || p.street || '—';
+            const tier = p.service_tier || 'Starter';
+            const rating = p.rating ?? '—';
+            // Không còn nguồn dữ liệu đơn hàng (bảng orders đã bị bỏ khỏi schema mới),
+            // để mặc định 0/— thay vì bịa số liệu.
+            const orders30 = 0;
+            const revenue = '—';
+            const cancelRate = '—';
+            const legalName = p.legal_name || '—';
 
             MR.push([shortId, name, businessType, area, tier, status, rating, orders30, revenue, cancelRate, legalName, p]);
         });
@@ -1020,50 +1008,41 @@ async function syncPartnersFromSupabase() {
     }
 }
 
-async function updatePartnerApprovalStatus(profileId, status, reason = '') {
+async function updatePartnerApprovalStatus(storeId, status, reason = '') {
     if (partnerApprovalBusy) return;
-    if (!profileId) {
-        alert('Không tìm thấy ID hồ sơ partner để cập nhật.');
+    if (!storeId) {
+        alert('Không tìm thấy ID cửa hàng để cập nhật.');
         return;
     }
 
     partnerApprovalBusy = true;
     try {
-        const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-        const metadata = {
-            ...partnerMeta(current),
-            onboarding_status: status,
-            admin_review: {
-                status,
-                reason,
-                reviewed_at: new Date().toISOString(),
-                reviewer: 'admin_01'
-            }
-        };
+        const payload = { status, reviewed_at: new Date().toISOString() };
+        if (status === 'rejected') payload.rejection_reason = reason;
 
         const { error } = await foodsaveAdminSupabase
-            .from('partner_profiles')
-            .update({ onboarding_status: status, metadata })
-            .eq('profile_id', profileId);
+            .from('stores')
+            .update(payload)
+            .eq('id', storeId);
 
         if (error) throw error;
 
         await syncPartnersFromSupabase();
-        const nextIndex = MR.findIndex(m => m[11]?.profile_id === profileId);
+        const nextIndex = MR.findIndex(m => m[11]?.id === storeId);
         if (nextIndex >= 0) openPartnerDetail(nextIndex);
         else xD();
     } catch (error) {
-        console.error('Lỗi cập nhật trạng thái partner_profiles:', error);
+        console.error('Lỗi cập nhật trạng thái stores:', error);
         alert(error.message || 'Không thể cập nhật trạng thái cửa hàng.');
     } finally {
         partnerApprovalBusy = false;
     }
 }
 
-async function approvePartner(profileId) {
+async function approvePartner(storeId) {
     if (partnerApprovalBusy) return;
-    if (!profileId) {
-        alert('Không tìm thấy ID hồ sơ partner để duyệt.');
+    if (!storeId) {
+        alert('Không tìm thấy ID cửa hàng để duyệt.');
         return;
     }
 
@@ -1071,37 +1050,25 @@ async function approvePartner(profileId) {
     try {
         const supabase = foodsaveAdminSupabase;
         const { data, error } = await supabase
-            .from('partner_profiles')
-            .update({ onboarding_status: 'active' })
-            .eq('profile_id', profileId)
+            .from('stores')
+            .update({ status: 'active', reviewed_at: new Date().toISOString() })
+            .eq('id', storeId)
             .select('*')
             .maybeSingle();
 
-        console.log("=== KẾT QUẢ DUYỆT PARTNER ===", { profileId, data, error });
+        console.log("=== KẾT QUẢ DUYỆT PARTNER ===", { storeId, data, error });
         if (error) throw error;
 
         await syncPartnersFromSupabase();
-        const nextIndex = MR.findIndex(m => m[11]?.profile_id === profileId);
+        const nextIndex = MR.findIndex(m => m[11]?.id === storeId);
         if (nextIndex >= 0) openPartnerDetail(nextIndex);
         else xD();
     } catch (error) {
-        console.error('Lỗi duyệt partner_profiles:', error);
+        console.error('Lỗi duyệt stores:', error);
         alert(error.message || 'Không thể duyệt cửa hàng.');
     } finally {
         partnerApprovalBusy = false;
     }
-}
-
-function rejectPartner(profileId) {
-    const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-    const store = partnerStore(current);
-    const storeMeta = partnerStoreMeta(current);
-    const title = store.name || storeMeta.name || current.legal_name || 'cửa hàng này';
-    oD('Từ chối cửa hàng', Sec('Lý do từ chối', `<div style="padding:12px 18px;display:grid;gap:10px">
-<div style="font-size:.78rem;color:var(--t2)">Nhập lý do từ chối hồ sơ <strong>${val(title)}</strong>. Lý do sẽ được lưu vào metadata.admin_review.</div>
-<textarea id="partnerRejectReason" rows="5" style="width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit;resize:vertical" placeholder="Ví dụ: Giấy phép kinh doanh không rõ thông tin pháp nhân"></textarea>
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bt" onclick="xD()">Hủy</button><button class="bt bt-p" onclick="confirmRejectPartner('${jsQ(profileId)}')">Xác nhận từ chối</button></div>
-</div>`));
 }
 
 function confirmRejectPartner(profileId) {
@@ -1114,17 +1081,15 @@ function confirmRejectPartner(profileId) {
 }
 
 function rejectPartner(profileId) {
-    const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-    const store = partnerStore(current);
-    const storeMeta = partnerStoreMeta(current);
-    const title = store.name || storeMeta.name || current.legal_name || 'cửa hàng này';
+    const current = MR.find(m => m[11]?.id === profileId)?.[11] || {};
+    const title = current.name || current.legal_name || 'cửa hàng này';
     const body = partnerOpenDomModal('Từ chối cửa hàng');
     const section = partnerSection(body, 'Lý do từ chối');
     const wrap = document.createElement('div');
     wrap.style.cssText = 'padding:12px 18px;display:grid;gap:10px';
     const note = document.createElement('div');
     note.style.cssText = 'font-size:.78rem;color:var(--t2)';
-    note.textContent = `Nhập lý do từ chối hồ sơ ${title}. Lý do sẽ được lưu vào metadata.admin_review.`;
+    note.textContent = `Nhập lý do từ chối hồ sơ ${title}. Lý do sẽ được lưu vào cột rejection_reason của cửa hàng.`;
     const textarea = document.createElement('textarea');
     textarea.id = 'partnerRejectReason';
     textarea.rows = 5;
@@ -1151,7 +1116,7 @@ async function syncCharitiesFromSupabase() {
     try {
         let result = await foodsaveAdminSupabase
             .from('charity_profiles')
-            .select('*, owner:profiles!charity_profiles_owner_id_fkey(id, full_name, email, phone, status, metadata)')
+            .select('*, owner:profiles!charity_profiles_owner_id_fkey(id, full_name, email, phone, status)')
             .order('created_at', { ascending: false });
 
         if (result.error) {
@@ -1167,21 +1132,21 @@ async function syncCharitiesFromSupabase() {
 
         CR.length = 0;
         (data || []).forEach((c, index) => {
+            // public.charity_profiles has no "metadata" column (dropped by the 014 migration),
+            // so info/profile/rep below are always empty objects - representative_name/phone/etc
+            // now live as flat columns directly on charity_profiles (representative_title,
+            // representative_cccd, representative_email, representative_phone).
             const owner = charityOwner(c);
-            const meta = charityMeta(c);
-            const info = charityInfo(c);
-            const profile = obj(meta.charity_profile);
-            const rep = obj(meta.representative);
             const shortId = c.id ? c.id.substring(0, 8).toUpperCase() : `C-${2000 + index}`;
 
             CR.push([
                 shortId,
-                c.name || info.organization_name || profile.name || 'Chưa có tên',
-                info.representative_name || rep.name || owner.full_name || c.email || 'Chưa cập nhật',
-                info.representative_phone || rep.phone || c.phone || info.organization_phone || profile.phone || owner.phone || '—',
-                c.status || meta.onboarding_status || owner.status || 'pending',
-                (c.beneficiaries_count ?? info.beneficiaries_count ?? meta.scale?.people ?? 0) + ' người',
-                c.address || info.address || profile.address || 'Chưa có địa chỉ',
+                c.name || 'Chưa có tên',
+                owner.full_name || c.representative_email || c.email || 'Chưa cập nhật',
+                c.representative_phone || c.public_hotline || owner.phone || '—',
+                c.status || owner.status || 'pending',
+                (c.beneficiaries_count ?? 0) + ' người',
+                [c.street, c.ward, c.city].filter(Boolean).join(', ') || 'Chưa có địa chỉ',
                 c
             ]);
         });
@@ -1204,9 +1169,11 @@ async function updateCharityApprovalStatus(charityId, status) {
 
     charityApprovalBusy = true;
     try {
+        // approved_by la cot uuid tham chieu profiles(id); khong co session admin thuc su
+        // o trang nay nen de trong (null) thay vi gui chuoi gia khong hop le UUID.
         const payload = status === 'active'
-            ? { status: 'active', approved_by: 'admin_01' }
-            : { status: 'rejected' };
+            ? { status: 'active', reviewed_at: new Date().toISOString() }
+            : { status: 'rejected', reviewed_at: new Date().toISOString() };
         const { error } = await foodsaveAdminSupabase
             .from('charity_profiles')
             .update(payload)

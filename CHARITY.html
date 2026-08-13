@@ -1,9 +1,6 @@
 <!doctype html>
 <html lang="vi">
 <head>
-   <script>
-  window.FOODSAVE_API_BASE = "https://foodsave-vn.netlify.app/api/v1";
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FoodSave for Charity — Tổ chức từ thiện</title>
@@ -2201,7 +2198,7 @@ function charityOtpInlineHtml(){
     <label for="otpCode" class="reg-label" style="margin-top:14px">Mã OTP</label>
     <input id="otpCode" class="inp reg-input-lg" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="${esc(charityOtpCode())}" placeholder="123456" oninput="setCharityOtpCode(this.value)" ${charityRegState.otpVerified?"readonly":""}>
     ${charityRegState.otpError?`<div class="partner-alert urgent" style="margin-top:12px"><i data-lucide="circle-alert"></i><span>${esc(charityRegState.otpError)}</span></div>`:""}
-    <button id="btnResendOTP" type="button" class="partner-link-btn" style="margin-top:12px" onclick="resendCharityOtp()"><i data-lucide="rotate-cw"></i> Gửi lại mã OTP</button>
+    <button id="btnResendOTP" type="button" class="partner-link-btn" style="margin-top:12px${charityRegState.otpSending?";opacity:.5;pointer-events:none":""}" onclick="resendCharityOtp()" ${charityRegState.otpSending?'disabled aria-disabled="true"':""}><i data-lucide="rotate-cw"></i> ${charityRegState.otpSending?"Đang gửi...":"Gửi lại mã OTP"}</button>
   </div>`;
 }
 function regOtpVerify(){
@@ -2654,9 +2651,30 @@ function formatOtpTime(sec){
   const s=String(sec%60).padStart(2,"0");
   return `${m}:${s}`;
 }
-function resendCharityOtp(){
+async function resendCharityOtp(){
+  // Previously this fired resend() without awaiting it, then unconditionally reset the
+  // timer/OTP box and showed a "success" toast even when the resend actually failed
+  // (e.g. Supabase rate-limit 429 "you can only request this after N seconds"). That made
+  // the UI look like a fresh code had been sent when it hadn't, and could also mask a case
+  // where an earlier resend DID succeed silently and invalidated the code still on screen.
+  if(charityRegState.otpSending)return;
   const resend=window.FoodSaveAuth?.resendCharityEmailOtp||window.FoodSaveAuth?.sendCharityEmailOtp;
-  if(typeof resend==="function")Promise.resolve(resend()).catch(err=>console.warn("[Charity OTP] Resend failed",err));
+  if(typeof resend!=="function")return;
+  charityRegState.otpSending=true;
+  rAuth();
+  await Promise.resolve(resend()).catch(err=>{
+    console.warn("[Charity OTP] Resend failed",err);
+    charityRegState.otpError=charityRegState.otpError||err?.message||"Không thể gửi lại OTP. Vui lòng thử lại sau.";
+  });
+  charityRegState.otpSending=false;
+  if(charityRegState.otpError){
+    // sendCharityEmailOtp() clears otpError at the start of its own attempt and only
+    // re-sets it on failure, so a non-empty otpError here means the resend genuinely
+    // failed (rate-limited, network error, etc). Do NOT reset the timer or OTP box in
+    // that case, and do NOT claim success.
+    rAuth();
+    return;
+  }
   charityRegState.otpEmail=String(charityRegState.contact||charityRegState.otpEmail||"").trim();
   resetCharityOtp();rAuth();tst("Đã gửi lại OTP","Mã mới có hiệu lực trong 03:00","info");
 }
@@ -2809,6 +2827,7 @@ function regNext(){
         return;
       }
       charityRegState.otpVerifying=true;
+      charityRegState.otpError="";
       rAuth();
       const verify=window.FoodSaveAuth?.verifyCharityEmailOtp||window.verifyCharityEmailOtp;
       Promise.resolve(typeof verify==="function"?verify(code):null).catch(err=>{

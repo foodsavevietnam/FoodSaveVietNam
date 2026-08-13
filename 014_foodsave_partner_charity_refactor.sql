@@ -563,6 +563,10 @@ create table if not exists public.charity_profiles (
   registration_number text,
   representative_title text,
   representative_cccd text,
+  representative_email text,
+  representative_phone text,
+  organization_type text,
+  mission text,
   description text,
   public_email text,
   public_hotline text,
@@ -579,6 +583,9 @@ create table if not exists public.charity_profiles (
   latitude double precision,
   longitude double precision,
   beneficiaries_count integer not null default 0 check (beneficiaries_count >= 0),
+  volunteers_count integer not null default 0 check (volunteers_count >= 0),
+  meals_per_day integer not null default 0 check (meals_per_day >= 0),
+  service_radius_km numeric(6,2) check (service_radius_km is null or service_radius_km > 0),
   rating numeric(3,2) not null default 5.00 check (rating >= 0 and rating <= 5),
   is_open boolean not null default false,
   status public.profile_status not null default 'pending',
@@ -597,6 +604,13 @@ alter table public.charity_profiles
   add column if not exists registration_number text,
   add column if not exists representative_title text,
   add column if not exists representative_cccd text,
+  add column if not exists representative_email text,
+  add column if not exists representative_phone text,
+  add column if not exists volunteers_count integer not null default 0 check (volunteers_count >= 0),
+  add column if not exists meals_per_day integer not null default 0 check (meals_per_day >= 0),
+  add column if not exists service_radius_km numeric(6,2) check (service_radius_km is null or service_radius_km > 0),
+  add column if not exists organization_type text,
+  add column if not exists mission text,
   add column if not exists description text,
   add column if not exists public_email text,
   add column if not exists public_hotline text,
@@ -2108,3 +2122,66 @@ create policy eco_impact_events_admin_update on public.eco_impact_events for upd
 drop policy if exists eco_impact_events_admin_delete on public.eco_impact_events;
 create policy eco_impact_events_admin_delete on public.eco_impact_events for delete
   using (public.is_admin());
+
+TẠO DỮ LIỆU NƠI CHỨA URL ẢNH
+-- Tạo bucket (bỏ qua nếu đã tồn tại)
+insert into storage.buckets (id, name, public)
+values ('charity_documents', 'charity_documents', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('partner-assets', 'partner-assets', true)
+on conflict (id) do nothing;
+
+-- Cho phép user đã đăng nhập upload (insert) vào ĐÚNG thư mục của họ trong bucket charity_documents.
+-- Code lưu file theo đường dẫn "{user_id}/{field}/{filename}", nên chỉ cho phép
+-- (storage.foldername(name))[1] = chính user_id của người đang đăng nhập.
+drop policy if exists charity_documents_owner_insert on storage.objects;
+create policy charity_documents_owner_insert
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'charity_documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Cho phép ghi đè file cũ (code gọi upload với upsert:true) trong đúng thư mục của họ.
+drop policy if exists charity_documents_owner_update on storage.objects;
+create policy charity_documents_owner_update
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'charity_documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'charity_documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Tương tự cho bucket partner-assets (dùng khi test đăng ký Partner).
+drop policy if exists partner_assets_owner_insert on storage.objects;
+create policy partner_assets_owner_insert
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'partner-assets'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists partner_assets_owner_update on storage.objects;
+create policy partner_assets_owner_update
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'partner-assets'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'partner-assets'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);

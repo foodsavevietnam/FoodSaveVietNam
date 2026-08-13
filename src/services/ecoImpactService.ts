@@ -356,67 +356,14 @@ const insertImpactEvent = async (payload: ImpactEventPayload): Promise<EcoImpact
   return requireRecord(data as EcoImpactEvent | null, "Eco impact event was not found");
 };
 
-const calculateOrderFoodKg = (items: OrderImpactItem[]): { foodSavedKg: number; method: string } => {
-  let usedProductWeights = true;
-  const foodSavedKg = items.reduce((sum, item) => {
-    const metadata = item.product_metadata ?? {};
-    const snapshotWeight = readNumber(metadata.estimated_weight_kg);
-    if (snapshotWeight) return sum + snapshotWeight * item.quantity;
-    usedProductWeights = false;
-    return sum + fallbackWeightForCategory(metadata.category) * item.quantity;
-  }, 0);
-
-  return {
-    foodSavedKg: round(foodSavedKg, 3),
-    method: usedProductWeights ? "product_weight" : "category_estimate"
-  };
-};
-
-const calculateOrderSavings = (order: OrderForImpact): number => {
-  const itemSavings = order.order_items.reduce((sum, item) => {
-    const unitSavings = Math.max(0, item.original_unit_price_cents - item.unit_price_cents);
-    return sum + unitSavings * item.quantity;
-  }, 0);
-  return Math.max(0, itemSavings + (Number(order.discount_cents) || 0));
-};
+// NOTE: recordOrderImpact (previously here) queried public.orders/public.order_items,
+// both removed by the 014 migration along with the customer marketplace. It was never
+// called from anywhere in the codebase (only recordDonationImpact below is wired up
+// from donationService.ts), so it was deleted instead of being left calling tables
+// that no longer exist. calculateOrderFoodKg/calculateOrderSavings/OrderForImpact/
+// OrderImpactItem existed only to support that dead function and were removed with it.
 
 export const ecoImpactService = {
-  async recordOrderImpact(orderId: string): Promise<EcoImpactEvent | null> {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("id,order_number,customer_id,store_id,status,discount_cents,completed_at,order_items(*)")
-      .eq("id", orderId)
-      .single();
-
-    if (error) handleSupabaseError(error, "Failed to load order for eco impact");
-    const order = requireRecord(data as OrderForImpact | null, "Order was not found");
-    if (order.status !== "completed") return null;
-
-    const factors = await loadImpactFactors();
-    const { foodSavedKg, method } = calculateOrderFoodKg(order.order_items ?? []);
-    const derived = calculateDerivedImpact(foodSavedKg, factors);
-
-    return insertImpactEvent({
-      actor_id: order.customer_id,
-      store_id: order.store_id,
-      charity_id: null,
-      source_type: "order",
-      source_id: order.id,
-      occurred_at: order.completed_at ?? new Date().toISOString(),
-      food_saved_kg: foodSavedKg,
-      co2_avoided_kg: derived.co2_avoided_kg,
-      water_saved_liters: derived.water_saved_liters,
-      meals_equivalent: derived.meals_equivalent,
-      money_saved_cents: calculateOrderSavings(order),
-      calculation_method: method,
-      metadata: {
-        order_number: order.order_number,
-        items_count: order.order_items.length,
-        factors
-      }
-    });
-  },
-
   async recordDonationImpact(donationId: string): Promise<EcoImpactEvent | null> {
     const { data, error } = await supabaseAdmin
       .from("donations")

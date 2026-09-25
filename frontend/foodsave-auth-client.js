@@ -2444,11 +2444,16 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const parts = rawParts.length > 1 && isCountryName(rawParts[rawParts.length - 1])
       ? rawParts.slice(0, -1)
       : rawParts;
+    // Từ 07/2025 Việt Nam bỏ cấp Quận/Huyện (chỉ còn Tỉnh/Thành phố quản lý trực tiếp
+    // Phường/Xã), nên public.charity_profiles chỉ còn street/ward/city, không có cột
+    // "district" nữa. Khi người dùng gõ tay địa chỉ dạng "số nhà đường, Phường/Xã,
+    // Tỉnh/TP" (không chọn gợi ý Google Places), đoạn giữa chính là Phường/Xã - gán vào
+    // "ward" (trước đây gán nhầm vào "district", một biến không tồn tại trong DB mới và
+    // cũng không được buildCharityRegistrationPayload() gửi đi, nên "ward" luôn trống).
     return {
       address: formatted || "Chưa cập nhật",
       street: source.street || parts[0] || "",
-      ward: source.ward || "",
-      district: source.district || (parts.length >= 3 ? parts[parts.length - 2] : ""),
+      ward: source.ward || (parts.length >= 3 ? parts[parts.length - 2] : ""),
       city: source.city || (parts.length >= 2 ? normalizeVietnamAdminName(parts[parts.length - 1], "province") : "TP.HCM"),
       latitude: charityCoordinate(source.lat ?? source.latitude),
       longitude: charityCoordinate(source.lng ?? source.longitude)
@@ -2462,7 +2467,6 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       formattedAddress: org.formattedAddress || location.formattedAddress,
       street: org.street || location.street,
       ward: org.ward || location.ward,
-      district: org.district || location.district,
       city: org.city || location.city,
       lat: org.lat ?? org.latitude ?? location.lat ?? location.latitude,
       lng: org.lng ?? org.longitude ?? location.lng ?? location.longitude
@@ -2470,7 +2474,7 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     return {
       ...addressInfo,
       address: profilePayload.address || addressInfo.address,
-      district: profilePayload.district || addressInfo.district || "",
+      ward: profilePayload.ward || addressInfo.ward || "",
       city: profilePayload.city || addressInfo.city || "TP.HCM",
       latitude: charityCoordinate(org.lat ?? org.latitude ?? location.lat ?? location.latitude),
       longitude: charityCoordinate(org.lng ?? org.longitude ?? location.lng ?? location.longitude)
@@ -2487,7 +2491,6 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       formattedAddress,
       street: parsed.street || org.street || "",
       ward: parsed.ward || org.ward || "",
-      district: parsed.district || org.district || "",
       city: parsed.city || org.city || "",
       lat,
       lng
@@ -2499,7 +2502,6 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
       formattedAddress: formattedAddress || org.formattedAddress || "",
       street: addressParts.street,
       ward: addressParts.ward,
-      district: addressParts.district,
       city: addressParts.city,
       lat: lat ?? org.lat ?? "",
       lng: lng ?? org.lng ?? "",
@@ -2753,6 +2755,28 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     };
   }
 
+  // #serviceRadius trong CHARITY.html là <select> với các lựa chọn dạng chữ ("Dưới 3km",
+  // "3-5km",...) chứ không phải số - Number("3-5km") luôn ra NaN nên charity_profiles.
+  // service_radius_km trước đây luôn bị lưu NULL. Map về 1 số km đại diện cho mỗi lựa
+  // chọn (fallback: tách số đầu tiên tìm được trong chuỗi, phòng khi giá trị đổi khác).
+  const CHARITY_SERVICE_RADIUS_KM_MAP = {
+    "Dưới 3km": 3,
+    "3-5km": 5,
+    "5-10km": 10,
+    "10-15km": 15,
+    "Toàn thành phố": 20
+  };
+  function charityServiceRadiusKm(rawValue) {
+    const raw = String(rawValue ?? "").trim();
+    if (!raw) return null;
+    if (Object.prototype.hasOwnProperty.call(CHARITY_SERVICE_RADIUS_KM_MAP, raw)) {
+      return CHARITY_SERVICE_RADIUS_KM_MAP[raw];
+    }
+    const match = raw.replace(",", ".").match(/\d+(?:\.\d+)?/);
+    const parsed = match ? Number(match[0]) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
   // Builds one flat payload with every real field the charity registration flow needs.
   // Callers below (charityOwnerProfilePayload / charityOrganizationProfilePayload) pick
   // out only the columns that actually exist on public.profiles / public.charity_profiles
@@ -2771,10 +2795,7 @@ ${["OCR giấy phép kinh doanh", "Xác minh vị trí GPS", "Kiểm tra tài kh
     const locationInfo = charityOrgLocationInfo(org);
     const documentUrls = charityLegalDocumentUrls(state);
     const name = String(org.name || "").trim() || "Chưa cập nhật";
-    const serviceRadiusKm = (() => {
-      const parsed = Number(String(scale.radius ?? "").trim().replace(",", "."));
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-    })();
+    const serviceRadiusKm = charityServiceRadiusKm(scale.radius);
 
     return {
       owner_id: userId,

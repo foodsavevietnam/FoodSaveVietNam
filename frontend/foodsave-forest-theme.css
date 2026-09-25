@@ -1,0 +1,917 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Source+Serif+4:ital,wght@0,400..900;1,400..900&display=swap");
+
+:root {
+  --forest-paper: #f3f4eb;
+  --forest-paper-soft: #fbfbf4;
+  --forest-card: #fffff8;
+  --forest-ink: #22352f;
+  --forest-teal: #3f6f6d;
+  --forest-green: #5d7f3f;
+  --forest-green-deep: #254934;
+  --forest-green-dark: #153526;
+  --forest-orange: #d97721;
+  --forest-orange-dark: #a84f18;
+  --forest-gold: #d6d66a;
+  --forest-line: #d8ddc9;
+  --forest-shadow: 0 20px 48px rgba(36, 54, 42, .12);
+  --forest-font-display: "Be Vietnam Pro", "Inter", system-ui, sans-serif;
+  --forest-font-copy: "Source Serif 4", "Georgia", serif;
+
+  --green-950: var(--forest-green-dark) !important;
+  --green-900: var(--forest-green-deep) !important;
+  --green-800: var(--forest-green) !important;
+  --green-700: #6f9149 !important;
+  --green-600: #86a757 !important;
+  --green-200: #dbe5c6 !important;
+  --green-100: #e8eed9 !important;
+  --green-50: #f4f6ea !important;
+  --yellow: var(--forest-gold) !important;
+  --yellow-600: #a19d37 !important;
+  --yellow-100: #f2f0bd !important;
+  --yellow-50: #fbfae8 !important;
+  --yellow-bright: #e3df77 !important;
+  --orange-500: var(--forest-orange) !important;
+  --orange-600: var(--forest-orange) !important;
+  --blue: var(--forest-teal) !important;
+  --blue-bg: #e7f0ed !important;
+  --blue-bd: #bfd4cf !important;
+  --rose: var(--forest-orange) !important;
+  --rose-100: #f8dec3 !important;
+  --ink: var(--forest-ink) !important;
+  --ink-soft: #304d44 !important;
+  --muted: #6c7f73 !important;
+  --muted-2: #87978c !important;
+  --line: var(--forest-line) !important;
+  --line-2: #e8eadf !important;
+  --paper: var(--forest-card) !important;
+  --soft: var(--forest-paper) !important;
+  --soft-2: #ecefe1 !important;
+  --bg: var(--forest-paper) !important;
+  --bg2: #ecefe1 !important;
+  --bg3: #e3ead5 !important;
+  --card: var(--forest-card) !important;
+  --text: var(--forest-ink) !important;
+  --t2: var(--forest-teal) !important;
+  --t3: #71816d !important;
+  --ac: var(--forest-green) !important;
+  --ac2: var(--forest-orange) !important;
+  --ac-l: #edf1dc !important;
+  --side: var(--forest-green-dark) !important;
+  --side-t: #d7deca !important;
+  --side-a: #fffaf0 !important;
+  --bd: var(--forest-line) !important;
+  --bd2: #bcc7ad !important;
+}
+
+html {
+  background: var(--forest-paper);
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 248, .72), rgba(243, 244, 235, .92)),
+    repeating-linear-gradient(0deg, rgba(37, 73, 52, .026) 0 1px, transparent 1px 5px),
+    var(--forest-paper) !important;
+  color: var(--forest-ink) !important;
+  font-family: var(--forest-font-display) !important;
+  letter-spacing: 0 !important;
+}
+
+::selection {
+  background: var(--forest-gold) !important;
+  color: var(--forest-green-dark) !important;
+}
+
+p,
+li,
+.hero-sub,
+.section-sub,
+.section-subtitle,
+.lead,
+.auth-sub,
+.reg-sub,
+.tier .t-desc,
+.pillar p,
+.step-card p,
+.faq-item p,
+.watch-i span,
+.K-n,
+.tl-s,
+.DR-v {
+  color: var(--forest-teal) !important;
+  letter-spacing: 0 !important;
+}
+
+.hero-sub,
+.section-sub,
+.section-subtitle,
+.lead,
+.mission-copy,
+.story-text,
+.quote-text {
+  font-family: var(--forest-font-copy) !important;
+  font-style: italic !important;
+  font-weight: 560 !important;
+  line-height: 1.86 !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.hero-title,
+.section-title,
+.auth-h-title,
+.auth-h,
+.reg-title,
+.P-t,
+.K-l,
+.st,
+.T h2,
+.S-b h1,
+.brand-word,
+.wordmark,
+.foot-brand,
+.hc-num,
+.metric-v,
+.t-price,
+th {
+  font-family: var(--forest-font-display) !important;
+  letter-spacing: 0 !important;
+}
+
+h1,
+h2,
+.hero-title,
+.section-title,
+.auth-h-title,
+.reg-title {
+  color: var(--forest-green) !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  line-height: 1.34 !important;
+  text-shadow: 0 2px 0 rgba(216, 216, 106, .34);
+}
+
+h3,
+h4,
+h5,
+h6,
+.P-t,
+.st,
+.T h2,
+.card h3,
+.label-card h3,
+.portal-card h3 {
+  line-height: 1.4 !important;
+}
+
+p,
+li,
+.hero-copy,
+.section-head p,
+.card p,
+.brand-band p,
+.label-card p,
+.portal-card p,
+.hero-sub,
+.section-sub,
+.section-subtitle,
+.lead,
+.auth-sub,
+.reg-sub,
+.tier .t-desc,
+.pillar p,
+.step-card p,
+.faq-item p {
+  line-height: 1.86 !important;
+}
+
+.brand-band h2 {
+  line-height: 1.36 !important;
+  padding-block: .1em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+h1 em,
+h2 em,
+.hero-title em,
+.hero-title .accent,
+.section-title em,
+.brand-word span,
+.wordmark span,
+.foot-brand span {
+  color: var(--forest-orange) !important;
+}
+
+.hero-title .accent,
+.hero-title .shine {
+  font-size: 1em !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  vertical-align: baseline !important;
+}
+
+.hero-title .shine {
+  display: inline !important;
+  overflow: visible !important;
+}
+
+.hero-title .shine::after {
+  display: none !important;
+}
+
+.section-eye,
+.hero-eyebrow,
+.tier-eye,
+.live-pulse,
+.S-s,
+.K-l,
+th,
+.DR-l {
+  color: var(--forest-green) !important;
+  font-weight: 900 !important;
+  letter-spacing: .02em !important;
+  text-transform: uppercase !important;
+}
+
+.section-eye,
+.hero-eyebrow,
+.live-pulse,
+.b,
+.tg,
+.chip {
+  background: rgba(216, 216, 106, .26) !important;
+  border-color: rgba(93, 127, 63, .24) !important;
+  color: var(--forest-green) !important;
+}
+
+.mission-strip,
+.topbar-main,
+.topbar,
+.T,
+.app-topbar,
+.pos-rh {
+  background: rgba(251, 251, 244, .9) !important;
+  border-color: var(--forest-line) !important;
+  color: var(--forest-ink) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.mission-strip {
+  background: var(--forest-green-dark) !important;
+  color: #fffaf0 !important;
+}
+
+.mission-strip *,
+.mission-strip b,
+.ticker-track *,
+.tick-item,
+.tick-item b {
+  color: inherit !important;
+}
+
+.tick-item i,
+.ticker-track span::before,
+.live-pulse .dot {
+  color: var(--forest-gold) !important;
+  background: var(--forest-gold) !important;
+}
+
+.brand-word,
+.wordmark,
+.foot-brand,
+.S-b h1 {
+  color: var(--forest-green-dark) !important;
+  font-weight: 900 !important;
+  text-shadow: none !important;
+}
+
+.brand-word::before,
+.wordmark::before,
+.foot-brand::before {
+  background: var(--forest-orange) !important;
+  box-shadow: 0 0 0 8px rgba(217, 119, 33, .12) !important;
+}
+
+.brand-word::after,
+.wordmark::after,
+.foot-brand::after {
+  background: linear-gradient(90deg, var(--forest-orange) 0 52%, var(--forest-green) 52% 100%) !important;
+}
+
+.brand-tagline,
+.tagline {
+  color: var(--forest-teal) !important;
+  letter-spacing: .04em !important;
+}
+
+.S,
+.side,
+footer,
+.site-footer,
+.auth-left,
+.hero-main,
+.gradient-card,
+.gradient-card-k {
+  background: var(--forest-green-dark) !important;
+  color: #fffaf0 !important;
+}
+
+.S *,
+.side *,
+footer *,
+.site-footer *,
+.auth-left *,
+.gradient-card *,
+.gradient-card-k * {
+  border-color: rgba(255, 250, 240, .18);
+}
+
+.S-b h1,
+.side-logo .brand-word,
+footer .foot-brand,
+footer h5,
+footer strong,
+footer b,
+.auth-left h1,
+.auth-left h2,
+.gradient-card h1,
+.gradient-card h2,
+.gradient-card h3,
+.gradient-card-k h1,
+.gradient-card-k h2,
+.gradient-card-k h3 {
+  color: #fffaf0 !important;
+  text-shadow: none !important;
+}
+
+.S-i.on,
+.nav button.active,
+.tab.on,
+.bt-p,
+.btn-primary,
+.btn-green,
+button[type="submit"],
+.primary-cta,
+.checkout-btn {
+  background: var(--forest-orange) !important;
+  border-color: var(--forest-orange) !important;
+  color: #fffaf0 !important;
+}
+
+.btn-accent,
+.gradient-card-y,
+.hero-card.c4,
+.tier-badge {
+  background: var(--forest-gold) !important;
+  color: var(--forest-green-dark) !important;
+  border-color: var(--forest-gold) !important;
+}
+
+.btn,
+.bt,
+.tab,
+button,
+input,
+select,
+textarea {
+  font-family: var(--forest-font-display) !important;
+  letter-spacing: 0 !important;
+}
+
+.btn,
+.bt,
+.tab,
+.S-i,
+.K,
+.P,
+.card,
+.pillar,
+.step-card,
+.faq-item,
+.tier,
+.oc,
+.modal,
+.auth-right,
+.auth-panel,
+.partner-wizard,
+.hero-card,
+.watch,
+.T-s,
+.inp,
+.reg-input,
+input,
+select,
+textarea {
+  border-color: var(--forest-line) !important;
+}
+
+.card,
+.pillar,
+.step-card,
+.faq-item,
+.tier,
+.oc,
+.K,
+.P,
+.watch,
+.modal,
+.auth-right,
+.auth-panel,
+.partner-wizard,
+.hero-card,
+.pos-r,
+.DP {
+  background: var(--forest-card) !important;
+  box-shadow: var(--forest-shadow) !important;
+}
+
+.hero-bowl,
+.pillars-wrap,
+.how-section,
+.pricing-section,
+.faq-section,
+section,
+.C,
+.content,
+.main,
+.M,
+.auth-wrap,
+.view.show {
+  background: transparent !important;
+}
+
+.hero-card.c2,
+.cta-strip,
+.gradient-card-g,
+.bar i,
+.bar-ch > div,
+.ptf {
+  background: var(--forest-green) !important;
+  color: #fffaf0 !important;
+}
+
+.hero-card.c2 *,
+.cta-strip *,
+.gradient-card-g * {
+  color: #fffaf0 !important;
+}
+
+.hc-ic,
+.pillar-ic,
+.step-ic,
+.pi,
+.sc,
+.b-av,
+.v-av,
+.t-av {
+  background: #eef1dc !important;
+  color: var(--forest-green) !important;
+}
+
+.hero-title::first-line,
+.section-title::first-line,
+.auth-h-title::first-line,
+.reg-title::first-line {
+  color: var(--forest-orange) !important;
+}
+
+table,
+th,
+td {
+  border-color: var(--forest-line) !important;
+}
+
+th,
+.tbl th {
+  background: #ecefe1 !important;
+}
+
+tbody tr:hover,
+.tbl tr:hover td,
+.watch-i:hover,
+.cf:hover,
+.tl:hover {
+  background: #eef2df !important;
+}
+
+a:hover,
+.lk,
+.st i,
+.tick-item i,
+.pillar-ic i,
+.step-ic i {
+  color: var(--forest-orange) !important;
+}
+
+[style*="color:#0a0a0a"],
+[style*="color: #0a0a0a"],
+[style*="color:#152B22"],
+[style*="color: #152B22"],
+[style*="color:var(--green-950)"],
+[style*="color: var(--green-950)"] {
+  color: var(--forest-ink) !important;
+}
+
+[style*="color:#16a34a"],
+[style*="color: #16a34a"],
+[style*="color:#22c55e"],
+[style*="color: #22c55e"],
+[style*="color:var(--green-800)"],
+[style*="color: var(--green-800)"],
+[style*="color:var(--green-700)"],
+[style*="color: var(--green-700)"] {
+  color: var(--forest-green) !important;
+}
+
+[style*="color:#facc15"],
+[style*="color: #facc15"],
+[style*="color:var(--yellow)"],
+[style*="color: var(--yellow)"] {
+  color: var(--forest-gold) !important;
+}
+
+[style*="color:#ca8a04"],
+[style*="color: #ca8a04"],
+[style*="color:var(--orange-600)"],
+[style*="color: var(--orange-600)"],
+[style*="color:var(--rose)"],
+[style*="color: var(--rose)"] {
+  color: var(--forest-orange) !important;
+}
+
+[style*="background:#fff"],
+[style*="background: #fff"],
+[style*="background:#FFFFFF"],
+[style*="background: #FFFFFF"],
+[style*="background:var(--card)"],
+[style*="background: var(--card)"] {
+  background: var(--forest-card) !important;
+}
+
+[style*="background:#fafafa"],
+[style*="background: #fafafa"],
+[style*="background:#F4F8F6"],
+[style*="background: #F4F8F6"],
+[style*="background:var(--soft)"],
+[style*="background: var(--soft)"],
+[style*="background:var(--bg2)"],
+[style*="background: var(--bg2)"] {
+  background: #ecefe1 !important;
+}
+
+[style*="background:#f0fdf4"],
+[style*="background: #f0fdf4"],
+[style*="background:var(--green-50)"],
+[style*="background: var(--green-50)"],
+[style*="background:var(--ac-l)"],
+[style*="background: var(--ac-l)"] {
+  background: #eef2df !important;
+}
+
+[style*="border:1.5px solid #e5e7eb"],
+[style*="border: 1.5px solid #e5e7eb"],
+[style*="border:1px solid #e5e7eb"],
+[style*="border: 1px solid #e5e7eb"],
+[style*="border-color:#e5e7eb"],
+[style*="border-color: #e5e7eb"] {
+  border-color: var(--forest-line) !important;
+}
+
+footer.foodsave-global-footnote {
+  margin: 0 !important;
+  padding: 34px clamp(18px, 4vw, 48px) !important;
+  background: var(--forest-green-dark) !important;
+  border-top: 1px solid rgba(255, 250, 240, .16) !important;
+  color: rgba(255, 250, 240, .78) !important;
+}
+
+.foodsave-footnote-wrap {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto;
+  align-items: center;
+  gap: 18px 28px;
+}
+
+.foodsave-footnote-brand {
+  display: inline-flex;
+  align-items: baseline;
+  width: fit-content;
+  color: #fffaf0 !important;
+  font-family: "Be Vietnam Pro", "Plus Jakarta Sans", system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.foodsave-footnote-brand span {
+  color: var(--forest-gold) !important;
+}
+
+.foodsave-footnote-copy {
+  margin: 0 !important;
+  color: rgba(255, 250, 240, .72) !important;
+  font-size: 12px !important;
+  font-style: italic;
+  font-weight: 600 !important;
+  line-height: 1.86 !important;
+}
+
+.foodsave-footnote-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.foodsave-footnote-links a {
+  color: var(--forest-gold) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.foodsave-footnote-links a:hover {
+  color: #fffaf0 !important;
+}
+
+.M + .foodsave-global-footnote {
+  margin-left: var(--sw, 232px) !important;
+}
+
+@media (max-width: 768px) {
+  h1,
+  h2,
+  .hero-title,
+  .section-title,
+  .auth-h-title,
+  .reg-title {
+    line-height: 1.36 !important;
+  }
+
+  .foodsave-footnote-wrap {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .foodsave-footnote-links {
+    justify-content: flex-start;
+  }
+
+  .M + .foodsave-global-footnote {
+    margin-left: 0 !important;
+  }
+}
+
+/* Keep the original FoodSave logo consistent across every HTML surface. */
+.brand-word,
+.wordmark,
+.foot-brand,
+.wordmark-foot,
+.S-b h1 .brand-word,
+.foodsave-footnote-brand .brand-word {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: #0a0a0a !important;
+  font-family: "Plus Jakarta Sans", "Be Vietnam Pro", "Inter", system-ui, sans-serif !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  line-height: .88 !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+  white-space: nowrap !important;
+}
+
+.brand-word > span,
+.wordmark > span,
+.foot-brand > span,
+.wordmark-foot > span,
+.S-b h1 .brand-word > span,
+.foodsave-footnote-brand .brand-word > span {
+  position: relative !important;
+  color: #16a34a !important;
+}
+
+.brand-word > span::after,
+.wordmark > span::after,
+.foot-brand > span::after,
+.wordmark-foot > span::after,
+.S-b h1 .brand-word > span::after,
+.foodsave-footnote-brand .brand-word > span::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+}
+
+.brand-word::before,
+.wordmark::before,
+.foot-brand::before,
+.wordmark-foot::before,
+.S-b h1 .brand-word::before,
+.foodsave-footnote-brand .brand-word::before {
+  content: "" !important;
+  position: absolute !important;
+  right: -.42em !important;
+  top: -.48em !important;
+  width: .54em !important;
+  height: .54em !important;
+  border-radius: 50% !important;
+  background: #e67e22 !important;
+  box-shadow: 0 0 0 .22em rgba(230, 126, 34, .16) !important;
+  animation: foodsaveLogoPulse 2.2s ease-out infinite !important;
+}
+
+@keyframes foodsaveLogoPulse {
+  0% {
+    transform: scale(.9);
+    box-shadow: 0 0 0 0 rgba(230, 126, 34, .42);
+  }
+
+  55% {
+    transform: scale(1);
+    box-shadow: 0 0 0 .42em rgba(230, 126, 34, .16);
+  }
+
+  100% {
+    transform: scale(.9);
+    box-shadow: 0 0 0 .72em rgba(230, 126, 34, 0);
+  }
+}
+
+.brand-word::after,
+.wordmark::after,
+.foot-brand::after,
+.wordmark-foot::after,
+.S-b h1 .brand-word::after,
+.foodsave-footnote-brand .brand-word::after {
+  content: "" !important;
+  position: absolute !important;
+  left: .02em !important;
+  right: .02em !important;
+  bottom: -.22em !important;
+  height: .12em !important;
+  min-height: 2px !important;
+  border-radius: 0 !important;
+  background: linear-gradient(90deg, #0a0a0a 0 50%, #facc15 50% 100%) !important;
+  transform: none !important;
+  filter: none !important;
+  transition: none !important;
+}
+
+.brand:hover .brand-word::after,
+.brand:hover .wordmark::after,
+.foot-brand-link:hover .foot-brand::after {
+  transform: none !important;
+  filter: none !important;
+}
+
+.topbar .brand-word,
+.topbar .wordmark {
+  font-size: 22px !important;
+}
+
+.brand .wordmark {
+  font-size: 27px !important;
+}
+
+.auth-brand-big .brand-word {
+  color: #f8fafc !important;
+  font-size: clamp(28px, 3.2vw, 40px) !important;
+  text-shadow: 0 14px 28px rgba(0, 0, 0, .28) !important;
+}
+
+.auth-brand-big .brand-word > span {
+  color: #4ade80 !important;
+}
+
+#auth .auth-wrap.partner-wizard-mode .auth-brand-big .brand-word {
+  color: #f8fafc !important;
+  font-size: clamp(28px, 3.2vw, 40px) !important;
+  letter-spacing: 0 !important;
+  line-height: .88 !important;
+  text-shadow: 0 14px 28px rgba(0, 0, 0, .28) !important;
+}
+
+#auth .auth-wrap.partner-wizard-mode .auth-brand-big .brand-word > span {
+  color: #4ade80 !important;
+}
+
+#auth .auth-wrap.partner-wizard-mode .auth-brand-big .brand-word::after {
+  background: linear-gradient(90deg, #0a0a0a 0 50%, #facc15 50% 100%) !important;
+}
+
+.side-logo .brand-word,
+.S-b h1 .brand-word,
+.foodsave-global-footnote .brand-word {
+  color: #f8fafc !important;
+  text-shadow: 0 10px 26px rgba(0, 0, 0, .28) !important;
+}
+
+.side-logo .brand-word > span,
+.S-b h1 .brand-word > span,
+.foodsave-global-footnote .brand-word > span {
+  color: #4ade80 !important;
+}
+
+.side-logo .brand-word {
+  font-size: 17px !important;
+}
+
+.S-b h1 .brand-word,
+.foodsave-global-footnote .brand-word {
+  font-size: 20px !important;
+}
+
+.foodsave-footnote-brand {
+  display: inline-flex !important;
+  width: fit-content !important;
+  text-decoration: none !important;
+}
+
+/* Vietnamese typography lock: keep uppercase diacritics from colliding across all pages. */
+h1,
+h2,
+.hero-title,
+.section-title,
+.section-head h1,
+.section-head h2,
+.auth-h-title,
+.auth-h,
+.reg-title,
+.charity-form-title-row h2,
+.partner-section h2,
+.legal-h {
+  line-height: 1.34 !important;
+  padding-block: .08em !important;
+}
+
+h3,
+h4,
+h5,
+h6,
+.card h3,
+.label-card h3,
+.portal-card h3,
+.pillar h3,
+.step-card h3,
+.faq-item h3,
+.P-t,
+.st,
+.T h2,
+.K-l,
+th {
+  line-height: 1.4 !important;
+}
+
+p,
+li,
+.hero-copy,
+.section-head p,
+.card p,
+.brand-band p,
+.label-card p,
+.portal-card p,
+.hero-sub,
+.section-sub,
+.section-subtitle,
+.lead,
+.auth-sub,
+.auth-h-sub,
+.reg-sub,
+.reg-subtitle,
+.tier .t-desc,
+.pillar p,
+.step-card p,
+.type-card p,
+.faq-item p,
+.story-text,
+.mission-copy,
+.quote-text,
+.legal-section p,
+.legal-section li {
+  line-height: 1.86 !important;
+}
+
+.brand-band h2 {
+  line-height: 1.36 !important;
+  padding-block: .1em !important;
+  -webkit-box-decoration-break: clone !important;
+  box-decoration-break: clone !important;
+}

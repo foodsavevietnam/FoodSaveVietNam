@@ -2123,7 +2123,7 @@ drop policy if exists eco_impact_events_admin_delete on public.eco_impact_events
 create policy eco_impact_events_admin_delete on public.eco_impact_events for delete
   using (public.is_admin());
 
-TẠO DỮ LIỆU NƠI CHỨA URL ẢNH
+--TẠO DỮ LIỆU NƠI CHỨA URL ẢNH
 -- Tạo bucket (bỏ qua nếu đã tồn tại)
 insert into storage.buckets (id, name, public)
 values ('charity_documents', 'charity_documents', true)
@@ -2185,3 +2185,27 @@ with check (
   bucket_id = 'partner-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
 );
+
+drop policy if exists charity_documents_owner_select on storage.objects;
+create policy charity_documents_owner_select
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'charity_documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists partner_assets_owner_select on storage.objects;
+create policy partner_assets_owner_select
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'partner-assets'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+alter table public.profiles disable trigger prevent_profile_self_approval;
+update public.profiles set role = 'admin', status = 'active' where email = 'bt.buutran@gmail.com';
+alter table public.profiles enable trigger prevent_profile_self_approval;

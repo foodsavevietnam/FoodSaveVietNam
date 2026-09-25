@@ -223,11 +223,12 @@ html{font-size:12.5px}
 .DP{width:100vw}
 }
 </style>
+<link rel="stylesheet" href="frontend/foodsave-forest-theme.css">
 </head>
 <body>
 
 <aside class="S">
-<div class="S-b"><h1>FoodSave</h1></div>
+<div class="S-b"><h1><span class="brand-word">FOOD<span>SAVE</span></span></h1></div>
 <nav class="S-n">
 <div class="S-s">Tổng quan</div>
 <div class="S-i on" data-p="dashboard">Bảng điều khiển</div>
@@ -258,6 +259,18 @@ html{font-size:12.5px}
 <div class="T"><h2 id="pt">Bảng điều khiển</h2><div class="T-r"><div class="T-s"><input placeholder="Tìm kiếm..."></div></div></div>
 <div class="C" id="ct"></div>
 </div>
+
+<footer class="foodsave-global-footnote" aria-label="FoodSave footer">
+  <div class="foodsave-footnote-wrap">
+    <a class="foodsave-footnote-brand" href="index.html" aria-label="FoodSave"><span class="brand-word">FOOD<span>SAVE</span></span></a>
+    <p class="foodsave-footnote-copy">© 2026 Công ty TNHH FoodSave Việt Nam · MSDN 0317456789 · Trụ sở 19 Nguyễn Hữu Thọ, TP.HCM · Thực phẩm cứu trợ miễn phí, không thương mại hóa quyên góp.</p>
+    <div class="foodsave-footnote-links" aria-label="Kênh liên hệ FoodSave">
+      <a href="mailto:hello@foodsave.vn">hello@foodsave.vn</a>
+      <a href="mailto:partners@foodsave.vn">partners@foodsave.vn</a>
+      <a href="mailto:charity@foodsave.vn">charity@foodsave.vn</a>
+    </div>
+  </div>
+</footer>
 
 <div class="DO" id="dO" onclick="xD()"></div>
 <div class="DP" id="dP"><div class="DP-h"><h3 id="dT"></h3><button class="DP-x" onclick="xD()">Đóng</button></div><div class="DP-b" id="dB"></div></div>
@@ -701,7 +714,7 @@ const canOpen=/^(https?:|data:image|blob:)/i.test(url);
 const label=charityDocLabel(key,doc);
 const img=canOpen&&(/\.(png|jpe?g|webp|gif|bmp|svg)(\?|$)/i.test(url)||/^data:image/i.test(url))?`<img src="${esc(url)}" alt="${esc(label)}" style="width:100%;max-height:160px;object-fit:cover;border:1px solid var(--bd);border-radius:8px;margin-top:8px">`:'';
 const link=canOpen?`<a class="bt" style="display:inline-block;margin-top:8px" href="${esc(url)}" target="_blank" rel="noopener">Mở tệp</a>`:'';
-return`<div style="border:1px solid var(--bd);border-radius:8px;padding:10px;background:var(--bg2)"><div style="font-size:.72rem;font-weight:800;color:var(--t2)">${esc(label)}</div><div style="font-size:.75rem;margin-top:4px">${val(doc.name||doc.fileName||doc.filename||url)}</div><div style="font-size:.68rem;color:var(--t3);margin-top:3px">Trạng thái: ${val(doc.status||'đã gửi')}</div>${img}${link}</div>`;
+return`<div style="border:1px solid var(--bd);border-radius:8px;padding:10px;background:var(--bg2)"><div style="font-size:.72rem;font-weight:800;color:var(--t2)">${esc(label)}</div><div style="font-size:.75rem;margin-top:4px">${val(doc.name||doc.fileName||doc.filename||url)}</div><div style="font-size:.68rem;color:var(--t3);margin-top:3px">Trạng thái: ${val(doc.status||(url?'đã gửi':'chưa có'))}</div>${img}${link}</div>`;
 }).join('')}</div>`;
 }
 function charityReviewActions(c){
@@ -718,7 +731,7 @@ const owner=charityOwner(c);
 const status=c.status||owner.status||'pending';
 const title=c.name||'Tổ chức từ thiện';
 oD(title,
-Sec('Thông tin tổ chức',R([['Mã hồ sơ',mn(val(c.id||CR[i]?.[0]))],['Tên tổ chức','<strong>'+val(c.name)+'</strong>'],['Loại tổ chức',val(c.organization_type)],['Mã số thuế / Mã tổ chức',mn(val(c.registration_number))],['Email',val(c.public_email||c.email||owner.email)],['Điện thoại',mn(val(c.public_hotline||owner.phone))],['Địa chỉ',val(c.street)],['Quận/Huyện',val(c.ward)],['Tỉnh/Thành phố',val(c.city)],['Trạng thái',sB(status)],['Ngày đăng ký',mn(timeText(c.created_at))]]))+
+Sec('Thông tin tổ chức',R([['Mã hồ sơ',mn(val(c.id||CR[i]?.[0]))],['Tên tổ chức','<strong>'+val(c.name)+'</strong>'],['Loại tổ chức',val(c.organization_type)],['Mã số thuế / Mã tổ chức',mn(val(c.registration_number))],['Email',val(c.public_email||c.email||owner.email)],['Điện thoại',mn(val(c.public_hotline||owner.phone))],['Địa chỉ',val(c.street)],['Phường/Xã',val(c.ward)],['Tỉnh/Thành phố',val(c.city)],['Trạng thái',sB(status)],['Ngày đăng ký',mn(timeText(c.created_at))],['Ngày duyệt/từ chối',mn(timeText(c.reviewed_at))]].concat(status==='rejected'&&c.rejection_reason?[['Lý do từ chối','<span style="color:var(--err)">'+val(c.rejection_reason)+'</span>']]:[])))+
 Sec('Người đại diện',R([['Họ tên','<strong>'+val(owner.full_name)+'</strong>'],['Chức vụ',val(c.representative_title)],['Email',val(c.representative_email)],['Điện thoại',mn(val(c.representative_phone))],['CCCD',mn(val(c.representative_cccd))]]))+
 Sec('Quy mô & nhu cầu',R([['Số người thụ hưởng',val(c.beneficiaries_count)],['Suất ăn/ngày',val(c.meals_per_day)],['Tình nguyện viên hiện có',val(c.volunteers_count)],['Bán kính phục vụ (km)',val(c.service_radius_km)],['Mô tả',val(c.description)],['Sứ mệnh',val(c.mission)]]),false)+
 Sec('Giấy tờ scan',renderCharityDocuments(c))+
@@ -1045,6 +1058,9 @@ async function approvePartner(storeId) {
         alert('Không tìm thấy ID cửa hàng để duyệt.');
         return;
     }
+    // stores cũng có trigger prevent_org_self_approval() y hệt charity_profiles -
+    // cần session admin thật (is_admin()) mới đổi được status, xem ensureFoodSaveAdminAccess().
+    if (!(await ensureFoodSaveAdminAccess())) return;
 
     partnerApprovalBusy = true;
     try {
@@ -1080,7 +1096,8 @@ function confirmRejectPartner(profileId) {
     updatePartnerApprovalStatus(profileId, 'rejected', reason);
 }
 
-function rejectPartner(profileId) {
+async function rejectPartner(profileId) {
+    if (!(await ensureFoodSaveAdminAccess())) return;
     const current = MR.find(m => m[11]?.id === profileId)?.[11] || {};
     const title = current.name || current.legal_name || 'cửa hàng này';
     const body = partnerOpenDomModal('Từ chối cửa hàng');
@@ -1160,7 +1177,7 @@ async function syncCharitiesFromSupabase() {
     }
 }
 
-async function updateCharityApprovalStatus(charityId, status) {
+async function updateCharityApprovalStatus(charityId, status, reason = '') {
     if (charityApprovalBusy) return;
     if (!charityId) {
         alert('Không tìm thấy ID hồ sơ charity để cập nhật.');
@@ -1171,9 +1188,14 @@ async function updateCharityApprovalStatus(charityId, status) {
     try {
         // approved_by la cot uuid tham chieu profiles(id); khong co session admin thuc su
         // o trang nay nen de trong (null) thay vi gui chuoi gia khong hop le UUID.
-        const payload = status === 'active'
-            ? { status: 'active', reviewed_at: new Date().toISOString() }
-            : { status: 'rejected', reviewed_at: new Date().toISOString() };
+        const payload = { status, reviewed_at: new Date().toISOString() };
+        if (status === 'rejected') payload.rejection_reason = reason;
+        if (status === 'active') payload.rejection_reason = null;
+
+        // Cập nhật charity_profiles.status - trigger sync_profile_status_from_charity_profiles
+        // (014_foodsave_partner_charity_refactor.sql) sẽ tự đồng bộ sang public.profiles.status
+        // của người đại diện (owner_id), nên tài khoản đăng nhập cũng được kích hoạt/khoá theo,
+        // không cần update thêm bảng profiles ở đây.
         const { error } = await foodsaveAdminSupabase
             .from('charity_profiles')
             .update(payload)
@@ -1193,14 +1215,139 @@ async function updateCharityApprovalStatus(charityId, status) {
     }
 }
 
-function approveCharity(charityId) {
+// Trigger prevent_org_self_approval() (014_foodsave_partner_charity_refactor.sql) chặn mọi
+// update status/reviewed_at/rejection_reason trên charity_profiles trừ khi request đến từ
+// 1 session Supabase Auth thật có profiles.role='admin' (is_admin()). Trang admin này chạy
+// bằng publishable/anon key, không tự động có session đó, nên phải xác thực trước khi gọi
+// updateCharityApprovalStatus() - nếu không sẽ bị DB trả lỗi "Only admin can change
+// organization approval status." Để giữ giao diện tĩnh như cũ, chỉ hiện khung đăng nhập nhỏ
+// này MỘT LẦN khi thật sự cần (lúc bấm Phê duyệt/Từ chối lần đầu); Supabase tự lưu session
+// vào localStorage nên các lần bấm sau trong cùng trình duyệt sẽ không bị hỏi lại.
+async function ensureFoodSaveAdminAccess() {
+    try {
+        const { data: sessionData } = await foodsaveAdminSupabase.auth.getSession();
+        const user = sessionData?.session?.user || null;
+        if (user) {
+            const { data: profile } = await foodsaveAdminSupabase
+                .from('profiles').select('role').eq('id', user.id).maybeSingle();
+            if (profile?.role === 'admin') return true;
+        }
+    } catch (error) {
+        console.warn('Không kiểm tra được session admin hiện tại:', error);
+    }
+    return await promptFoodSaveAdminLogin();
+}
+
+function promptFoodSaveAdminLogin() {
+    return new Promise((resolve) => {
+        const body = partnerOpenDomModal('Xác thực quản trị viên');
+        const section = partnerSection(body, 'Đăng nhập Admin');
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'padding:12px 18px;display:grid;gap:10px';
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:.78rem;color:var(--t2)';
+        note.textContent = 'Cần đăng nhập tài khoản có quyền admin (profiles.role = \'admin\' trên Supabase) để đổi trạng thái duyệt/từ chối. Chỉ cần đăng nhập 1 lần cho phiên làm việc này.';
+        const emailInput = document.createElement('input');
+        emailInput.type = 'email';
+        emailInput.placeholder = 'Email admin';
+        emailInput.style.cssText = 'width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit';
+        const passInput = document.createElement('input');
+        passInput.type = 'password';
+        passInput.placeholder = 'Mật khẩu';
+        passInput.style.cssText = 'width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit';
+        const errorNote = document.createElement('div');
+        errorNote.style.cssText = 'font-size:.75rem;color:var(--err);display:none';
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+        const cancel = document.createElement('button');
+        cancel.className = 'bt';
+        cancel.type = 'button';
+        cancel.textContent = 'Hủy';
+        cancel.addEventListener('click', () => { xD(); resolve(false); });
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'bt bt-p';
+        confirmBtn.type = 'button';
+        confirmBtn.textContent = 'Đăng nhập';
+        confirmBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passInput.value;
+            if (!email || !password) {
+                errorNote.textContent = 'Vui lòng nhập đủ email và mật khẩu.';
+                errorNote.style.display = 'block';
+                return;
+            }
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Đang xác thực...';
+            try {
+                const { data, error } = await foodsaveAdminSupabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+                const { data: profile, error: profileError } = await foodsaveAdminSupabase
+                    .from('profiles').select('role').eq('id', data.user.id).maybeSingle();
+                if (profileError) throw profileError;
+                if (profile?.role !== 'admin') {
+                    await foodsaveAdminSupabase.auth.signOut();
+                    throw new Error('Tài khoản này chưa có quyền admin (profiles.role khác "admin").');
+                }
+                xD();
+                resolve(true);
+            } catch (err) {
+                errorNote.textContent = err.message || 'Đăng nhập thất bại.';
+                errorNote.style.display = 'block';
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Đăng nhập';
+            }
+        });
+        actions.append(cancel, confirmBtn);
+        wrap.append(note, emailInput, passInput, errorNote, actions);
+        section.appendChild(wrap);
+    });
+}
+
+async function approveCharity(charityId) {
+    if (!(await ensureFoodSaveAdminAccess())) return;
     updateCharityApprovalStatus(charityId, 'active');
 }
 
-function rejectCharity(charityId) {
-    if (confirm('Từ chối hồ sơ tổ chức từ thiện này?')) {
-        updateCharityApprovalStatus(charityId, 'rejected');
+function confirmRejectCharity(charityId) {
+    const reason = String(document.getElementById('charityRejectReason')?.value || '').trim();
+    if (!reason) {
+        alert('Vui lòng nhập lý do từ chối.');
+        return;
     }
+    updateCharityApprovalStatus(charityId, 'rejected', reason);
+}
+
+async function rejectCharity(charityId) {
+    if (!(await ensureFoodSaveAdminAccess())) return;
+    const current = CR.find(c => c[7]?.id === charityId)?.[7] || {};
+    const title = current.name || 'tổ chức này';
+    const body = partnerOpenDomModal('Từ chối tổ chức từ thiện');
+    const section = partnerSection(body, 'Lý do từ chối');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:12px 18px;display:grid;gap:10px';
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:.78rem;color:var(--t2)';
+    note.textContent = `Nhập lý do từ chối hồ sơ ${title}. Lý do sẽ được lưu vào cột rejection_reason của charity_profiles.`;
+    const textarea = document.createElement('textarea');
+    textarea.id = 'charityRejectReason';
+    textarea.rows = 5;
+    textarea.style.cssText = 'width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit;resize:vertical';
+    textarea.placeholder = 'Ví dụ: Giấy quyết định thành lập chưa rõ thông tin pháp nhân';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+    const cancel = document.createElement('button');
+    cancel.className = 'bt';
+    cancel.type = 'button';
+    cancel.textContent = 'Hủy';
+    cancel.addEventListener('click', xD);
+    const confirm = document.createElement('button');
+    confirm.className = 'bt bt-p';
+    confirm.type = 'button';
+    confirm.textContent = 'Xác nhận từ chối';
+    confirm.addEventListener('click', () => confirmRejectCharity(charityId));
+    actions.append(cancel, confirm);
+    wrap.append(note, textarea, actions);
+    section.appendChild(wrap);
 }
 
 pg.users=()=>`

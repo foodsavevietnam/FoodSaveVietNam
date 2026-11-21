@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const authRoleSchema = z.enum(["partner", "charity", "admin"]);
+export const authRoleSchema = z.enum(["customer", "partner", "charity", "admin"]);
 
 const passwordSchema = z.string()
   .min(8)
@@ -17,12 +17,17 @@ const addressSchema = z.string().trim().min(3).max(500);
 const optionalLongTextSchema = z.string().trim().min(1).max(1200).optional();
 const timeOfDaySchema = z.string().trim().regex(/^\d{2}:\d{2}$/);
 const partnerHashtagsSchema = z.array(z.string().trim().min(1).max(40)).max(5).optional();
+const partnerDocumentsSchema = z.record(z.string(), z.string().trim().min(1).max(500)).optional();
 const partnerOpeningScheduleSchema = z.array(z.object({
   day: z.string().trim().min(1).max(40),
   open: z.boolean().default(true),
   from: timeOfDaySchema.optional(),
   to: timeOfDaySchema.optional()
 }).strict()).max(14).optional();
+const partnerAutomationSchema = z.object({
+  dynamicPricing: z.boolean().optional(),
+  charityTransfer: z.boolean().optional()
+}).catchall(z.boolean()).optional();
 
 export const loginBodySchema = z.object({
   identifier: z.string().trim().min(3).max(180),
@@ -74,23 +79,29 @@ export const phoneOtpVerifyBodySchema = z.object({
   expected_role: authRoleSchema.optional()
 }).strict();
 
-// NOTE: registerCustomerBodySchema was removed. The "customer" role and its backing
-// public.customer_profiles table no longer exist as of 014_foodsave_partner_charity_refactor.sql.
+export const registerCustomerBodySchema = z.object({
+  full_name: shortTextSchema,
+  email: emailSchema,
+  phone: phoneSchema,
+  password: passwordSchema,
+  date_of_birth: z.string().trim().max(20).optional(),
+  gender: z.string().trim().max(40).optional(),
+  referral_code: z.string().trim().max(80).optional(),
+  marketing_opt_in: z.boolean().default(false),
+  terms_accepted: z.literal(true)
+}).strict();
 
-// NOTE on fields removed from registerPartnerBodySchema below (kept out on purpose, not
-// silently dropped): bank_name/bank_account_number/bank_account_holder, automation
-// (dynamicPricing/charityTransfer) and representative_title have no backing column on
-// public.stores in the new schema. Add columns there first if these need to persist again.
 export const registerPartnerBodySchema = z.object({
   store_name: shortTextSchema,
   email: emailSchema,
   phone: phoneSchema,
   password: passwordSchema,
-  street: addressSchema,
-  ward: optionalShortTextSchema,
+  address: addressSchema,
+  district: optionalShortTextSchema,
   city: shortTextSchema.default("TP.HCM"),
   business_type: z.enum(["bakery", "restaurant", "convenience", "supermarket", "other"]),
   representative_name: shortTextSchema,
+  representative_title: optionalShortTextSchema,
   cccd_number: optionalShortTextSchema,
   legal_name: optionalShortTextSchema,
   description: optionalLongTextSchema,
@@ -100,35 +111,32 @@ export const registerPartnerBodySchema = z.object({
   admin_phone: phoneSchema.optional(),
   business_license_number: optionalShortTextSchema,
   tax_code: optionalShortTextSchema,
-  avatar_url: z.string().trim().url().max(500).optional(),
-  cover_url: z.string().trim().url().max(500).optional(),
-  cccd_front_url: z.string().trim().url().max(500).optional(),
-  cccd_back_url: z.string().trim().url().max(500).optional(),
-  business_license_url: z.string().trim().url().max(500).optional(),
-  food_safety_certificate_url: z.string().trim().url().max(500).optional(),
+  bank_name: optionalShortTextSchema,
+  bank_account_number: optionalShortTextSchema,
+  bank_account_holder: optionalShortTextSchema,
+  documents: partnerDocumentsSchema,
   opening_schedule: partnerOpeningScheduleSchema,
+  automation: partnerAutomationSchema,
   latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
   longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
   terms_accepted: z.literal(true)
 }).strict();
 
-// NOTE on fields removed from registerCharityBodySchema below: organization_type,
-// meals_per_day, volunteer_count and service_radius_km have no backing column on
-// public.charity_profiles in the new schema (they used to only live inside the now
-// dropped public.applications.payload jsonb, never in the profile row itself). Add
-// columns (or a dedicated scale table) first if these need to persist again.
 export const registerCharityBodySchema = z.object({
   organization_name: shortTextSchema,
   email: emailSchema,
   phone: phoneSchema,
   password: passwordSchema,
-  street: addressSchema,
-  ward: optionalShortTextSchema,
+  address: addressSchema,
+  district: optionalShortTextSchema,
   city: shortTextSchema.default("TP.HCM"),
-  legal_name: optionalShortTextSchema,
+  organization_type: z.enum(["orphan", "kitchen", "shelter", "elderly", "disabled", "religious", "other"]),
   representative_name: shortTextSchema,
   representative_title: optionalShortTextSchema,
   beneficiaries_count: z.number().int().min(0).max(100000).default(0),
+  meals_per_day: z.number().int().min(0).max(100000).default(0),
+  volunteer_count: z.number().int().min(0).max(10000).default(0),
+  service_radius_km: z.number().min(0).max(1000).default(5),
   terms_accepted: z.literal(true)
 }).strict();
 
@@ -142,5 +150,6 @@ export type FacebookOAuthStartBody = z.infer<typeof facebookOAuthStartBodySchema
 export type FacebookOAuthCallbackBody = z.infer<typeof facebookOAuthCallbackBodySchema>;
 export type PhoneOtpRequestBody = z.infer<typeof phoneOtpRequestBodySchema>;
 export type PhoneOtpVerifyBody = z.infer<typeof phoneOtpVerifyBodySchema>;
+export type RegisterCustomerBody = z.infer<typeof registerCustomerBodySchema>;
 export type RegisterPartnerBody = z.infer<typeof registerPartnerBodySchema>;
 export type RegisterCharityBody = z.infer<typeof registerCharityBodySchema>;

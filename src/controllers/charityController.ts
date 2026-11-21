@@ -6,7 +6,9 @@ import type {
   CreateGalleryItemBody,
   CreateImpactReportBody,
   CreateVolunteerBody,
+  GalleryUploadUrlBody,
   PublicGalleryQuery,
+  UpdateBeneficiaryGroupBody,
   UpdateCharityProfileBody,
   UpdateVolunteerBody
 } from "../schemas/charitySchemas";
@@ -67,6 +69,19 @@ export const charityController = {
     sendSuccess(res, group, HTTP_STATUS.CREATED);
   },
 
+  async updateBeneficiaryGroup(req: Request, res: Response): Promise<void> {
+    const actor = getActor(req);
+    const params = req.validated?.params as UuidParams;
+    const body = req.validated?.body as UpdateBeneficiaryGroupBody;
+    sendSuccess(res, await charityService.updateBeneficiaryGroup(actor.userId, actor.role, params.id, body));
+  },
+
+  async deleteBeneficiaryGroup(req: Request, res: Response): Promise<void> {
+    const actor = getActor(req);
+    const params = req.validated?.params as UuidParams;
+    sendSuccess(res, await charityService.deleteBeneficiaryGroup(actor.userId, actor.role, params.id));
+  },
+
   async listBeneficiaryGroups(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
     const params = req.validated?.params as UuidParams;
@@ -93,6 +108,12 @@ export const charityController = {
     const body = req.validated?.body as CreateGalleryItemBody;
     const item = await charityService.createGalleryItem(actor.userId, actor.role, body);
     sendSuccess(res, item, HTTP_STATUS.CREATED);
+  },
+
+  async createGalleryUploadUrl(req: Request, res: Response): Promise<void> {
+    const actor = getActor(req);
+    const body = req.validated?.body as GalleryUploadUrlBody;
+    sendSuccess(res, await charityService.createGalleryUploadUrl(actor.userId, actor.role, body));
   },
 
   async listPublicGalleryItems(req: Request, res: Response): Promise<void> {

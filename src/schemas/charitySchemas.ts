@@ -11,7 +11,10 @@ export const createCharityProfileBodySchema = z.object({
   beneficiaries_count: z.number().int().min(0).default(0)
 }).strict();
 
-export const updateCharityProfileBodySchema = createCharityProfileBodySchema.partial().extend({
+// Keep PATCH fields absent when omitted. Zod 4 applies defaults even inside
+// optional wrappers, so creation defaults must not be reused in partial updates.
+export const updateCharityProfileBodySchema = createCharityProfileBodySchema.omit({ beneficiaries_count: true }).partial().extend({
+  beneficiaries_count: z.number().int().min(0).optional(),
   is_open: z.boolean().optional(),
   status: z.enum(["active", "pending", "suspended"]).optional()
 }).strict();
@@ -25,10 +28,15 @@ export const createVolunteerBodySchema = z.object({
   vehicle: z.string().trim().min(2).max(180),
   zones: z.array(z.string().trim().min(1).max(80)).min(1).max(20),
   schedule: z.string().trim().min(2).max(240),
+  duty_role: z.enum(["pickup", "distribute", "both"]).default("both"),
   status: z.enum(["new", "active", "inactive"]).default("new")
 }).strict();
 
-export const updateVolunteerBodySchema = createVolunteerBodySchema.omit({ charity_id: true }).partial().strict();
+export const updateVolunteerBodySchema = createVolunteerBodySchema.omit({ charity_id: true, role: true, duty_role: true, status: true }).partial().extend({
+  role: z.string().trim().min(2).max(80).optional(),
+  duty_role: z.enum(["pickup", "distribute", "both"]).optional(),
+  status: z.enum(["new", "active", "inactive"]).optional()
+}).strict();
 
 export const createBeneficiaryGroupBodySchema = z.object({
   charity_id: z.string().uuid(),
@@ -38,6 +46,9 @@ export const createBeneficiaryGroupBodySchema = z.object({
   dietary: z.string().trim().min(1).max(500),
   last_fed_at: z.string().datetime().nullable().optional()
 }).strict();
+
+export const updateBeneficiaryGroupBodySchema = createBeneficiaryGroupBodySchema.omit({ charity_id: true }).partial().strict()
+  .refine((body) => Object.keys(body).length > 0, { message: "Không có thông tin nào để cập nhật" });
 
 export const createImpactReportBodySchema = z.object({
   charity_id: z.string().uuid(),
@@ -62,6 +73,11 @@ export const createGalleryItemBodySchema = z.object({
   is_public: z.boolean().default(true)
 }).strict();
 
+export const galleryUploadUrlBodySchema = z.object({
+  charity_id: z.string().uuid(),
+  content_type: z.enum(["image/jpeg", "image/png", "image/webp"])
+}).strict();
+
 export const publicGalleryQuerySchema = z.object({
   charity_id: z.string().uuid().optional()
 }).strict();
@@ -71,6 +87,8 @@ export type UpdateCharityProfileBody = z.infer<typeof updateCharityProfileBodySc
 export type CreateVolunteerBody = z.infer<typeof createVolunteerBodySchema>;
 export type UpdateVolunteerBody = z.infer<typeof updateVolunteerBodySchema>;
 export type CreateBeneficiaryGroupBody = z.infer<typeof createBeneficiaryGroupBodySchema>;
+export type UpdateBeneficiaryGroupBody = z.infer<typeof updateBeneficiaryGroupBodySchema>;
 export type CreateImpactReportBody = z.infer<typeof createImpactReportBodySchema>;
 export type CreateGalleryItemBody = z.infer<typeof createGalleryItemBodySchema>;
+export type GalleryUploadUrlBody = z.infer<typeof galleryUploadUrlBodySchema>;
 export type PublicGalleryQuery = z.infer<typeof publicGalleryQuerySchema>;

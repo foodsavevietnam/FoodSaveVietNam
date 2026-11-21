@@ -1,7 +1,10 @@
-export type UserRole = "partner" | "charity" | "admin";
+export type UserRole = "customer" | "partner" | "charity" | "admin";
 export type ProfileStatus = "active" | "pending" | "suspended" | "rejected";
 export type ProductLabel = "green" | "yellow" | "red";
-export type OrderStatus = "pending" | "confirmed" | "ready" | "completed" | "cancelled";
+export type FoodGroup = "cooked" | "fresh" | "packaged";
+export type OrderStatus = "awaiting_payment" | "pending" | "confirmed" | "ready" | "completed" | "cancelled" | "no_show";
+export type SettlementStatus = "none" | "held" | "released" | "forfeited" | "refunded" | "partially_refunded";
+export type OrderCancelledBy = "customer" | "store" | "system" | "admin";
 export type PaymentMethod = "momo" | "zalopay" | "vnpay" | "card" | "vietqr" | "cash";
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
 export type ComplaintPriority = "low" | "medium" | "high";
@@ -11,16 +14,23 @@ export type DonationStatus = "open" | "accepted" | "in_route" | "completed" | "r
 export type VolunteerStatus = "new" | "active" | "inactive";
 export type ReportStatus = "draft" | "in_progress" | "published";
 
-// Matches public.profiles in 014_foodsave_partner_charity_refactor.sql.
-// avatar_url/points/rank/auth_provider/last_login_at/terms_accepted_at/marketing_opt_in/metadata
-// were dropped from this table by that migration and no longer exist.
 export interface Profile {
   id: string;
   role: UserRole;
   email: string | null;
   full_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
+  points: number;
+  rank: string;
+  /** Khóa mua hàng nhãn đỏ đến thời điểm này (null = không khóa) */
+  red_ban_until?: string | null;
   status: ProfileStatus;
+  auth_provider: string;
+  last_login_at: string | null;
+  terms_accepted_at: string | null;
+  marketing_opt_in: boolean;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +55,8 @@ export interface Store {
   is_verified: boolean;
   is_open: boolean;
   opening_hours: string | null;
+  opening_schedule?: unknown;
+  charity_transfer_enabled?: boolean;
   status: ProfileStatus;
   created_at: string;
   updated_at: string;
@@ -58,6 +70,15 @@ export interface Product {
   image_url: string | null;
   emoji: string | null;
   category: string;
+  food_group: FoodGroup;
+  image_urls: string[];
+  metadata: Record<string, unknown>;
+  effective_deadline_at: string | null;
+  label_changed_at: string | null;
+  yellow_notified_at: string | null;
+  red_notified_at: string | null;
+  red_last_notified_at: string | null;
+  red_reminder_count: number;
   price_cents: number;
   original_price_cents: number;
   label: ProductLabel;
@@ -96,6 +117,9 @@ export interface Voucher {
 }
 
 export interface Order {
+  receiver_name?: string | null;
+  receiver_phone?: string | null;
+  receiver_email?: string | null;
   id: string;
   order_number: string;
   customer_id: string;
@@ -117,6 +141,24 @@ export interface Order {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  // Quy trình trả trước (SQL 029). Đơn cũ có thể là null.
+  pay_deadline?: string | null;
+  paid_at?: string | null;
+  pickup_deadline?: string | null;
+  cancel_free_until?: string | null;
+  policy_label?: ProductLabel | null;
+  no_show_at?: string | null;
+  cancel_reason?: string | null;
+  cancelled_by?: OrderCancelledBy | null;
+  reminder_mid_sent_at?: string | null;
+  reminder_final_sent_at?: string | null;
+  settlement_status?: SettlementStatus;
+  complaint_deadline_at?: string | null;
+  stock_restored_at?: string | null;
+  ledger_synced_status?: string | null;
+  // Nhà cung cấp thanh toán và mã tham chiếu của họ (SQL 034)
+  payment_provider?: string | null;
+  payment_ref?: string | null;
 }
 
 export interface OrderItem {
@@ -147,6 +189,17 @@ export interface Donation {
   status: DonationStatus;
   note: string | null;
   distance_text: string | null;
+  product_id: string | null;
+  quantity: number | null;
+  is_auto: boolean;
+  offer_expires_at: string | null;
+  store_confirmed_at: string | null;
+  volunteer_assigned_at: string | null;
+  packed_at: string | null;
+  pickup_code: string | null;
+  proof_photo_urls: string[];
+  proof_note: string | null;
+  proof_submitted_at: string | null;
   accepted_at: string | null;
   completed_at: string | null;
   created_at: string;

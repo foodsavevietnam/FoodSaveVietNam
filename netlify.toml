@@ -1,9 +1,97 @@
 [build]
-  publish = "."
+  command = "npm run build && npm run check"
+  publish = "public"
   functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/v1/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/nguoi-mua"
+  to = "/FOODSAVE_USER.html"
+  status = 302
+
+[[redirects]]
+  from = "/ung-dung"
+  to = "/FOODSAVE_APP.html"
+  status = 302
+
+[[redirects]]
+  from = "/doi-tac"
+  to = "/FOODSAVE_PARTNER.html"
+  status = 302
+
+[[redirects]]
+  from = "/tu-thien"
+  to = "/FOODSAVE_CHARITY.html"
+  status = 302
+
+[[redirects]]
+  from = "/tinh-nguyen"
+  to = "/FOODSAVE_VOLUNTEER.html"
+  status = 302
+
+[[redirects]]
+  from = "/quan-tri"
+  to = "/ADMIN_FOODSAVE.html"
+  status = 302
+
+[[redirects]]
+  from = "/foodsave_partner"
+  to = "/FOODSAVE_PARTNER.html"
+  status = 302
+
+[[redirects]]
+  from = "/foodsave_user"
+  to = "/FOODSAVE_USER.html"
+  status = 302
+
+[[redirects]]
+  from = "/foodsave_charity"
+  to = "/FOODSAVE_CHARITY.html"
+  status = 302
+
+[[redirects]]
+  from = "/foodsave_app"
+  to = "/FOODSAVE_APP.html"
+  status = 302
+
+[[redirects]]
+  from = "/foodsave_volunteer"
+  to = "/FOODSAVE_VOLUNTEER.html"
+  status = 302
+
+[[redirects]]
+  from = "/admin_foodsave"
+  to = "/ADMIN_FOODSAVE.html"
+  status = 302
+
+# Tác vụ đổi nhãn/giá và thông báo, chạy mỗi 5 phút
+[functions."label-automation"]
+  schedule = "*/5 * * * *"
+
+# Tác vụ đơn hàng (hạn thanh toán, vắng mặt, nhắc lấy hàng), chạy mỗi 5 phút
+[functions."order-automation"]
+  schedule = "*/5 * * * *"
+
+# Service worker: luôn lấy bản mới, được phép điều khiển cả trang gốc
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
+
+# Manifest PWA
+[[headers]]
+  for = "/*.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

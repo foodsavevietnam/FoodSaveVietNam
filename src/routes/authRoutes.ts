@@ -14,11 +14,18 @@ import {
   phoneOtpVerifyBodySchema,
   refreshTokenBodySchema,
   registerCharityBodySchema,
+  registerCustomerBodySchema,
   registerPartnerBodySchema
 } from "../schemas/authSchemas";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const authRoutes = Router();
+
+authRoutes.post(
+  "/register/customer",
+  validateRequest({ body: registerCustomerBodySchema }),
+  asyncHandler(authController.registerCustomer)
+);
 
 authRoutes.post(
   "/register/partner",

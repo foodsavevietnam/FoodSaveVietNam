@@ -1,0 +1,146 @@
+/* Shared presentation for the supplied MIO logo. */
+:root {
+  --mio-brand-green: #175d25;
+  --mio-brand-orange: #ff9818;
+}
+
+.mio-logo {
+  display: inline-block;
+  width: 64px;
+  height: 64px;
+  max-width: 100%;
+  flex-shrink: 0;
+  object-fit: contain;
+  vertical-align: middle;
+  background: #fff;
+  border-radius: 10px;
+}
+
+.brand-stack > .mio-logo,
+.brand-logo-line > .mio-logo {
+  display: block;
+}
+
+.topbar .mio-logo {
+  width: 52px;
+  height: 52px;
+}
+
+.topbar-main .mio-logo {
+  width: 44px;
+  height: 44px;
+}
+
+.topbar-main .brand {
+  padding-top: 0;
+}
+
+.topbar-main .brand-stack {
+  gap: 2px;
+}
+
+.topbar-main .brand-tagline {
+  margin-top: 0;
+  line-height: 1;
+}
+
+.auth-brand-big > .mio-logo,
+.mio-logo-hero,
+.mio-admin-logo {
+  width: 112px;
+  height: 112px;
+  border-radius: 16px;
+}
+
+.side-logo .mio-logo,
+.S-b .mio-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.side-logo .brand-stack {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.foot-brand-link .mio-logo,
+footer .brand .mio-logo {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 8px;
+}
+
+.logo > .mio-logo {
+  display: block;
+  width: 128px;
+  height: 128px;
+  margin: 0 auto 12px;
+  border-radius: 18px;
+}
+
+.legal-brand .brand-dot {
+  display: none;
+}
+
+.mio-admin-logo {
+  display: block;
+  margin: 0 0 16px;
+}
+
+@media (max-width: 640px) {
+  header .mio-logo,
+  .legal-brand .mio-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .topbar-main .mio-logo {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar-main .nav {
+    display: none;
+  }
+
+  .topbar-main .wrap {
+    gap: 8px;
+  }
+
+  .topbar-main .brand-tagline {
+    font-size: 8px;
+    letter-spacing: .04em;
+  }
+
+  .topbar-main .actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .topbar-main .actions .btn {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-main .brand-tagline {
+    display: none;
+  }
+
+  .topbar-main .actions {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .topbar-main .actions .btn {
+    min-height: 44px;
+    padding: 10px 8px;
+    font-size: 11px;
+    white-space: normal;
+    text-align: center;
+  }
+}

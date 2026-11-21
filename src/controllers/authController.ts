@@ -12,6 +12,7 @@ import type {
   PhoneOtpVerifyBody,
   RefreshTokenBody,
   RegisterCharityBody,
+  RegisterCustomerBody,
   RegisterPartnerBody
 } from "../schemas/authSchemas";
 import { authService } from "../services/authService";
@@ -37,6 +38,12 @@ const bearerToken = (req: Request): string => {
 };
 
 export const authController = {
+  async registerCustomer(req: Request, res: Response): Promise<void> {
+    const body = req.validated?.body as RegisterCustomerBody;
+    const result = await authService.registerCustomer(body, requestMeta(req));
+    sendSuccess(res, result, HTTP_STATUS.CREATED);
+  },
+
   async registerPartner(req: Request, res: Response): Promise<void> {
     const body = req.validated?.body as RegisterPartnerBody;
     const result = await authService.registerPartner(body, requestMeta(req));

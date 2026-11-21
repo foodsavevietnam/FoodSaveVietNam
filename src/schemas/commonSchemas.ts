@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+// URL query values are strings: Boolean("false") is true, so use an explicit
+// parser instead of z.coerce.boolean() for request filters.
+export const queryBooleanSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+  return value;
+}, z.boolean());
+
 export const uuidParamSchema = z.object({
   id: z.string().uuid()
 }).strict();

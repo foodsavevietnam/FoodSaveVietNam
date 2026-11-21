@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-labelledby="title">
+  <title id="title">Thực phẩm sẻ chia MIO</title>
+  <rect width="640" height="400" rx="24" fill="#f2f6ee"/>
+  <circle cx="320" cy="180" r="104" fill="#e1eddb"/>
+  <path d="M240 196h160c-5 58-34 83-80 83s-75-25-80-83Z" fill="#006c4d"/>
+  <path d="M316 189c-54-10-69-41-67-78 46-1 77 25 67 78Z" fill="#6b9f49"/>
+  <path d="M322 180c-8-58 23-90 79-93-2 57-30 88-79 93Z" fill="#2e8056"/>
+  <path d="m321 199 36-64" fill="none" stroke="#006c4d" stroke-linecap="round" stroke-width="9"/>
+  <path d="M271 294h98" fill="none" stroke="#d79c43" stroke-linecap="round" stroke-width="8"/>
+</svg>

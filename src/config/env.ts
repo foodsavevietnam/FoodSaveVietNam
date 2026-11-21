@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
 import { z } from "zod";
+import { loadEnvironment } from "./loadEnvironment";
 
-dotenv.config();
+loadEnvironment();
 
 const optionalNonEmptyString = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -25,18 +25,58 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  // Chu kỳ chạy tác vụ đổi nhãn khi chạy backend ở máy (npm run dev). 0 = tắt. Trên Netlify dùng Scheduled Function.
+  LABEL_AUTOMATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300000),
+  AUTOMATION_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  // Ảnh minh chứng của TNV: thời hạn tổ chức duyệt (phút) trước khi tự gửi sang cửa hàng. Demo: đặt 1-2.
+  PHOTO_REVIEW_MINUTES: z.coerce.number().int().min(1).max(10080).default(360),
+  // Cho phép TNV tải ảnh từ thư viện (chỉ để demo trên laptop). Bản thật để false.
+  DEMO_MODE: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  // Rút ngắn mọi hạn của đơn hàng khi demo (0.05: 60 phút thành 3 phút). CHỈ có tác dụng khi DEMO_MODE=true; môi trường thật luôn là 1.
+  ORDER_POLICY_TIME_SCALE: z.coerce.number().min(0.01).max(1).default(1),
+  // Nhà cung cấp thanh toán (thu tiền): simulated = nút "Đã thanh toán" mô phỏng (mặc định); momo = khung chưa cấu hình
+  PAYMENT_PROVIDER: z.enum(["simulated", "momo"]).default("simulated"),
+  // Nhà cung cấp chi trả (rút tiền cho cửa hàng): manual = admin chuyển khoản thủ công (mặc định); bank_api = khung chưa nối
+  PAYOUT_PROVIDER: z.enum(["manual", "bank_api"]).default("manual"),
+  // Khóa mã hóa số tài khoản nhận tiền (AES-256-GCM): 32 byte dạng base64 hoặc hex 64 ký tự. KHÔNG ghi vào repo.
+  // Sinh khóa: node scripts/generate-payout-key.js
+  PAYOUT_ENCRYPTION_KEY: optionalNonEmptyString,
+  // Web Push (người mua + tình nguyện viên). Sinh khóa: npm run gen:vapid. Thiếu thì thông báo đẩy tự tắt (thông báo trong app vẫn chạy).
+  VAPID_PUBLIC_KEY: optionalNonEmptyString,
+  VAPID_PRIVATE_KEY: optionalNonEmptyString,
+  VAPID_SUBJECT: optionalNonEmptyString,
+  // Ảnh chụp cách cửa hàng / tổ chức quá số mét này thì bị gắn cờ GPS
+  PHOTO_GPS_MAX_METERS: z.coerce.number().int().min(50).max(50000).default(500),
+  // Marketing Studio: n8n nhận lệnh đăng bài. Để trống = chỉ gửi thông báo trong FoodSave, không đăng mạng xã hội.
+  N8N_WEBHOOK_URL: optionalNonEmptyString,
+  // Mật khẩu chung giữa FoodSave và n8n (n8n gửi kèm header x-n8n-secret khi đọc danh sách hàng cần đăng)
+  N8N_SECRET: optionalNonEmptyString,
+  // Phương án dự phòng: nếu n8n không gọi được thì FoodSave đăng Facebook trực tiếp. JSON: {"MA_FANPAGE":"TOKEN_FANPAGE"}
+  FACEBOOK_PAGE_TOKENS: optionalNonEmptyString,
+  // Fanpage trung tâm của FoodSave (bài tổng hợp, do trang Admin điều khiển)
+  CENTRAL_PAGE_ID: optionalNonEmptyString,
+  CENTRAL_PAGE_NAME: optionalNonEmptyString,
+  // Webhook n8n của workflow Fanpage FoodSave (để nút "Chạy thử ngay" của Admin). Trống = suy ra từ N8N_WEBHOOK_URL
+  N8N_CENTRAL_WEBHOOK_URL: optionalNonEmptyString,
+  // Địa chỉ trang người mua, dùng làm link trong bài đăng
+  PUBLIC_SITE_URL: z.string().url().default("http://localhost:5500/FOODSAVE_USER.html"),
   MOMO_API_BASE_URL: z.string().url().default("https://test-payment.momo.vn/v2/gateway/api"),
   MOMO_PARTNER_CODE: z.string().min(1).default("MOMO"),
-  MOMO_ACCESS_KEY: z.string().min(1).default("F8BBA842ECF85"),
-  MOMO_SECRET_KEY: z.string().min(1).default("K951B6PE1waDMi640xX08PD3vg6EkVlz"),
+  MOMO_ACCESS_KEY: optionalNonEmptyString,
+  MOMO_SECRET_KEY: optionalNonEmptyString,
   MOMO_REDIRECT_URL: z.string().url().default("http://localhost:8080/api/v1/orders/payments/momo/return"),
   MOMO_IPN_URL: z.string().url().default("http://localhost:8080/api/v1/orders/payments/momo/webhook/mock"),
   DATABASE_URL: optionalNonEmptyString,
+  SUPABASE_DATABASE_URL: optionalNonEmptyString,
+  NEON_DATABASE_URL: optionalNonEmptyString,
+  DATABASE_URL_UNPOOLED: optionalNonEmptyString,
+  NEON_REALTIME_URL: optionalNonEmptyString,
+  NEON_REALTIME_SECRET: optionalNonEmptyString,
   DATABASE_HOST: z.string().min(1).default("localhost"),
   DATABASE_PORT: z.coerce.number().int().min(1).max(65535).default(5432),
   DATABASE_NAME: z.string().min(1).default("foodsave"),
   DATABASE_USER: z.string().min(1).default("postgres"),
-  DATABASE_PASSWORD: z.string().min(1).default("foodsave_secure_local_password"),
+  DATABASE_PASSWORD: optionalNonEmptyString,
   DATABASE_SSL: z
     .enum(["true", "false"])
     .default("false")

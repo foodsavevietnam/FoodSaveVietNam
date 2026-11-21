@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+<script src="frontend/foodsave-config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trung tâm Chính sách & Pháp lý MIO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            color-scheme: light;
+            --fs-green-950: #0a0a0a;
+            --fs-green-900: #131313;
+            --fs-green-800: #16a34a;
+            --fs-green-700: #22c55e;
+            --fs-green-50: #f0fdf4;
+            --fs-green-100: #dcfce7;
+            --fs-green-200: #bbf7d0;
+            --fs-yellow: #facc15;
+            --fs-yellow-soft: #fef9c3;
+            --fs-line: #e5e7eb;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+            overflow-x: hidden;
+            color: #181818;
+            background: #fafafa;
+        }
+
+        main {
+            width: 100%;
+            max-width: 100vw;
+        }
+
+        ::selection {
+            background: var(--fs-yellow);
+            color: var(--fs-green-950);
+        }
+
+        h1, h2, h3, h4, .brand-word {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+        }
+
+        .legal-brand {
+            position: relative;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+            min-width: max-content;
+            padding: 0.25rem 1.1rem 0.38rem 0;
+            border-radius: 0.85rem;
+            text-decoration: none;
+            transition: transform 0.25s ease, filter 0.25s ease;
+        }
+
+        .legal-brand:hover {
+            transform: translateY(-1px);
+            filter: saturate(1.06);
+        }
+
+        .brand-logo-line {
+            position: relative;
+            display: inline-flex;
+            align-items: flex-start;
+            padding-right: 1.05rem;
+        }
+
+        .brand-word {
+            position: relative;
+            display: inline-flex;
+            align-items: baseline;
+            width: fit-content;
+            color: var(--fs-green-950);
+            font-size: 1.38rem;
+            font-weight: 900;
+            letter-spacing: 0;
+            line-height: 1;
+            text-transform: uppercase;
+        }
+
+        .brand-word > span {
+            color: var(--fs-green-800);
+            position: relative;
+        }
+
+        .brand-dot {
+            position: absolute;
+            right: 0.1rem;
+            top: -0.42rem;
+            width: 0.72rem;
+            height: 0.72rem;
+            border-radius: 999px;
+            background: var(--fs-yellow);
+            box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.42);
+            animation: foodsaveLogoPulse 2.2s ease-out infinite;
+            pointer-events: none;
+        }
+
+        .brand-word::after {
+            content: "";
+            position: absolute;
+            left: 0.02em;
+            right: 0.02em;
+            bottom: -0.15em;
+            height: 0.12em;
+            min-height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--fs-green-950) 0 50%, var(--fs-yellow) 50% 100%);
+            transform-origin: left;
+            transform: scaleX(0.78);
+            transition: transform 0.25s ease, filter 0.25s ease;
+        }
+
+        .legal-brand:hover .brand-word::after {
+            transform: scaleX(1);
+            filter: saturate(1.22);
+        }
+
+        .brand-tagline {
+            color: #6b7280;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            line-height: 1.15;
+            margin-top: 0.1rem;
+            text-transform: uppercase;
+        }
+
+        @keyframes foodsaveLogoPulse {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.5); }
+            55% { transform: scale(1); box-shadow: 0 0 0 0.42em rgba(250, 204, 21, 0.16); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0.72em rgba(250, 204, 21, 0); }
+        }
+
+        .policy-section {
+            scroll-margin-top: 7.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.5rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            padding: 1.25rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+
+        @media (min-width: 640px) {
+            .policy-section {
+                padding: 1.75rem;
+            }
+        }
+
+        .section-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            border-radius: 999px;
+            background: var(--fs-green-50);
+            color: var(--fs-green-800);
+            padding: 0.25rem 0.625rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .policy-title {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            letter-spacing: -0.01em;
+            line-height: 1.35;
+        }
+
+        .policy-title::before {
+            content: "";
+            width: 0.5rem;
+            height: 1.75rem;
+            border-radius: 999px;
+            background: var(--fs-green-700);
+            flex: 0 0 auto;
+            margin-top: 0.125rem;
+        }
+
+        .legal-copy :where(p, li, td) {
+            line-height: 1.75;
+        }
+
+        .nav-link {
+            transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
+        }
+
+        .nav-link[aria-current="true"] {
+            background: var(--fs-green-50);
+            color: var(--fs-green-800);
+            font-weight: 800;
+        }
+
+        .nav-link[aria-current="true"] svg {
+            color: var(--fs-green-800);
+        }
+
+        .policy-table {
+            width: 100%;
+            overflow: hidden;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            font-size: 0.92rem;
+        }
+
+        .policy-table thead {
+            background: var(--fs-green-50);
+            color: #14532d;
+        }
+
+        .policy-table th,
+        .policy-table td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.95rem 1rem;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .policy-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .soft-panel {
+            border: 1px solid #e2e8f0;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.04);
+        }
+
+        .bg-rose-500 { background-color: var(--fs-green-700) !important; }
+        .bg-rose-50 { background-color: var(--fs-green-50) !important; }
+        .bg-rose-50\/70 { background-color: rgba(240, 253, 244, 0.72) !important; }
+        .border-rose-200 { border-color: var(--fs-green-200) !important; }
+        .text-rose-200 { color: var(--fs-yellow-soft) !important; }
+        .text-rose-500,
+        .text-rose-600,
+        .text-rose-700,
+        .text-rose-800,
+        .text-rose-900 { color: var(--fs-green-800) !important; }
+        .ring-rose-50 { --tw-ring-color: var(--fs-green-50) !important; }
+        .shadow-rose-500\/20 { --tw-shadow-color: rgba(34, 197, 94, 0.2) !important; }
+
+        .legal-footer {
+            border-top: 4px solid var(--fs-green-700);
+            background: var(--fs-green-950);
+            color: #dcfce7;
+        }
+
+        .legal-footer .brand-word {
+            color: #f8fafc;
+            text-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+        }
+
+        .legal-footer .brand-word > span {
+            color: #4ade80;
+        }
+
+        .legal-footer .brand-dot {
+            box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.38), 0 0 18px rgba(250, 204, 21, 0.28);
+        }
+
+        .legal-footer p {
+            color: rgba(232, 245, 237, 0.74);
+        }
+
+        @media (max-width: 1023px) {
+            .policy-section {
+                scroll-margin-top: 6rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .toc-sidebar,
+            .content-shell {
+                width: calc(100vw - 2rem);
+                max-width: calc(100vw - 2rem);
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+    </style>
+<link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+            <a href="index.html" class="legal-brand" aria-label="Về trang chủ MIO">
+                <span class="brand-logo-line">
+                    <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
+                    <span class="brand-dot" aria-hidden="true"></span>
+                </span>
+                <span class="brand-tagline">Cứu thực phẩm · Bảo vệ hành tinh</span>
+            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    Phiên bản 3.2 - Cập nhật: 16/05/2026
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
+                    <i data-lucide="scale" class="h-3.5 w-3.5"></i>
+                    Chính sách pháp lý
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-4">
+            <aside class="min-w-0 lg:col-span-1">
+                <div class="toc-sidebar sticky top-24 max-h-[calc(100vh-7.5rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Mục lục</p>
+                            <h2 class="mt-1 text-sm font-extrabold text-slate-900">Chính sách MIO</h2>
+                        </div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                            <i data-lucide="list-tree" class="h-5 w-5"></i>
+                        </div>
+                    </div>
+
+                    <nav id="policy-nav" class="space-y-5" aria-label="Mục lục chính sách">
+                        <div>
+                            <p class="px-3 text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-slate-400">Quy định chung & Bảo mật</p>
+                            <div class="mt-2 space-y-1">
+                                <a href="#privacy-1" aria-current="true" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 1: Giới thiệu tổng quan</span></a>
+                                <a href="#privacy-2" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 2: Danh mục dữ liệu thu thập</span></a>
+                                <a href="#privacy-3" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 3: Mục đích xử lý dữ liệu</span></a>
+                                <a href="#privacy-4" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 4: Thời gian lưu trữ tối đa</span></a>
+                                <a href="#privacy-5" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 5: Chia sẻ bên thứ ba</span></a>
+                                <a href="#privacy-6" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 6: Chuyển dữ liệu quốc tế</span></a>
+                                <a href="#privacy-7" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 7: 11 Quyền của chủ thể dữ liệu</span></a>
+                                <a href="#privacy-8" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 8: Biện pháp kỹ thuật bảo mật</span></a>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="px-3 text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-slate-400">Dành cho Người mua (Buyer)</p>
+                            <div class="mt-2 space-y-1">
+                                <a href="#buyer-1" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 1 (Buyer): Các trường hợp hoàn tiền</span></a>
+                                <a href="#buyer-2" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 2 (Buyer): Quy trình khiếu nại trên app</span></a>
+                                <a href="#buyer-3" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 3 (Buyer): Thời gian xử lý & SLA hoàn tiền</span></a>
+                                <a href="#buyer-4" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 4 (Buyer): Bảo hiểm FoodSafe Cover</span></a>
+                                <a href="#buyer-5" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 5 (Buyer): Giải quyết tranh chấp</span></a>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="px-3 text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-slate-400">Dành cho Cửa hàng đối tác</p>
+                            <div class="mt-2 space-y-1">
+                                <a href="#Partner-1" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 1 (Partner): Tiêu chuẩn thực phẩm & Nhãn HSD</span></a>
+                                <a href="#Partner-2" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 2 (Partner): Quy tắc đóng gói & Giao nhận QR</span></a>
+                                <a href="#Partner-3" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 3 (Partner): Chiết khấu & Chu kỳ quyết toán</span></a>
+                                <a href="#Partner-4" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 4 (Partner): Trách nhiệm An toàn thực phẩm</span></a>
+                                <a href="#Partner-5" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 5 (Partner): Tiếp nhận khiếu nại & Giải trình 24h</span></a>
+                                <a href="#Partner-6" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 6 (Partner): Khấu trừ tài chính Ví Escrow</span></a>
+                                <a href="#Partner-7" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 7 (Partner): Chỉ số đơn hàng lỗi ODR & Chế tài</span></a>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="px-3 text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-slate-400">Dành cho Tổ chức từ thiện</p>
+                            <div class="mt-2 space-y-1">
+                                <a href="#charity-1" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 1 (Charity): Tiêu chuẩn eKYC Tổ chức</span></a>
+                                <a href="#charity-2" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 2 (Charity): Nguyên tắc tiếp nhận & Cam kết 0đ</span></a>
+                                <a href="#charity-3" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 3 (Charity): Trách nhiệm bảo quản & Miễn trừ trách nhiệm</span></a>
+                                <a href="#charity-4" aria-current="false" class="nav-link flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><i data-lucide="chevron-right" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"></i><span>Điều 4 (Charity): Nghĩa vụ báo cáo minh bạch</span></a>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 class="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                            <i data-lucide="life-buoy" class="h-4 w-4 text-rose-500"></i>
+                            Hỗ trợ chính sách
+                        </h3>
+                        <p class="mt-2 text-[11px] leading-relaxed text-slate-500">Yêu cầu về dữ liệu cá nhân, đổi trả, bồi hoàn hoặc tranh chấp chính sách được tiếp nhận qua bộ phận pháp lý MIO.</p>
+                        <a class="mt-3 inline-flex items-center gap-1 text-xs font-extrabold text-rose-500 hover:underline" href="mailto:legal@foodsave.vn">
+                            legal@foodsave.vn
+                            <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="min-w-0 space-y-6 lg:col-span-3">
+                <div class="content-shell max-w-full space-y-6">
+                    <div class="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 sm:p-8">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-rose-600">
+                            <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
+                            Văn bản chính sách
+                        </span>
+                        <h2 class="mt-4 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">TRUNG TÂM CHÍNH SÁCH & PHÁP LÝ MIO</h2>
+                        <p class="mt-3 text-sm font-semibold leading-relaxed text-rose-800">Chính sách bảo mật dữ liệu, đổi trả, bồi hoàn và hoàn tiền · Cập nhật lần cuối: 16/05/2026</p>
+                        <p class="mt-2 text-sm leading-relaxed text-rose-800">Áp dụng cho hoạt động xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP và các quy trình bảo vệ quyền lợi người mua, cửa hàng đối tác, tổ chức từ thiện trên nền tảng MIO.</p>
+                    </div>
+
+                    <div class="rounded-3xl border border-rose-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-start gap-4">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-500/20">
+                                <i data-lucide="info" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-sm font-extrabold uppercase tracking-wide text-rose-700">Phạm vi tài liệu</h2>
+                                <p class="mt-2 text-sm leading-relaxed text-slate-600">Tài liệu này chỉ bao gồm chính sách bảo mật dữ liệu, đổi trả, bồi hoàn, hoàn tiền và nghĩa vụ vận hành liên quan. Không bao gồm điểm uy tín, hạng thành viên hoặc quy định xử lý tài khoản thuộc Điều khoản sử dụng dịch vụ.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                            <i data-lucide="lock-keyhole" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-rose-500">Phần A</p>
+                            <h3 class="text-2xl font-extrabold text-slate-950">Quy định chung & Bảo mật dữ liệu</h3>
+                        </div>
+                    </div>
+
+                    <article id="privacy-1" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="shield" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 1. GIỚI THIỆU TỔNG QUAN</h3>
+                        <p class="mt-4">
+                            MIO cam kết bảo vệ dữ liệu cá nhân của người dùng, cửa hàng đối tác, tổ chức từ thiện và các bên liên quan theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Chính sách này mô tả cách MIO thu thập, xử lý, lưu trữ, chia sẻ và bảo mật dữ liệu trong quá trình vận hành website, ứng dụng di động và hệ thống quản trị nội bộ.
+                        </p>
+                        <p class="mt-3">
+                            Nguyên tắc xử lý dữ liệu của MIO gồm minh bạch, đúng mục đích, tối thiểu hóa dữ liệu, bảo mật theo thiết kế, kiểm soát truy cập theo vai trò và chỉ lưu trữ trong thời hạn cần thiết. Các quy trình kỹ thuật được xây dựng theo định hướng ISO/IEC 27001, mã hóa AES-256 đối với dữ liệu lưu trữ và TLS 1.3 đối với dữ liệu truyền tải.
+                        </p>
+                    </article>
+
+                    <article id="privacy-2" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="database" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 2. DANH MỤC DỮ LIỆU THU THẬP</h3>
+                        <div class="mt-5 grid gap-4 md:grid-cols-2">
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Dữ liệu định danh và liên hệ</h4>
+                                <p class="mt-2">Họ tên, số điện thoại, email, địa chỉ nhận hàng, ảnh đại diện, thông tin CCCD hoặc giấy tờ đại diện pháp luật khi cần xác minh eKYC.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Dữ liệu giao dịch</h4>
+                                <p class="mt-2">Mã đơn, sản phẩm, lịch sử đặt hàng, khiếu nại, hoàn tiền, chứng từ thanh toán, hóa đơn và trạng thái đối soát.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Dữ liệu kỹ thuật</h4>
+                                <p class="mt-2">Địa chỉ IP, mã thiết bị, hệ điều hành, trình duyệt, log truy cập, vị trí tương đối khi người dùng bật quyền định vị.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Dữ liệu nhạy cảm theo ngữ cảnh</h4>
+                                <p class="mt-2">Thông tin dị ứng, chứng từ y tế hoặc hồ sơ bồi thường FoodSafe Cover chỉ được thu thập khi người dùng tự nguyện gửi để xử lý khiếu nại.</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article id="privacy-3" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="target" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 3. MỤC ĐÍCH XỬ LÝ DỮ LIỆU</h3>
+                        <ul class="mt-5 space-y-3">
+                            <li class="flex gap-3"><i data-lucide="check-circle-2" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Vận hành tài khoản, xác thực đăng nhập, đặt hàng, nhận hàng bằng mã QR, đối soát thanh toán và chăm sóc khách hàng.</span></li>
+                            <li class="flex gap-3"><i data-lucide="check-circle-2" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Xử lý khiếu nại, đổi trả, hoàn tiền, bồi hoàn, bảo hiểm FoodSafe Cover và tranh chấp phát sinh.</span></li>
+                            <li class="flex gap-3"><i data-lucide="check-circle-2" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Phòng chống gian lận giao dịch, truy cập trái phép, lạm dụng voucher, khai báo sai chứng từ và các hành vi ảnh hưởng đến an toàn hệ thống.</span></li>
+                            <li class="flex gap-3"><i data-lucide="check-circle-2" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Cải thiện chất lượng dịch vụ, phân tích hiệu năng hệ thống, cá nhân hóa trải nghiệm và gửi thông báo tiếp thị khi người dùng đã đồng ý.</span></li>
+                        </ul>
+                    </article>
+
+                    <article id="privacy-4" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="clock-3" class="h-4 w-4"></i> Bảng dữ liệu</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 4. THỜI GIAN LƯU TRỮ TỐI ĐA</h3>
+                        <p class="mt-4">
+                            MIO chỉ lưu trữ dữ liệu trong thời gian cần thiết để hoàn thành mục đích xử lý, đáp ứng nghĩa vụ pháp lý và giải quyết tranh chấp. Khi hết thời hạn, dữ liệu được xóa, ẩn danh hoặc khóa truy cập theo quy trình nội bộ.
+                        </p>
+                        <div class="mt-5 overflow-x-auto">
+                            <table class="policy-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nhóm dữ liệu</th>
+                                        <th>Thời hạn lưu trữ tối đa</th>
+                                        <th>Căn cứ và mục đích</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Thông tin tài khoản và hồ sơ người dùng</td>
+                                        <td>Trong thời gian tài khoản hoạt động và tối đa 30 ngày sau yêu cầu xóa hợp lệ</td>
+                                        <td>Duy trì dịch vụ, xác thực chủ thể, xử lý yêu cầu xóa hoặc xuất dữ liệu.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Thông tin đơn hàng, thanh toán, đối soát</td>
+                                        <td>10 năm</td>
+                                        <td>Tuân thủ quy định kế toán, thuế, hóa đơn điện tử và nghĩa vụ chứng từ giao dịch.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Log truy cập, IP, nhật ký bảo mật</td>
+                                        <td>12 tháng, hoặc 24 tháng nếu có sự cố an ninh</td>
+                                        <td>Điều tra truy cập bất thường, phòng chống gian lận và bảo vệ hệ thống.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Hồ sơ khiếu nại, đổi trả, bồi hoàn</td>
+                                        <td>3 năm kể từ ngày đóng vụ việc</td>
+                                        <td>Đối chiếu tranh chấp, bảo vệ quyền lợi người tiêu dùng và chứng minh lịch sử xử lý.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dữ liệu tiếp thị và tùy chọn nhận thông báo</td>
+                                        <td>Đến khi người dùng rút lại đồng ý hoặc hủy đăng ký</td>
+                                        <td>Gửi thông tin khuyến mại, thông báo sản phẩm và cá nhân hóa trải nghiệm theo đồng ý.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article id="privacy-5" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="share-2" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 5. CHIA SẺ BÊN THỨ BA</h3>
+                        <p class="mt-4">
+                            MIO không bán dữ liệu cá nhân của người dùng. Dữ liệu chỉ được chia sẻ trong phạm vi cần thiết cho các bên sau: cửa hàng đối tác để chuẩn bị đơn và đối soát nhận hàng; đơn vị thanh toán được cấp phép để xử lý giao dịch; đơn vị bảo hiểm hoặc hỗ trợ bồi hoàn khi người dùng yêu cầu FoodSafe Cover; nhà cung cấp hạ tầng kỹ thuật có cam kết bảo mật; cơ quan nhà nước có thẩm quyền khi có yêu cầu hợp pháp.
+                        </p>
+                        <p class="mt-3">
+                            Các bên nhận dữ liệu phải tuân thủ điều khoản bảo mật, chỉ xử lý theo hướng dẫn của MIO và không được sử dụng dữ liệu cho mục đích riêng ngoài phạm vi dịch vụ đã thỏa thuận.
+                        </p>
+                    </article>
+
+                    <article id="privacy-6" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="globe-2" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 6. CHUYỂN DỮ LIỆU QUỐC TẾ</h3>
+                        <p class="mt-4">
+                            Dữ liệu vận hành chính được ưu tiên lưu trữ tại Việt Nam. Trong một số trường hợp, dữ liệu kỹ thuật hoặc bản sao dự phòng có thể được xử lý trên hạ tầng điện toán đám mây tại Singapore, Hoa Kỳ hoặc khu vực khác để bảo đảm tính sẵn sàng của dịch vụ.
+                        </p>
+                        <p class="mt-3">
+                            Khi chuyển dữ liệu ra nước ngoài, MIO áp dụng mã hóa, ẩn danh hóa khi có thể, đánh giá tác động xử lý dữ liệu và ký thỏa thuận bảo vệ dữ liệu với nhà cung cấp theo yêu cầu của Nghị định 13/2023/NĐ-CP.
+                        </p>
+                    </article>
+
+                    <article id="privacy-7" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="user-check" class="h-4 w-4"></i> Nghị định 13</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 7. 11 QUYỀN CỦA CHỦ THỂ DỮ LIỆU</h3>
+                        <p class="mt-4">
+                            Theo Nghị định 13/2023/NĐ-CP, chủ thể dữ liệu có thể thực hiện các quyền sau đối với dữ liệu cá nhân của mình trên MIO:
+                        </p>
+                        <div class="mt-5 grid gap-3 md:grid-cols-2">
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">1. Quyền được biết</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">2. Quyền đồng ý</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">3. Quyền truy cập</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">4. Quyền rút lại sự đồng ý</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">5. Quyền xóa dữ liệu</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">6. Quyền hạn chế xử lý dữ liệu</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">7. Quyền cung cấp dữ liệu</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">8. Quyền phản đối xử lý dữ liệu</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">9. Quyền khiếu nại, tố cáo, khởi kiện</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800">10. Quyền yêu cầu bồi thường thiệt hại</div>
+                            <div class="rounded-2xl bg-slate-50 p-4 font-semibold text-slate-800 md:col-span-2">11. Quyền tự bảo vệ theo quy định pháp luật</div>
+                        </div>
+                        <p class="mt-5">
+                            Yêu cầu thực hiện quyền được gửi qua email dpo@foodsave.vn. MIO phản hồi trong thời hạn tối đa 30 ngày, trừ trường hợp pháp luật cho phép kéo dài vì yêu cầu phức tạp hoặc cần xác minh bổ sung.
+                        </p>
+                    </article>
+
+                    <article id="privacy-8" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="lock" class="h-4 w-4"></i> Áp dụng chung</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 8. BIỆN PHÁP KỸ THUẬT BẢO MẬT</h3>
+                        <ul class="mt-5 space-y-3">
+                            <li class="flex gap-3"><i data-lucide="shield-check" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Mật khẩu được băm bằng thuật toán phù hợp, OTP có thời hạn ngắn, token đăng nhập được kiểm soát vòng đời và thu hồi khi phát hiện rủi ro.</span></li>
+                            <li class="flex gap-3"><i data-lucide="shield-check" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>Dữ liệu nhạy cảm được mã hóa khi lưu trữ, truyền tải qua TLS, phân quyền truy cập theo nguyên tắc tối thiểu và ghi nhật ký truy cập nội bộ.</span></li>
+                            <li class="flex gap-3"><i data-lucide="shield-check" class="mt-1 h-5 w-5 flex-none text-rose-500"></i><span>MIO áp dụng WAF, giới hạn tần suất yêu cầu, giám sát bất thường, sao lưu định kỳ, kiểm thử xâm nhập và quy trình ứng cứu sự cố bảo mật.</span></li>
+                        </ul>
+                    </article>
+
+                    <div class="mb-6 mt-10 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                            <i data-lucide="shopping-bag" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-rose-500">Phần B</p>
+                            <h3 class="text-2xl font-extrabold text-slate-950">Dành cho Người mua</h3>
+                        </div>
+                    </div>
+
+                    <article id="buyer-1" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="receipt" class="h-4 w-4"></i> Buyer</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 1 (BUYER). CÁC TRƯỜNG HỢP HOÀN TIỀN</h3>
+                        <div class="mt-5 grid gap-5 md:grid-cols-3">
+                            <div class="soft-panel rounded-2xl p-5">
+                                <p class="text-sm font-extrabold uppercase tracking-[0.16em] text-rose-500">Hoàn 100%</p>
+                                <p class="mt-3">Áp dụng khi lỗi thuộc về cửa hàng: sản phẩm hết hạn, hư hỏng, có mùi lạ, biến chất, bao bì rách hoặc nhiễm bẩn, giao sai loại, giao thiếu số lượng, cửa hàng từ chối giao không có lý do, phát hiện dị vật hoặc có xác nhận y tế liên quan đến ngộ độc.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <p class="text-sm font-extrabold uppercase tracking-[0.16em] text-amber-600">Hoàn 50%</p>
+                                <p class="mt-3">Áp dụng khi người mua chủ động hủy đơn sau 5 phút kể từ thời điểm đặt hàng, sau khi đã trừ phí dịch vụ và voucher nếu có.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <p class="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-600">Từ chối hoàn tiền</p>
+                                <p class="mt-3">Áp dụng khi người mua không nhận hàng theo quy định, sản phẩm đã được sử dụng hoặc mở bao bì ngoài phạm vi lỗi của cửa hàng, khiếu nại sau 72 giờ hoặc đơn đã được quét QR xác nhận nhận hàng hợp lệ.</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article id="buyer-2" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="smartphone" class="h-4 w-4"></i> Buyer</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 2 (BUYER). QUY TRÌNH KHIẾU NẠI TRÊN APP</h3>
+                        <ol class="mt-5 space-y-4">
+                            <li class="flex gap-4">
+                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-500 text-sm font-extrabold text-white">1</span>
+                                <p>Mở chi tiết đơn hàng trên ứng dụng MIO và chọn chức năng <strong>Khiếu nại</strong>.</p>
+                            </li>
+                            <li class="flex gap-4">
+                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-500 text-sm font-extrabold text-white">2</span>
+                                <p>Chọn nhóm sự cố: hàng hỏng, hết hạn, sai món, thiếu món, cửa hàng từ chối giao, dị ứng hoặc sự cố y tế liên quan.</p>
+                            </li>
+                            <li class="flex gap-4">
+                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-500 text-sm font-extrabold text-white">3</span>
+                                <p>Mô tả sự cố, tải lên ảnh góc rộng, ảnh cận cảnh, video mở bao bì nếu có và chứng từ y tế đối với trường hợp ngộ độc hoặc dị ứng.</p>
+                            </li>
+                            <li class="flex gap-4">
+                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-500 text-sm font-extrabold text-white">4</span>
+                                <p>Hệ thống tự động đính kèm mã đơn, thời gian đặt hàng, thời gian quét QR, thông tin cửa hàng và phương thức thanh toán.</p>
+                            </li>
+                            <li class="flex gap-4">
+                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-500 text-sm font-extrabold text-white">5</span>
+                                <p>MIO gửi xác nhận tiếp nhận qua app và email, sau đó chuyển vụ việc đến cửa hàng hoặc bộ phận bồi hoàn tương ứng.</p>
+                            </li>
+                        </ol>
+                    </article>
+
+                    <article id="buyer-3" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="timer" class="h-4 w-4"></i> Bảng SLA</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 3 (BUYER). THỜI GIAN XỬ LÝ & SLA HOÀN TIỀN</h3>
+                        <p class="mt-4">SLA được tính từ thời điểm MIO tiếp nhận đầy đủ thông tin khiếu nại và bằng chứng hợp lệ.</p>
+                        <div class="mt-5 overflow-x-auto">
+                            <table class="policy-table">
+                                <thead>
+                                    <tr>
+                                        <th>Hạng mục xử lý</th>
+                                        <th>Thời gian cam kết</th>
+                                        <th>Ghi chú vận hành</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Phản hồi tiếp nhận ban đầu</td>
+                                        <td>Tối đa 2 giờ làm việc</td>
+                                        <td>Xác nhận mã hồ sơ, hướng dẫn bổ sung bằng chứng nếu thiếu.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Cửa hàng xác minh và giải trình</td>
+                                        <td>Tối đa 24 giờ làm việc</td>
+                                        <td>Cửa hàng phải phản hồi hoặc cung cấp bằng chứng đối chứng.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>MIO ra kết luận cuối cùng</td>
+                                        <td>Tối đa 72 giờ làm việc</td>
+                                        <td>Áp dụng cho hồ sơ thông thường, không bao gồm vụ việc cần xác minh y tế.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Hoàn tiền về ví điện tử</td>
+                                        <td>1 - 3 giờ</td>
+                                        <td>Phụ thuộc trạng thái xử lý của ví liên kết.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Hoàn tiền về thẻ ATM nội địa</td>
+                                        <td>3 - 7 ngày làm việc</td>
+                                        <td>Phụ thuộc ngân hàng phát hành thẻ.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Hoàn tiền về thẻ quốc tế</td>
+                                        <td>7 - 14 ngày làm việc</td>
+                                        <td>Phụ thuộc tổ chức thẻ và ngân hàng phát hành.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article id="buyer-4" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="umbrella" class="h-4 w-4"></i> Buyer</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 4 (BUYER). BẢO HIỂM MIO COVER</h3>
+                        <p class="mt-4">
+                            Nhằm tối ưu hóa an toàn cho cộng đồng tiêu dùng xanh, MIO triển khai chương trình bảo hiểm an toàn độc quyền FoodSafe Cover cho các đơn hàng có giá trị dưới 200.000đ. Mức hỗ trợ tài chính tối đa là 500.000đ cho mỗi sự cố phát sinh hợp lệ.
+                        </p>
+                        <div class="mt-5 grid gap-5 md:grid-cols-3">
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">4.1. Phạm vi hỗ trợ</h4>
+                                <p class="mt-2">Ngộ độc thực phẩm cấp tính cần điều trị y tế, dị ứng nghiêm trọng do thông tin thành phần nguyên liệu không chính xác, hoặc thiệt hại tài sản trực tiếp do sản phẩm lỗi phát sinh trong quá trình tiêu dùng.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">4.2. Điều kiện</h4>
+                                <ul class="mt-2 list-disc space-y-2 pl-5">
+                                    <li>Yêu cầu trong 7 ngày kể từ sự cố.</li>
+                                    <li>Có xác nhận y tế nếu là ngộ độc hoặc dị ứng.</li>
+                                    <li>Đơn hàng đã thanh toán thành công.</li>
+                                </ul>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">4.3. Quy trình bồi thường</h4>
+                                <ul class="mt-2 list-disc space-y-2 pl-5">
+                                    <li>Khiếu nại trên app và đánh dấu <strong>Yêu cầu FoodSafe Cover</strong>.</li>
+                                    <li>Upload bệnh án, đơn thuốc hoặc hóa đơn y tế.</li>
+                                    <li>Đơn vị bảo hiểm xử lý trong 7 - 14 ngày làm việc.</li>
+                                    <li>Tiền chuyển vào tài khoản ngân hàng đã đăng ký.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article id="buyer-5" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="landmark" class="h-4 w-4"></i> Buyer</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 5 (BUYER). QUY TRÌNH GIẢI QUYẾT TRANH CHẤP PHÁP LÝ</h3>
+                        <div class="relative mt-6 space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-slate-200">
+                            <div class="relative">
+                                <span class="absolute -left-[1.72rem] top-1 h-4 w-4 rounded-full bg-rose-500 ring-4 ring-rose-50"></span>
+                                <h4 class="font-extrabold text-slate-950">Cấp 1 — Trưởng phòng Chăm sóc Khách hàng thẩm định</h4>
+                                <p class="mt-2">Email: complaints-l2@foodsave.vn. Thời gian xử lý: 7 ngày làm việc.</p>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute -left-[1.72rem] top-1 h-4 w-4 rounded-full bg-rose-500 ring-4 ring-rose-50"></span>
+                                <h4 class="font-extrabold text-slate-950">Cấp 2 — Hội đồng Tranh chấp Nội bộ MIO</h4>
+                                <p class="mt-2">Gồm DPO, Giám đốc Pháp chế và đại diện Người dùng. Thời gian xử lý: 14 ngày làm việc.</p>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute -left-[1.72rem] top-1 h-4 w-4 rounded-full bg-slate-900 ring-4 ring-slate-100"></span>
+                                <h4 class="font-extrabold text-slate-950">Cấp 3 — Hòa giải qua cơ quan Quản lý Nhà nước</h4>
+                                <ul class="mt-2 list-disc space-y-2 pl-5">
+                                    <li>Cục Cạnh tranh và Bảo vệ người tiêu dùng: vcca.gov.vn.</li>
+                                    <li>Hội Bảo vệ Người tiêu dùng TP.HCM: 028 3930 1141.</li>
+                                    <li>Tổng đài Quốc gia: 1800 6838.</li>
+                                </ul>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute -left-[1.72rem] top-1 h-4 w-4 rounded-full bg-slate-900 ring-4 ring-slate-100"></span>
+                                <h4 class="font-extrabold text-slate-950">Cấp 4 — Khởi kiện ra Tòa án Dân sự</h4>
+                                <p class="mt-2">Thực hiện theo quy định của Bộ luật Tố tụng Dân sự và pháp luật Việt Nam hiện hành.</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <div class="mb-6 mt-10 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                            <i data-lucide="store" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-rose-500">Phần C</p>
+                            <h3 class="text-2xl font-extrabold text-slate-950">Dành cho Cửa hàng đối tác</h3>
+                        </div>
+                    </div>
+
+                    <article id="Partner-1" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="store" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 1 (Partner). TIÊU CHUẨN THỰC PHẨM & KIỂM SOÁT NHÃN HSD</h3>
+                        <p class="mt-4">
+                            Tất cả cửa hàng phải upload Giấy chứng nhận Vệ sinh An toàn Thực phẩm còn hiệu lực và Giấy đăng ký kinh doanh hoặc Hộ kinh doanh trên hệ thống trước khi được mở bán. Cửa hàng chịu trách nhiệm phân loại chính xác sản phẩm theo ba nhãn hạn dùng độc quyền của MIO.
+                        </p>
+                        <div class="mt-5 grid gap-4 md:grid-cols-3">
+                            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                                <p class="font-extrabold text-emerald-800">Nhãn Xanh</p>
+                                <p class="mt-2 text-emerald-900">Thời hạn sử dụng còn 3-5 ngày. Giảm giá tối thiểu 30% so với giá gốc.</p>
+                            </div>
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                                <p class="font-extrabold text-amber-800">Nhãn Vàng</p>
+                                <p class="mt-2 text-amber-900">Thời hạn sử dụng còn 48h. Giảm giá tối thiểu 50% so với giá gốc.</p>
+                            </div>
+                            <div class="rounded-2xl border border-rose-200 bg-rose-50 p-5">
+                                <p class="font-extrabold text-rose-800">Nhãn Đỏ</p>
+                                <p class="mt-2 text-rose-900">Thời hạn sử dụng còn 24h. Giảm giá tối thiểu 70% hoặc kích hoạt chuyển sang mục Tặng từ thiện khi cửa hàng bật cấu hình.</p>
+                            </div>
+                        </div>
+                        <p class="mt-5">
+                            Nghiêm cấm đăng bán thực phẩm đã quá hạn, ôi thiu, biến chất, có mùi lạ hoặc không rõ nguồn gốc xuất xứ. Vi phạm lần đầu có thể bị khóa tài khoản 14 ngày; tái phạm sẽ bị khóa vĩnh viễn và chuyển hồ sơ cho cơ quan quản lý.
+                        </p>
+                    </article>
+
+                    <article id="Partner-2" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="package-check" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 2 (Partner). QUY TẮC ĐÓNG GÓI & GIAO NHẬN QR</h3>
+                        <p class="mt-4">
+                            Cửa hàng tự chịu chi phí và trách nhiệm đóng gói thực phẩm trong bao bì sạch sẽ, kín đáo, bảo đảm tiêu chuẩn vệ sinh trước khi giao cho khách hàng hoặc tình nguyện viên từ thiện. Sản phẩm tươi sống, sản phẩm chế biến sẵn hoặc sản phẩm cần giữ nhiệt phải được đóng gói phù hợp với đặc tính bảo quản.
+                        </p>
+                        <p class="mt-3">
+                            Cửa hàng chỉ bàn giao hàng khi người dùng hoặc tình nguyện viên xuất trình đúng mã đơn hàng trên ứng dụng hoặc mã QR đối soát. Cửa hàng có quyền từ chối giao hàng nếu thông tin đối soát không trùng khớp.
+                        </p>
+                    </article>
+
+                    <article id="Partner-3" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="banknote" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 3 (Partner). CHIẾT KHẤU & CHU KỲ QUYẾT TOÁN</h3>
+                        <p class="mt-4">
+                            MIO thu phí dịch vụ nền tảng cố định 10% trên tổng giá trị đơn hàng bán ra thành công đối với sản phẩm Nhãn Xanh và Nhãn Vàng. Đối với sản phẩm Nhãn Đỏ được chuyển đổi thành quà tặng cho tổ chức từ thiện, MIO miễn 100% phí dịch vụ.
+                        </p>
+                        <p class="mt-3">
+                            Hệ thống tự động đối soát và chuyển doanh thu sau khi trừ phí dịch vụ về tài khoản ngân hàng đã liên kết của cửa hàng vào Thứ 2 và Thứ 5 hằng tuần. Nếu đơn hàng bị khiếu nại hợp lệ do lỗi của cửa hàng, số tiền hoàn trả sẽ được khấu trừ vào số dư quyết toán của kỳ gần nhất.
+                        </p>
+                    </article>
+
+                    <article id="Partner-4" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="badge-alert" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 4 (Partner). TRÁCH NHIỆM AN TOÀN THỰC PHẨM</h3>
+                        <p class="mt-4">
+                            Cửa hàng đối tác cam kết chịu toàn bộ trách nhiệm trước pháp luật Việt Nam, bao gồm Luật An toàn thực phẩm 2010 và các văn bản hướng dẫn liên quan, đối với chất lượng thực phẩm do mình chế biến, bảo quản, niêm yết và bàn giao.
+                        </p>
+                        <p class="mt-3">
+                            Nếu xảy ra sự cố ngộ độc thực phẩm hoặc thiệt hại trực tiếp cho người tiêu dùng do lỗi chế biến, bảo quản sai quy trình, thông tin hạn sử dụng sai hoặc cảnh báo dị ứng không đầy đủ, cửa hàng có trách nhiệm bồi thường trực tiếp cho người tiêu dùng theo kết luận xử lý của MIO hoặc cơ quan có thẩm quyền.
+                        </p>
+                    </article>
+
+                    <article id="Partner-5" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="messages-square" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 5 (Partner). TIẾP NHẬN KHIẾU NẠI & GIẢI TRÌNH 24H</h3>
+                        <p class="mt-4">
+                            Khi người dùng kích hoạt khiếu nại thuộc nhóm lỗi giao sai, hàng hỏng, hết hạn hoặc không đúng cam kết, hệ thống MIO gửi thông báo thời gian thực kèm mã đơn và bằng chứng ảnh hoặc video lên Dashboard hoặc ứng dụng của cửa hàng.
+                        </p>
+                        <div class="mt-5 grid gap-4 md:grid-cols-3">
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Chấp nhận khiếu nại</h4>
+                                <p class="mt-2">Cửa hàng xác nhận lỗi thuộc về mình. Hệ thống tự động kích hoạt lệnh hoàn tiền cho người mua và đóng ca khiếu nại.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Khiếu nại ngược</h4>
+                                <p class="mt-2">Cửa hàng phải upload ảnh đóng gói tại quầy, camera giám sát hoặc xác nhận từ tài xế, tình nguyện viên tại thời điểm lấy hàng.</p>
+                            </div>
+                            <div class="soft-panel rounded-2xl p-5">
+                                <h4 class="font-extrabold text-slate-950">Quá hạn phản hồi</h4>
+                                <p class="mt-2">Nếu quá 24 giờ làm việc mà cửa hàng không phản hồi hoặc không có bằng chứng hợp lệ, MIO mặc định phán quyết cửa hàng có lỗi và hoàn tiền cho người mua.</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article id="Partner-6" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="wallet-cards" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 6 (Partner). KHẤU TRỪ TÀI CHÍNH VÍ ESCROW</h3>
+                        <p class="mt-4">
+                            Khi đơn hàng được phán quyết hoàn tiền do lỗi của cửa hàng hoặc do tình huống hoàn 50% theo chính sách hủy muộn, số tiền hoàn trả cho người mua được khấu trừ trực tiếp vào Ví tạm giữ Escrow hoặc trừ vào số dư đối soát của kỳ thanh toán gần nhất của cửa hàng.
+                        </p>
+                        <p class="mt-3">
+                            Nếu lỗi hoàn toàn do cửa hàng như giao hàng hỏng, hết hạn, sai món hoặc không đúng mô tả, MIO vẫn giữ 10% phí dịch vụ nền tảng trên đơn hàng như một khoản phí vận hành xử lý sự cố; cửa hàng chịu 100% giá trị đơn hàng và 10% phí dịch vụ. Nếu hoàn tiền do người mua hủy muộn, cửa hàng nhận phần 50% còn lại và MIO chỉ thu 10% phí dịch vụ trên phần cửa hàng thực nhận.
+                        </p>
+                    </article>
+
+                    <article id="Partner-7" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="activity" class="h-4 w-4"></i> Partner</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 7 (Partner). CHỈ SỐ ĐƠN HÀNG LỖI ODR & CHẾ TÀI</h3>
+                        <p class="mt-4">
+                            ODR là tỷ lệ phần trăm số đơn hàng bị người mua khiếu nại hợp lý hoặc bị cửa hàng hủy không có căn cứ trên tổng số đơn hàng phát sinh trong vòng 30 ngày. MIO dùng ODR để đánh giá chất lượng vận hành và mức độ ưu tiên hiển thị của cửa hàng.
+                        </p>
+                        <div class="mt-5 overflow-x-auto">
+                            <table class="policy-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngưỡng ODR</th>
+                                        <th>Đánh giá vận hành</th>
+                                        <th>Biện pháp áp dụng</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>ODR ≤ 2%</td>
+                                        <td>Chuẩn xanh</td>
+                                        <td>Cửa hàng vận hành tốt, được hệ thống ưu tiên đẩy hiển thị ở các khu vực phù hợp.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2% &lt; ODR ≤ 5%</td>
+                                        <td>Cảnh báo vàng</td>
+                                        <td>MIO gửi email nhắc nhở; cửa hàng phải rà soát quy trình kiểm tra HSD và đóng gói.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>ODR &gt; 5%</td>
+                                        <td>Vi phạm nghiêm trọng</td>
+                                        <td>Tạm dừng quyền đăng bán 7 ngày và hạ ẩn sản phẩm khỏi bộ lọc tìm kiếm.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tái phạm ODR &gt; 5% trong 3 tháng liên tiếp</td>
+                                        <td>Rủi ro hệ thống</td>
+                                        <td>Chấm dứt hợp tác, khóa vĩnh viễn tài khoản cửa hàng và hoàn trả số dư còn lại sau khi trừ khoản bồi thường phát sinh nếu có.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <div class="mb-6 mt-10 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                            <i data-lucide="hand-heart" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-rose-500">Phần D</p>
+                            <h3 class="text-2xl font-extrabold text-slate-950">Dành cho Tổ chức từ thiện</h3>
+                        </div>
+                    </div>
+
+                    <article id="charity-1" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="hand-heart" class="h-4 w-4"></i> Charity</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 1 (CHARITY). TIÊU CHUẨN EKYC TỔ CHỨC</h3>
+                        <p class="mt-4">
+                            Tổ chức từ thiện, mái ấm, bếp ăn nhân đạo hoặc nhóm cứu trợ khi tham gia MIO phải hoàn thành luồng eKYC, upload Quyết định thành lập tổ chức hoặc giấy phép hoạt động nhân đạo do cơ quan nhà nước có thẩm quyền cấp.
+                        </p>
+                        <p class="mt-3">
+                            Người đại diện pháp lý hoặc trưởng nhóm tình nguyện viên phải hoàn thành quét CCCD và xác thực khuôn mặt Face Scan để kích hoạt quyền nhận thực phẩm giải cứu trên hệ thống.
+                        </p>
+                    </article>
+
+                    <article id="charity-2" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="gift" class="h-4 w-4"></i> Charity</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 2 (CHARITY). NGUYÊN TẮC TIẾP NHẬN & CAM KẾT 0Đ</h3>
+                        <p class="mt-4">
+                            Toàn bộ thực phẩm cứu trợ nhận từ nền tảng MIO phải được cấp phát trực tiếp, hoàn toàn miễn phí 100% cho cộng đồng người yếu thế, người có hoàn cảnh khó khăn hoặc nhóm thụ hưởng đã đăng ký.
+                        </p>
+                        <p class="mt-3">
+                            Nghiêm cấm tuyệt đối hành vi sang nhượng, bán lại, đổi chác hoặc sử dụng thực phẩm giải cứu vào mục đích thương mại kiếm lời cá nhân. Nếu phát hiện vi phạm, MIO sẽ khóa tài khoản vĩnh viễn và phối hợp với cơ quan Công an xử lý hành vi trục lợi từ thiện.
+                        </p>
+                    </article>
+
+                    <article id="charity-3" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="thermometer" class="h-4 w-4"></i> Charity</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 3 (CHARITY). TRÁCH NHIỆM BẢO QUẢN & MIỄN TRỪ TRÁCH NHIỆM</h3>
+                        <p class="mt-4">
+                            Tổ chức từ thiện và lực lượng tình nguyện viên khi nhận hàng cận hạn, đặc biệt là thực phẩm tươi sống hoặc đồ ăn đã chế biến, bắt buộc phải trang bị thùng giữ nhiệt hoặc thiết bị bảo quản chuyên dụng để hạn chế nhiễm khuẩn trong quá trình di chuyển.
+                        </p>
+                        <p class="mt-3">
+                            Tổ chức từ thiện có trách nhiệm kiểm tra kỹ tình trạng cảm quan thực phẩm tại quầy của cửa hàng trước khi quét mã QR nhận hàng. Sau khi QR được xác nhận thành công, trách nhiệm bảo quản thuộc về phía tổ chức; MIO và cửa hàng đối tác được miễn trừ trách nhiệm liên quan đến hư hỏng hoặc ngộ độc nếu nguyên nhân phát sinh từ khâu lưu trữ, phân phát chậm trễ hoặc sai quy cách của tổ chức từ thiện.
+                        </p>
+                    </article>
+
+                    <article id="charity-4" class="policy-section legal-copy">
+                        <span class="section-kicker"><i data-lucide="file-check-2" class="h-4 w-4"></i> Charity</span>
+                        <h3 class="policy-title mt-4 text-2xl font-extrabold text-slate-950">ĐIỀU 4 (CHARITY). NGHĨA VỤ BÁO CÁO MINH BẠCH</h3>
+                        <p class="mt-4">
+                            Trong vòng 24 giờ sau khi hoàn thành đợt cấp phát thực phẩm, tổ chức từ thiện có nghĩa vụ cập nhật số liệu thực tế gồm số lượng người nhận, số bữa ăn được trao và tối thiểu 2 hình ảnh tư liệu hoạt động lên ứng dụng MIO.
+                        </p>
+                        <p class="mt-3">
+                            Báo cáo này là cơ sở bắt buộc để MIO xuất báo cáo minh bạch gửi đến nhà tài trợ, cửa hàng đóng góp và duy trì hạn ngạch nhận hàng của tổ chức trong các lần tiếp theo.
+                        </p>
+                    </article>
+
+                    <div class="grid gap-6 rounded-3xl bg-slate-950 p-6 text-white md:grid-cols-2 md:p-8">
+                        <div>
+                            <p class="text-sm font-extrabold uppercase tracking-[0.18em] text-rose-200">Đường dây nóng xử lý sự cố khẩn cấp</p>
+                            <p class="mt-3 leading-8 text-slate-300">Dành cho trường hợp ngộ độc thực phẩm, dị ứng nghiêm trọng, giao dịch thanh toán lỗi hoặc sự cố cần khóa khẩn cấp đơn hàng.</p>
+                        </div>
+                        <div class="divide-y divide-white/10 text-sm">
+                            <div class="flex items-center justify-between gap-4 py-3">
+                                <span class="text-slate-300">Hotline Khiếu nại</span>
+                                <strong>1900 1545 - Miễn phí</strong>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 py-3">
+                                <span class="text-slate-300">Email Hỗ trợ</span>
+                                <strong>support@foodsave.vn</strong>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 py-3">
+                                <span class="text-slate-300">Chat Live</span>
+                                <strong>8h00 - 22h00</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="legal-footer">
+        <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+            <a href="index.html" class="legal-brand" aria-label="Về trang chủ MIO">
+                <span class="brand-logo-line">
+                    <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
+                    <span class="brand-dot" aria-hidden="true"></span>
+                </span>
+            </a>
+            <div class="text-left sm:text-right">
+                <p>© 2026 Bản quyền thuộc về Công ty TNHH MIO Việt Nam. Bảo lưu mọi quyền.</p>
+                <p class="mt-2 text-xs">Tài liệu chính sách này có thể được cập nhật để phù hợp với quy định pháp luật và thực tiễn vận hành nền tảng.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+        const navLinks = Array.from(document.querySelectorAll(".nav-link"));
+        const sections = navLinks
+            .map((link) => document.querySelector(link.getAttribute("href")))
+            .filter(Boolean);
+
+        const setActiveLink = (sectionId) => {
+            navLinks.forEach((link) => {
+                const isActive = link.getAttribute("href") === `#${sectionId}`;
+                link.setAttribute("aria-current", isActive ? "true" : "false");
+            });
+        };
+
+        const visibleSections = new Map();
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    visibleSections.set(entry.target.id, entry.intersectionRatio);
+                } else {
+                    visibleSections.delete(entry.target.id);
+                }
+            });
+
+            if (visibleSections.size === 0) {
+                return;
+            }
+
+            const mostVisibleSection = Array.from(visibleSections.entries()).sort((a, b) => b[1] - a[1])[0][0];
+            setActiveLink(mostVisibleSection);
+        }, {
+            root: null,
+            rootMargin: "-22% 0px -58% 0px",
+            threshold: [0.08, 0.18, 0.35, 0.55]
+        });
+
+        sections.forEach((section) => observer.observe(section));
+
+        if (sections.length > 0) {
+            setActiveLink(sections[0].id);
+        }
+    </script>
+</body>
+</html>

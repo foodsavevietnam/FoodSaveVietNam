@@ -8,9 +8,14 @@ export const createContactMessageBodySchema = z.object({
   message: z.string().trim().min(10).max(5000)
 }).strict();
 
-// NOTE: createApplicationBodySchema / public.applications was removed by the 014
-// migration. Becoming a partner or charity now goes through the dedicated
-// registerPartner/registerCharity flow (see authSchemas.ts) instead of a generic
-// "application" form.
+export const createApplicationBodySchema = z.object({
+  type: z.enum(["partner", "charity"]),
+  org_name: z.string().trim().min(2).max(180),
+  contact_name: z.string().trim().min(2).max(140),
+  email: z.string().email(),
+  phone: z.string().trim().min(8).max(30),
+  payload: z.record(z.string(), z.unknown()).default({})
+}).strict();
 
 export type CreateContactMessageBody = z.infer<typeof createContactMessageBodySchema>;
+export type CreateApplicationBody = z.infer<typeof createApplicationBodySchema>;

@@ -4,14 +4,24 @@ import type {
   CreateGalleryItemBody,
   CreateImpactReportBody,
   CreateVolunteerBody,
+  GalleryUploadUrlBody,
   UpdateCharityProfileBody,
+  UpdateBeneficiaryGroupBody,
   UpdateVolunteerBody
 } from "../schemas/charitySchemas";
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
+import { randomUUID } from "crypto";
 import type { UserRole } from "../types/domain";
 import { AppError } from "../utils/appError";
 import { handleSupabaseError, requireRecord, supabaseAdmin } from "./supabaseService";
+
+const assertBeneficiaryGroupOwner = async (groupId: string, actorId: string, actorRole: UserRole): Promise<void> => {
+  const { data, error } = await supabaseAdmin.from("beneficiary_groups").select("charity_id").eq("id", groupId).maybeSingle();
+  if (error) handleSupabaseError(error, "Failed to load beneficiary group");
+  const group = requireRecord(data as { charity_id: string } | null, "Beneficiary group was not found");
+  await assertCharityOwner(group.charity_id, actorId, actorRole);
+};
 
 const assertCharityOwner = async (charityId: string, actorId: string, actorRole: UserRole): Promise<void> => {
   if (actorRole === "admin") return;
@@ -70,6 +80,22 @@ const withAutoImpactMetrics = async (body: CreateImpactReportBody): Promise<Crea
   };
 };
 
+const normalizeVolunteerPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, "");
+  return digits.startsWith("84") && digits.length >= 11 ? "0" + digits.slice(2) : digits;
+};
+
+// Tình nguyện viên đăng nhập bằng số điện thoại nên mỗi số chỉ được dùng cho một người
+const assertVolunteerPhoneAvailable = async (phone: string, excludeId?: string): Promise<void> => {
+  const { data, error } = await supabaseAdmin.from("volunteers").select("id,phone").limit(2000);
+  if (error) handleSupabaseError(error, "Failed to check volunteer phone");
+  const target = normalizeVolunteerPhone(phone);
+  const taken = ((data ?? []) as Array<{ id: string; phone: string }>).some((row) => row.id !== excludeId && normalizeVolunteerPhone(row.phone) === target);
+  if (taken) {
+    throw new AppError("Số điện thoại này đã được đăng ký cho một tình nguyện viên khác", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
+  }
+};
+
 export const charityService = {
   async listMyCharities(ownerId: string): Promise<unknown[]> {
     const { data, error } = await supabaseAdmin
@@ -98,6 +124,13 @@ export const charityService = {
   },
 
   async updateCharityProfile(actorId: string, actorRole: UserRole, charityId: string, body: UpdateCharityProfileBody): Promise<unknown> {
+    if (actorRole !== "admin" && body.status !== undefined) {
+      throw new AppError(
+        "Chỉ quản trị viên được thay đổi trạng thái duyệt của tổ chức.",
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.AUTH_FORBIDDEN,
+      );
+    }
     await assertCharityOwner(charityId, actorId, actorRole);
     const { data, error } = await supabaseAdmin
       .from("charity_profiles")
@@ -124,6 +157,7 @@ export const charityService = {
 
   async createVolunteer(actorId: string, actorRole: UserRole, body: CreateVolunteerBody): Promise<unknown> {
     await assertCharityOwner(body.charity_id, actorId, actorRole);
+    await assertVolunteerPhoneAvailable(body.phone);
     const { data, error } = await supabaseAdmin
       .from("volunteers")
       .insert(body)
@@ -144,6 +178,7 @@ export const charityService = {
     if (loadError) handleSupabaseError(loadError, "Failed to load volunteer");
     const loadedVolunteer = requireRecord(volunteer as { charity_id: string } | null, "Volunteer was not found");
     await assertCharityOwner(loadedVolunteer.charity_id, actorId, actorRole);
+    if (body.phone) await assertVolunteerPhoneAvailable(body.phone, volunteerId);
 
     const { data, error } = await supabaseAdmin
       .from("volunteers")
@@ -166,6 +201,21 @@ export const charityService = {
 
     if (error) handleSupabaseError(error, "Failed to create beneficiary group");
     return data;
+  },
+
+  // Nhóm người hưởng lợi: kiểm tra nhóm thuộc tổ chức của người gọi rồi mới sửa/xóa
+  async updateBeneficiaryGroup(actorId: string, actorRole: UserRole, groupId: string, body: UpdateBeneficiaryGroupBody): Promise<unknown> {
+    await assertBeneficiaryGroupOwner(groupId, actorId, actorRole);
+    const { data, error } = await supabaseAdmin.from("beneficiary_groups").update(body).eq("id", groupId).select("*").single();
+    if (error) handleSupabaseError(error, "Failed to update beneficiary group");
+    return data;
+  },
+
+  async deleteBeneficiaryGroup(actorId: string, actorRole: UserRole, groupId: string): Promise<{ id: string }> {
+    await assertBeneficiaryGroupOwner(groupId, actorId, actorRole);
+    const { error } = await supabaseAdmin.from("beneficiary_groups").delete().eq("id", groupId);
+    if (error) handleSupabaseError(error, "Failed to delete beneficiary group");
+    return { id: groupId };
   },
 
   async listBeneficiaryGroups(actorId: string, actorRole: UserRole, charityId: string): Promise<unknown[]> {
@@ -215,6 +265,19 @@ export const charityService = {
 
     if (error) handleSupabaseError(error, "Failed to create gallery item");
     return data;
+  },
+
+  // Link tạm để trình duyệt của tổ chức tự tải ảnh gallery lên (dùng chung kho "donation-proofs")
+  async createGalleryUploadUrl(actorId: string, actorRole: UserRole, body: GalleryUploadUrlBody): Promise<{ path: string; token: string; signed_url: string; public_url: string }> {
+    await assertCharityOwner(body.charity_id, actorId, actorRole);
+    const extension = ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as Record<string, string>)[body.content_type];
+    const path = "gallery/" + body.charity_id + "/" + randomUUID() + "." + extension;
+    const bucket = supabaseAdmin.storage.from("donation-proofs");
+    const { data, error } = await bucket.createSignedUploadUrl(path);
+    if (error || !data) {
+      throw new AppError("Không tạo được link tải ảnh. Hãy chắc chắn đã chạy file SQL 019.", HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    }
+    return { path, token: data.token, signed_url: data.signedUrl, public_url: bucket.getPublicUrl(path).data.publicUrl };
   },
 
   async listGalleryItems(charityId?: string): Promise<unknown[]> {

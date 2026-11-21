@@ -1,4 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 import { env } from "../config/env";
 import { supabaseAdmin, supabaseAuth } from "../config/supabase";
 import { ERROR_CODES } from "../constants/errors";
@@ -14,12 +15,15 @@ import type {
   PhoneOtpRequestBody,
   PhoneOtpVerifyBody,
   RegisterCharityBody,
+  RegisterCustomerBody,
   RegisterPartnerBody
 } from "../schemas/authSchemas";
 import type { Profile, UserRole } from "../types/domain";
 import { AppError } from "../utils/appError";
 import { logger } from "../utils/logger";
 import { handleSupabaseError } from "./supabaseService";
+import { payoutAccountService } from "./payoutAccountService";
+import { maskAccountNumber, normalizeAccountNumber } from "../utils/payoutCrypto";
 
 type AuthAuditEvent =
   | "REGISTER_SUCCESS"
@@ -44,9 +48,9 @@ interface RequestMeta {
   userAgent: string | null;
 }
 
-// "customer" was removed: no more standalone customer/cart/order role in this project.
-// partner_profiles was merged into public.stores; there is no separate "partner" record anymore.
 interface AuthContext {
+  customer: unknown | null;
+  partner: unknown | null;
   store: unknown | null;
   charity: unknown | null;
 }
@@ -91,7 +95,6 @@ interface OAuthProviderConfig {
   invalidOtpMessage?: string;
   otpSendFailureMessage?: string;
   oauthStartFailureMessage: string;
-  notRegisteredMessage: string;
 }
 
 export interface OAuthStartResult {
@@ -172,6 +175,22 @@ const normalizePhoneForSms = (value: string): string => {
   return `+84${normalized}`;
 };
 
+const slugify = (value: string): string => {
+  const slug = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70);
+
+  return slug.length > 0 ? slug : "foodsave";
+};
+
+const uniqueSlug = (name: string): string => {
+  return `${slugify(name)}-${randomUUID().slice(0, 8)}`;
+};
+
 const compactObject = (value: Record<string, unknown>): Record<string, unknown> => {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ""));
 };
@@ -203,13 +222,12 @@ const oauthProviderConfigs: Record<OAuthProvider, OAuthProviderConfig> = {
       otpFailed: "GOOGLE_OTP_FAILED"
     },
     missingEmailMessage: "Google không trả về Gmail hợp lệ cho tài khoản này",
-    duplicateEmailMessage: "Gmail này đã thuộc một tài khoản FoodSave khác. Vui lòng đăng nhập bằng tài khoản hiện có rồi kết nối Google trong hồ sơ.",
+    duplicateEmailMessage: "Gmail này đã thuộc một tài khoản MIO khác. Vui lòng đăng nhập bằng tài khoản hiện có rồi kết nối Google trong hồ sơ.",
     invalidSessionMessage: "Phiên Google không hợp lệ hoặc đã hết hạn",
     invalidProviderMessage: "Phiên đăng nhập không phải Google",
     invalidOtpMessage: "Mã OTP Google không hợp lệ hoặc đã hết hạn",
     otpSendFailureMessage: "Không thể gửi OTP về Gmail của bạn",
-    oauthStartFailureMessage: "Không thể khởi tạo đăng nhập Google",
-    notRegisteredMessage: "Gmail này chưa được đăng ký làm Đối tác hoặc Tổ chức từ thiện trên FoodSave. Vui lòng đăng ký tài khoản trước."
+    oauthStartFailureMessage: "Không thể khởi tạo đăng nhập Google"
   },
   facebook: {
     provider: "facebook",
@@ -222,11 +240,10 @@ const oauthProviderConfigs: Record<OAuthProvider, OAuthProviderConfig> = {
       oauthFailed: "FACEBOOK_OAUTH_FAILED"
     },
     missingEmailMessage: "Facebook không trả về email cho tài khoản này. Facebook chỉ cung cấp email khi tài khoản có email đã xác minh và bạn cấp quyền email; vui lòng cập nhật email trong Facebook hoặc dùng Google/email mật khẩu.",
-    duplicateEmailMessage: "Email Facebook này đã thuộc một tài khoản FoodSave khác. Vui lòng đăng nhập bằng tài khoản hiện có rồi kết nối Facebook trong hồ sơ.",
+    duplicateEmailMessage: "Email Facebook này đã thuộc một tài khoản MIO khác. Vui lòng đăng nhập bằng tài khoản hiện có rồi kết nối Facebook trong hồ sơ.",
     invalidSessionMessage: "Phiên Facebook không hợp lệ hoặc đã hết hạn",
     invalidProviderMessage: "Phiên đăng nhập không phải Facebook",
-    oauthStartFailureMessage: "Không thể khởi tạo đăng nhập Facebook",
-    notRegisteredMessage: "Tài khoản Facebook này chưa được đăng ký làm Đối tác hoặc Tổ chức từ thiện trên FoodSave. Vui lòng đăng ký tài khoản trước."
+    oauthStartFailureMessage: "Không thể khởi tạo đăng nhập Facebook"
   }
 };
 
@@ -280,29 +297,110 @@ const loadProfile = async (userId: string): Promise<Profile> => {
   return data as Profile;
 };
 
-const loadProfileByIdOrNull = async (userId: string): Promise<Profile | null> => {
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
+const firstRecordByPhone = async (
+  table: "customer_profiles" | "partner_profiles",
+  columns: string,
+  phoneColumns: string[],
+  candidates: string[],
+  fallbackMessage: string
+): Promise<Record<string, unknown> | null> => {
+  for (const column of phoneColumns) {
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select(columns)
+      .in(column, candidates)
+      .limit(1);
 
-  if (error) handleSupabaseError(error, "Failed to load profile");
-  return (data as Profile | null) ?? null;
+    if (error) handleSupabaseError(error, fallbackMessage);
+    const record = (data ?? [])[0] as Record<string, unknown> | undefined;
+    if (record) return record;
+  }
+
+  return null;
+};
+
+const resolveRoleEmailByPhone = async (role: UserRole | undefined, candidates: string[]): Promise<string | null> => {
+  if (role === "customer") {
+    const record = await firstRecordByPhone("customer_profiles", "email", ["phone"], candidates, "Failed to resolve customer login phone");
+    const email = record?.email;
+    return typeof email === "string" && email.length > 0 ? email : null;
+  }
+
+  if (role === "partner") {
+    const record = await firstRecordByPhone(
+      "partner_profiles",
+      "email,admin_email",
+      ["phone", "admin_phone", "public_hotline"],
+      candidates,
+      "Failed to resolve partner login phone"
+    );
+    const email = record?.admin_email ?? record?.email;
+    return typeof email === "string" && email.length > 0 ? email : null;
+  }
+
+  return null;
+};
+
+const loadRoleProfileByPhone = async (role: UserRole | undefined, candidates: string[]): Promise<Profile | null> => {
+  if (role === "customer") {
+    const record = await firstRecordByPhone("customer_profiles", "profile_id", ["phone"], candidates, "Failed to load customer profile by phone");
+    const profileId = record?.profile_id;
+    return typeof profileId === "string" ? loadProfile(profileId) : null;
+  }
+
+  if (role === "partner") {
+    const record = await firstRecordByPhone(
+      "partner_profiles",
+      "profile_id",
+      ["phone", "admin_phone", "public_hotline"],
+      candidates,
+      "Failed to load partner profile by phone"
+    );
+    const profileId = record?.profile_id;
+    return typeof profileId === "string" ? loadProfile(profileId) : null;
+  }
+
+  return null;
 };
 
 const loadContext = async (userId: string, role: UserRole): Promise<AuthContext> => {
   if (role === "partner") {
-    const { data, error } = await supabaseAdmin
-      .from("stores")
-      .select("*")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(1);
+    const [{ data: partner, error: partnerError }, { data: stores, error: storeError }] = await Promise.all([
+      supabaseAdmin
+        .from("partner_profiles")
+        .select("*")
+        .eq("profile_id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("stores")
+        .select("*")
+        .eq("owner_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+    ]);
 
-    if (error) handleSupabaseError(error, "Failed to load partner store context");
+    if (partnerError) handleSupabaseError(partnerError, "Failed to load partner profile context");
+    if (storeError) handleSupabaseError(storeError, "Failed to load partner store context");
     return {
-      store: (data ?? [])[0] ?? null,
+      customer: null,
+      partner: partner ?? null,
+      store: (stores ?? [])[0] ?? null,
+      charity: null
+    };
+  }
+
+  if (role === "customer") {
+    const { data, error } = await supabaseAdmin
+      .from("customer_profiles")
+      .select("*")
+      .eq("profile_id", userId)
+      .maybeSingle();
+
+    if (error) handleSupabaseError(error, "Failed to load customer profile context");
+    return {
+      customer: data ?? null,
+      partner: null,
+      store: null,
       charity: null
     };
   }
@@ -317,12 +415,16 @@ const loadContext = async (userId: string, role: UserRole): Promise<AuthContext>
 
     if (error) handleSupabaseError(error, "Failed to load charity profile context");
     return {
+      customer: null,
+      partner: null,
       store: null,
       charity: (data ?? [])[0] ?? null
     };
   }
 
   return {
+    customer: null,
+    partner: null,
     store: null,
     charity: null
   };
@@ -350,11 +452,14 @@ const buildAuthResult = async (user: User, session: Session): Promise<AuthResult
   };
 };
 
-const resolveEmailFromIdentifier = async (identifier: string): Promise<string> => {
+const resolveEmailFromIdentifier = async (identifier: string, expectedRole?: UserRole): Promise<string> => {
   const trimmed = identifier.trim();
   if (trimmed.includes("@")) return trimmed.toLowerCase();
 
   const candidates = phoneLoginCandidates(trimmed);
+  const roleEmail = await resolveRoleEmailByPhone(expectedRole, candidates);
+  if (roleEmail) return roleEmail.toLowerCase();
+
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("email")
@@ -373,8 +478,10 @@ const resolveEmailFromIdentifier = async (identifier: string): Promise<string> =
   return email;
 };
 
-const loadProfileByPhone = async (phone: string): Promise<Profile> => {
+const loadProfileByPhone = async (phone: string, expectedRole?: UserRole): Promise<Profile> => {
   const candidates = phoneLoginCandidates(phone);
+  const roleProfile = await loadRoleProfileByPhone(expectedRole, candidates);
+  if (roleProfile) return roleProfile;
 
   const { data, error } = await supabaseAdmin
     .from("profiles")
@@ -434,9 +541,7 @@ const createAuthUser = async (
   password: string,
   fullName: string,
   phone: string,
-  // Keys here are read by the public.handle_new_user() trigger (014 migration) to
-  // auto-create the matching pending public.stores / public.charity_profiles row.
-  triggerMetadata: Record<string, unknown>
+  extraMetadata: Record<string, unknown>
 ): Promise<User> => {
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -447,7 +552,8 @@ const createAuthUser = async (
       role,
       full_name: fullName,
       phone,
-      ...triggerMetadata
+      terms_accepted: true,
+      ...extraMetadata
     }
   });
 
@@ -473,16 +579,43 @@ const signInWithEmailPassword = async (email: string, password: string): Promise
   };
 };
 
-// public.profiles only has id/role/email/full_name/phone/status/created_at/updated_at now
-// (014 migration dropped avatar_url/points/rank/auth_provider/last_login_at/
-// terms_accepted_at/marketing_opt_in/metadata). Keep this upsert limited to real columns.
+const updateLastLogin = async (userId: string, role?: UserRole): Promise<void> => {
+  const lastLoginAt = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({ last_login_at: lastLoginAt })
+    .eq("id", userId);
+
+  if (error) handleSupabaseError(error, "Failed to update last login");
+
+  if (role === "customer") {
+    const { error: customerError } = await supabaseAdmin
+      .from("customer_profiles")
+      .update({ last_login_at: lastLoginAt })
+      .eq("profile_id", userId);
+
+    if (customerError) handleSupabaseError(customerError, "Failed to update customer last login");
+  }
+
+  if (role === "partner") {
+    const { error: partnerError } = await supabaseAdmin
+      .from("partner_profiles")
+      .update({ last_login_at: lastLoginAt })
+      .eq("profile_id", userId);
+
+    if (partnerError) handleSupabaseError(partnerError, "Failed to update partner last login");
+  }
+};
+
 const upsertProfile = async (
   userId: string,
   role: UserRole,
   email: string,
   fullName: string,
   phone: string,
-  status: "active" | "pending"
+  status: "active" | "pending",
+  metadata: Record<string, unknown>,
+  marketingOptIn = false
 ): Promise<void> => {
   const { error } = await supabaseAdmin.from("profiles").upsert({
     id: userId,
@@ -490,10 +623,34 @@ const upsertProfile = async (
     email,
     full_name: fullName,
     phone,
-    status
+    status,
+    marketing_opt_in: marketingOptIn,
+    terms_accepted_at: new Date().toISOString(),
+    metadata
   });
 
   if (error) handleSupabaseError(error, "Failed to upsert auth profile");
+};
+
+const upsertCustomerProfile = async (userId: string, body: RegisterCustomerBody, phone: string): Promise<void> => {
+  const { error } = await supabaseAdmin
+    .from("customer_profiles")
+    .upsert({
+      profile_id: userId,
+      email: body.email,
+      phone,
+      display_name: body.full_name,
+      date_of_birth: body.date_of_birth ?? null,
+      gender: body.gender ?? null,
+      referral_code: body.referral_code ?? null,
+      marketing_opt_in: body.marketing_opt_in,
+      metadata: compactObject({
+        registration_source: "FOODSAVE_USER.html",
+        terms_accepted: body.terms_accepted
+      })
+    }, { onConflict: "profile_id" });
+
+  if (error) handleSupabaseError(error, "Failed to upsert customer profile");
 };
 
 const partnerOpeningHoursText = (schedule: RegisterPartnerBody["opening_schedule"]): string => {
@@ -502,6 +659,88 @@ const partnerOpeningHoursText = (schedule: RegisterPartnerBody["opening_schedule
     .map((item) => `${item.day} ${item.from}-${item.to}`);
 
   return openSlots.length > 0 ? openSlots.join("; ") : "08:00-22:00";
+};
+
+const partnerAutomationDefaults = (automation: RegisterPartnerBody["automation"]): Record<string, boolean> => {
+  const values: Record<string, boolean> = {
+    dynamicPricing: automation?.dynamicPricing ?? true,
+    charityTransfer: automation?.charityTransfer ?? true
+  };
+
+  Object.entries(automation ?? {}).forEach(([key, value]) => {
+    if (typeof value === "boolean") values[key] = value;
+  });
+
+  return values;
+};
+
+/**
+ * Số tài khoản đầy đủ KHÔNG được lưu trong hồ sơ cửa hàng / đơn đăng ký. Mã hóa vào store_payout_accounts (chờ admin xác minh);
+ * hồ sơ chỉ giữ dạng che (4 số cuối). Thiếu khóa mã hóa thì đăng ký vẫn thành công, cửa hàng thêm tài khoản sau trong mục Ví.
+ */
+const capturePayoutAccount = async (storeId: string, body: RegisterPartnerBody): Promise<string | null> => {
+  const raw = body.bank_account_number;
+  if (!raw) return null;
+  const digits = normalizeAccountNumber(raw);
+  if (!digits) return maskAccountNumber(String(raw).replace(/\D/g, ""));
+  if (body.bank_name && body.bank_account_holder) {
+    try {
+      await payoutAccountService.submit(storeId, { bank_name: body.bank_name, account_holder_name: body.bank_account_holder, account_number: digits });
+    } catch (error) {
+      logger.warn("Chưa lưu được tài khoản nhận tiền khi đăng ký (cửa hàng sẽ thêm lại trong mục Ví)", error instanceof Error ? error.message : error);
+    }
+  }
+  return maskAccountNumber(digits);
+};
+
+const upsertPartnerProfile = async (
+  userId: string,
+  storeId: string,
+  body: RegisterPartnerBody,
+  phone: string
+): Promise<string | null> => {
+  const maskedAccount = await capturePayoutAccount(storeId, body);
+  const adminPhone = normalizePhone(body.admin_phone ?? body.phone);
+  const publicHotline = body.public_hotline ? normalizePhone(body.public_hotline) : adminPhone;
+  const { error } = await supabaseAdmin
+    .from("partner_profiles")
+    .upsert({
+      profile_id: userId,
+      store_id: storeId,
+      email: body.email,
+      phone,
+      representative_name: body.representative_name,
+      representative_title: body.representative_title ?? null,
+      cccd_number: body.cccd_number ?? null,
+      legal_name: body.legal_name ?? null,
+      tax_code: body.tax_code ?? null,
+      business_license_number: body.business_license_number ?? null,
+      business_type: body.business_type,
+      public_hotline: publicHotline,
+      admin_email: body.admin_email ?? body.email,
+      admin_phone: adminPhone,
+      bank_name: body.bank_name ?? null,
+      bank_account_number: maskedAccount,
+      bank_account_holder: body.bank_account_holder ?? null,
+      documents: body.documents ?? {},
+      opening_schedule: body.opening_schedule ?? [],
+      automation: partnerAutomationDefaults(body.automation),
+      onboarding_status: "pending",
+      terms_accepted_at: new Date().toISOString(),
+      metadata: compactObject({
+        registration_source: "FOODSAVE_PARTNER.html",
+        description: body.description,
+        hashtags: body.hashtags,
+        address: body.address,
+        district: body.district,
+        city: body.city,
+        latitude: body.latitude,
+        longitude: body.longitude
+      })
+    }, { onConflict: "profile_id" });
+
+  if (error) handleSupabaseError(error, "Failed to upsert partner profile");
+  return maskedAccount;
 };
 
 const deleteCreatedUser = async (userId: string | null): Promise<void> => {
@@ -513,24 +752,6 @@ const deleteCreatedUser = async (userId: string | null): Promise<void> => {
   }
 };
 
-// public.handle_new_user() (014 migration) already inserts a pending stores/charity_profiles
-// row synchronously as part of the same auth.users insert transaction, so by the time
-// admin.createUser() resolves the row should already exist. Poll briefly to be safe against
-// any trigger scheduling lag instead of assuming it is instantly visible.
-const waitForTriggerRow = async <T>(
-  loader: () => Promise<T | null>,
-  notFoundMessage: string
-): Promise<T> => {
-  const attempts = 5;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const row = await loader();
-    if (row) return row;
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-
-  throw new AppError(notFoundMessage, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
-};
-
 const ensureOAuthProfile = async (user: User, oauthProvider: OAuthProvider, requireEmail = true): Promise<Profile> => {
   const config = oauthProviderConfigs[oauthProvider];
   const email = user.email?.trim().toLowerCase() || null;
@@ -539,15 +760,7 @@ const ensureOAuthProfile = async (user: User, oauthProvider: OAuthProvider, requ
     throw new AppError(config.missingEmailMessage, HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
 
-  // There is no more self-serve "customer" role to fall back to, so Google/Facebook can only
-  // be used as an alternate sign-in method for an account that already registered as
-  // partner/charity/admin through the normal register endpoints — it can no longer create one.
-  const existing = await loadProfileByIdOrNull(user.id);
-  if (!existing) {
-    throw new AppError(config.notRegisteredMessage, HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
-  }
-
-  if (email && email !== existing.email) {
+  if (email) {
     const { data: emailOwner, error: emailOwnerError } = await supabaseAdmin
       .from("profiles")
       .select("id")
@@ -562,15 +775,56 @@ const ensureOAuthProfile = async (user: User, oauthProvider: OAuthProvider, requ
   }
 
   const userMetadata = user.user_metadata as Record<string, unknown>;
-  const fullName = metadataText(userMetadata, "full_name", "name");
-  const updatePayload = compactObject({
-    email: email && email !== existing.email ? email : undefined,
-    full_name: !existing.full_name && fullName ? fullName : undefined
+  const fullName = metadataText(userMetadata, "full_name", "name") ?? email?.split("@")[0] ?? `${config.label} user`;
+  const avatarUrl = metadataText(userMetadata, "avatar_url", "picture");
+  const providerMetadata = compactObject({
+    auth_provider: oauthProvider,
+    [`${oauthProvider}_email`]: email,
+    [`${oauthProvider}_full_name`]: fullName,
+    [`${oauthProvider}_avatar_url`]: avatarUrl,
+    [`${oauthProvider}_email_verified`]: user.email_confirmed_at ? true : userMetadata.email_verified === true ? true : undefined
   });
 
-  if (Object.keys(updatePayload).length === 0) {
-    return existing;
+  const { data: existing, error: loadError } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (loadError) handleSupabaseError(loadError, `Failed to load ${oauthProvider} profile`);
+
+  if (!existing) {
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        id: user.id,
+        role: "customer",
+        email,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+        status: "active",
+        auth_provider: oauthProvider,
+        metadata: providerMetadata
+      })
+      .select("*")
+      .single();
+
+    if (insertError) handleSupabaseError(insertError, `Failed to create ${oauthProvider} profile`);
+    return inserted as Profile;
   }
+
+  const existingProfile = existing as Profile;
+  const updatePayload: Record<string, unknown> = {
+    auth_provider: oauthProvider,
+    metadata: {
+      ...(existingProfile.metadata ?? {}),
+      ...providerMetadata
+    }
+  };
+
+  if (email) updatePayload.email = email;
+  if (!existingProfile.full_name) updatePayload.full_name = fullName;
+  if (!existingProfile.avatar_url && avatarUrl) updatePayload.avatar_url = avatarUrl;
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("profiles")
@@ -596,6 +850,7 @@ const createOAuthOtpChallenge = async (
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + env.GOOGLE_OTP_EXPIRES_SECONDS * 1000).toISOString();
+  const challengeId = randomUUID();
 
   const { error: cleanupError } = await supabaseAdmin
     .from("auth_google_otp_challenges")
@@ -606,25 +861,22 @@ const createOAuthOtpChallenge = async (
     logger.warn("Không thể dọn Google OTP challenge hết hạn", cleanupError);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("auth_google_otp_challenges")
-    .insert({
-      user_id: userId,
-      email,
-      expected_role: expectedRole ?? null,
-      expires_at: expiresAt,
-      metadata: compactObject({
-        ip_address: meta.ipAddress,
-        user_agent: meta.userAgent
-      })
+  const { error } = await supabaseAdmin.from("auth_google_otp_challenges").insert({
+    id: challengeId,
+    user_id: userId,
+    email,
+    expected_role: expectedRole ?? null,
+    expires_at: expiresAt,
+    metadata: compactObject({
+      ip_address: meta.ipAddress,
+      user_agent: meta.userAgent
     })
-    .select("id")
-    .single();
+  });
 
-  if (error || !data) handleSupabaseError(error!, "Failed to create Google OTP challenge");
+  if (error) handleSupabaseError(error, "Failed to create Google OTP challenge");
 
   return {
-    challengeId: (data as { id: string }).id,
+    challengeId,
     expiresAt
   };
 };
@@ -856,6 +1108,7 @@ const verifyOAuthOtp = async (
 
   if (challengeError) handleSupabaseError(challengeError, `Failed to verify ${oauthProvider} OTP challenge`);
 
+  await updateLastLogin(data.user.id, profile.role);
   await writeAuditLog(otpVerifiedEvent, data.user.id, profile.role, meta, {
     provider: oauthProvider,
     challenge_id: challenge.id,
@@ -920,6 +1173,7 @@ const completeFacebookOAuthCallback = async (body: FacebookOAuthCallbackBody, me
     throw new AppError("Tài khoản đã bị tạm khóa", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
   }
 
+  await updateLastLogin(data.user.id, profile.role);
   await writeAuditLog("FACEBOOK_OAUTH_COMPLETED", data.user.id, profile.role, meta, {
     provider: "facebook",
     email: data.user.email ?? null,
@@ -934,7 +1188,7 @@ const completeFacebookOAuthCallback = async (body: FacebookOAuthCallbackBody, me
 };
 
 const requestPhoneOtp = async (body: PhoneOtpRequestBody, meta: RequestMeta): Promise<PhoneOtpSentResult> => {
-  const profile = await loadProfileByPhone(body.phone);
+  const profile = await loadProfileByPhone(body.phone, body.expected_role);
   const smsPhone = normalizePhoneForSms(profile.phone ?? body.phone);
 
   await assertProfileCanLoginWithPhoneOtp(profile, body.expected_role, meta, {
@@ -977,7 +1231,7 @@ const requestPhoneOtp = async (body: PhoneOtpRequestBody, meta: RequestMeta): Pr
 };
 
 const verifyPhoneOtp = async (body: PhoneOtpVerifyBody, meta: RequestMeta): Promise<AuthResult> => {
-  const profile = await loadProfileByPhone(body.phone);
+  const profile = await loadProfileByPhone(body.phone, body.expected_role);
   const smsPhone = normalizePhoneForSms(profile.phone ?? body.phone);
 
   await assertProfileCanLoginWithPhoneOtp(profile, body.expected_role, meta, {
@@ -1009,6 +1263,7 @@ const verifyPhoneOtp = async (body: PhoneOtpVerifyBody, meta: RequestMeta): Prom
     throw authError("Mã OTP SMS không hợp lệ hoặc đã hết hạn");
   }
 
+  await updateLastLogin(data.user.id, profile.role);
   await writeAuditLog("PHONE_OTP_VERIFIED", data.user.id, profile.role, meta, {
     phone: smsPhone,
     expected_role: body.expected_role ?? null
@@ -1022,84 +1277,145 @@ const verifyPhoneOtp = async (body: PhoneOtpVerifyBody, meta: RequestMeta): Prom
 };
 
 export const authService = {
+  async registerCustomer(body: RegisterCustomerBody, meta: RequestMeta): Promise<AuthResult> {
+    let createdUserId: string | null = null;
+    const phone = normalizePhone(body.phone);
+
+    try {
+      const user = await createAuthUser("customer", body.email, body.password, body.full_name, phone, {
+        marketing_opt_in: body.marketing_opt_in
+      });
+      createdUserId = user.id;
+
+      await upsertProfile(user.id, "customer", body.email, body.full_name, phone, "active", compactObject({
+        date_of_birth: body.date_of_birth,
+        gender: body.gender,
+        referral_code: body.referral_code,
+        registration_source: "FOODSAVE_USER.html"
+      }), body.marketing_opt_in);
+      await upsertCustomerProfile(user.id, body, phone);
+
+      await writeAuditLog("REGISTER_SUCCESS", user.id, "customer", meta, { channel: "customer" });
+
+      return authService.login({
+        identifier: body.email,
+        password: body.password,
+        expected_role: "customer"
+      }, meta);
+    } catch (error) {
+      await deleteCreatedUser(createdUserId);
+      throw error;
+    }
+  },
+
   async registerPartner(body: RegisterPartnerBody, meta: RequestMeta): Promise<AuthResult> {
     let createdUserId: string | null = null;
     const phone = normalizePhone(body.phone);
     const adminPhone = normalizePhone(body.admin_phone ?? body.phone);
     const publicHotline = body.public_hotline ? normalizePhone(body.public_hotline) : adminPhone;
-    const publicEmail = body.admin_email ?? body.email;
 
     try {
-      // Trigger metadata: read by public.handle_new_user() to auto-create a pending
-      // public.stores row in the same transaction as the auth user insert.
       const user = await createAuthUser("partner", body.email, body.password, body.representative_name, phone, {
+        business_type: body.business_type,
         store_name: body.store_name,
-        org_name: body.store_name,
         legal_name: body.legal_name,
         tax_code: body.tax_code,
-        business_license_number: body.business_license_number,
-        business_type: body.business_type,
-        cccd_number: body.cccd_number,
-        public_email: publicEmail,
-        public_hotline: publicHotline,
-        street: body.street,
-        ward: body.ward,
-        city: body.city
+        admin_email: body.admin_email ?? body.email,
+        admin_phone: adminPhone
       });
       createdUserId = user.id;
 
-      await upsertProfile(user.id, "partner", body.email, body.representative_name, phone, "pending");
+      await upsertProfile(user.id, "partner", body.email, body.representative_name, phone, "pending", compactObject({
+        registration_source: "FOODSAVE_PARTNER.html",
+        business_type: body.business_type,
+        store_name: body.store_name,
+        legal_name: body.legal_name,
+        tax_code: body.tax_code,
+        business_license_number: body.business_license_number,
+        cccd_number: body.cccd_number,
+        representative_title: body.representative_title,
+        admin_email: body.admin_email ?? body.email,
+        admin_phone: adminPhone,
+        public_hotline: publicHotline
+      }));
 
-      const store = await waitForTriggerRow(async () => {
-        const { data, error } = await supabaseAdmin
-          .from("stores")
-          .select("id")
-          .eq("owner_id", user.id)
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) handleSupabaseError(error, "Failed to load auto-created store");
-        return (data as { id: string } | null) ?? null;
-      }, "Không tìm thấy hồ sơ cửa hàng được tạo tự động");
-
-      const { error: storeUpdateError } = await supabaseAdmin
+      const { data: store, error: storeError } = await supabaseAdmin
         .from("stores")
-        .update(compactObject({
+        .insert({
+          owner_id: user.id,
           name: body.store_name,
-          legal_name: body.legal_name ?? null,
-          tax_code: body.tax_code ?? null,
-          business_license_number: body.business_license_number ?? null,
-          business_type: body.business_type,
-          cccd_number: body.cccd_number ?? null,
+          slug: uniqueSlug(body.store_name),
           description: body.description ?? null,
           hashtags: body.hashtags ?? [],
-          public_email: publicEmail,
           public_hotline: publicHotline,
-          street: body.street,
-          ward: body.ward ?? null,
+          legal_name: body.legal_name ?? null,
+          tax_code: body.tax_code ?? null,
+          address: body.address,
+          district: body.district ?? null,
           city: body.city,
           latitude: body.latitude ?? null,
           longitude: body.longitude ?? null,
-          avatar_url: body.avatar_url ?? null,
-          cover_url: body.cover_url ?? null,
-          cccd_front_url: body.cccd_front_url ?? null,
-          cccd_back_url: body.cccd_back_url ?? null,
-          business_license_url: body.business_license_url ?? null,
-          food_safety_certificate_url: body.food_safety_certificate_url ?? null,
+          status: "pending",
+          onboarding_status: "pending",
+          service_tier: "Starter",
           opening_hours: partnerOpeningHoursText(body.opening_schedule)
-        }))
-        .eq("id", store.id);
+        })
+        .select("*")
+        .single();
 
-      if (storeUpdateError) handleSupabaseError(storeUpdateError, "Failed to update partner store");
+      if (storeError) handleSupabaseError(storeError, "Failed to create partner store");
+      if (!store) {
+        throw new AppError("Không thể tạo hồ sơ cửa hàng", HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+      }
+
+      const storeId = (store as { id: string }).id;
+      const maskedAccount = await upsertPartnerProfile(user.id, storeId, body, phone);
 
       const { error: reputationError } = await supabaseAdmin.from("seller_reputation").insert({
-        seller_id: store.id
+        seller_id: storeId
       });
 
       if (reputationError) handleSupabaseError(reputationError, "Failed to create seller reputation");
 
-      await writeAuditLog("REGISTER_SUCCESS", user.id, "partner", meta, { channel: "partner", store_id: store.id });
+      const { error: applicationError } = await supabaseAdmin.from("applications").insert({
+        user_id: user.id,
+        type: "partner",
+        org_name: body.store_name,
+        contact_name: body.representative_name,
+        email: body.email,
+        phone,
+        status: "pending",
+        payload: compactObject({
+          store_id: storeId,
+          business_type: body.business_type,
+          legal_name: body.legal_name,
+          description: body.description,
+          hashtags: body.hashtags,
+          address: body.address,
+          district: body.district,
+          city: body.city,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          representative_name: body.representative_name,
+          representative_title: body.representative_title,
+          cccd_number: body.cccd_number,
+          business_license_number: body.business_license_number,
+          tax_code: body.tax_code,
+          public_hotline: publicHotline,
+          admin_email: body.admin_email ?? body.email,
+          admin_phone: adminPhone,
+          bank_name: body.bank_name,
+          bank_account_number: maskedAccount ?? undefined,
+          bank_account_holder: body.bank_account_holder,
+          documents: body.documents,
+          opening_schedule: body.opening_schedule,
+          automation: partnerAutomationDefaults(body.automation)
+        })
+      });
+
+      if (applicationError) handleSupabaseError(applicationError, "Failed to create partner application");
+
+      await writeAuditLog("REGISTER_SUCCESS", user.id, "partner", meta, { channel: "partner", store_id: storeId });
 
       return authService.login({
         identifier: body.email,
@@ -1117,53 +1433,66 @@ export const authService = {
     const phone = normalizePhone(body.phone);
 
     try {
-      // Trigger metadata: read by public.handle_new_user() to auto-create a pending
-      // public.charity_profiles row in the same transaction as the auth user insert.
       const user = await createAuthUser("charity", body.email, body.password, body.representative_name, phone, {
-        charity_name: body.organization_name,
-        org_name: body.organization_name,
-        legal_name: body.legal_name,
-        public_email: body.email,
-        public_hotline: phone,
-        street: body.street,
-        ward: body.ward,
-        city: body.city
+        organization_type: body.organization_type,
+        organization_name: body.organization_name
       });
       createdUserId = user.id;
 
-      await upsertProfile(user.id, "charity", body.email, body.representative_name, phone, "pending");
+      await upsertProfile(user.id, "charity", body.email, body.representative_name, phone, "pending", compactObject({
+        registration_source: "FOODSAVE_CHARITY.html",
+        organization_type: body.organization_type,
+        organization_name: body.organization_name,
+        representative_title: body.representative_title
+      }));
 
-      const charity = await waitForTriggerRow(async () => {
-        const { data, error } = await supabaseAdmin
-          .from("charity_profiles")
-          .select("id")
-          .eq("owner_id", user.id)
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) handleSupabaseError(error, "Failed to load auto-created charity profile");
-        return (data as { id: string } | null) ?? null;
-      }, "Không tìm thấy hồ sơ tổ chức từ thiện được tạo tự động");
-
-      const { error: charityUpdateError } = await supabaseAdmin
+      const { data: charity, error: charityError } = await supabaseAdmin
         .from("charity_profiles")
-        .update(compactObject({
+        .insert({
+          owner_id: user.id,
           name: body.organization_name,
-          legal_name: body.legal_name ?? null,
-          representative_title: body.representative_title ?? null,
-          public_email: body.email,
-          public_hotline: phone,
-          street: body.street,
-          ward: body.ward ?? null,
+          slug: uniqueSlug(body.organization_name),
+          phone,
+          email: body.email,
+          address: body.address,
+          district: body.district ?? null,
           city: body.city,
-          beneficiaries_count: body.beneficiaries_count
-        }))
-        .eq("id", charity.id);
+          beneficiaries_count: body.beneficiaries_count,
+          status: "pending"
+        })
+        .select("*")
+        .single();
 
-      if (charityUpdateError) handleSupabaseError(charityUpdateError, "Failed to update charity profile");
+      if (charityError) handleSupabaseError(charityError, "Failed to create charity profile");
+      if (!charity) {
+        throw new AppError("Không thể tạo hồ sơ tổ chức từ thiện", HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+      }
 
-      await writeAuditLog("REGISTER_SUCCESS", user.id, "charity", meta, { channel: "charity", charity_id: charity.id });
+      const { error: applicationError } = await supabaseAdmin.from("applications").insert({
+        user_id: user.id,
+        type: "charity",
+        org_name: body.organization_name,
+        contact_name: body.representative_name,
+        email: body.email,
+        phone,
+        status: "pending",
+        payload: compactObject({
+          charity_id: (charity as { id: string }).id,
+          organization_type: body.organization_type,
+          representative_title: body.representative_title,
+          beneficiaries_count: body.beneficiaries_count,
+          meals_per_day: body.meals_per_day,
+          volunteer_count: body.volunteer_count,
+          service_radius_km: body.service_radius_km,
+          address: body.address,
+          district: body.district,
+          city: body.city
+        })
+      });
+
+      if (applicationError) handleSupabaseError(applicationError, "Failed to create charity application");
+
+      await writeAuditLog("REGISTER_SUCCESS", user.id, "charity", meta, { channel: "charity", charity_id: (charity as { id: string }).id });
 
       return authService.login({
         identifier: body.email,
@@ -1209,7 +1538,7 @@ export const authService = {
     let failureAudited = false;
 
     try {
-      resolvedEmail = await resolveEmailFromIdentifier(body.identifier);
+      resolvedEmail = await resolveEmailFromIdentifier(body.identifier, body.expected_role);
       const { user, session } = await signInWithEmailPassword(resolvedEmail, body.password);
       const profile = await loadProfile(user.id);
 
@@ -1228,6 +1557,7 @@ export const authService = {
         throw new AppError("Tài khoản đã bị tạm khóa", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
       }
 
+      await updateLastLogin(user.id, profile.role);
       await writeAuditLog("LOGIN_SUCCESS", user.id, profile.role, meta, { expected_role: body.expected_role ?? null });
 
       return buildAuthResult(user, session);

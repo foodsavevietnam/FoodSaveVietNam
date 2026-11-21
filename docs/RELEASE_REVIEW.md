@@ -24,6 +24,14 @@ Chromium: 13 trang HTML trên viewport 390 và 1440, không lỗi JavaScript ho�
 
 `npm audit` sau nâng cấp báo 0 vulnerabilities.
 
+## Triển khai công khai
+
+Mã đã được push vào nhánh `main` của `foodsavevietnam/FoodSaveVietNam`. Site Netlify gắn với repo là `makeitorganized.netlify.app`.
+
+Lần build đầu thiếu TypeScript vì `NODE_ENV=production` bỏ qua devDependencies; đã thêm `NPM_FLAGS=--include=dev` vào cấu hình build và xác nhận Netlify publish thành công. 58 kiểm thử hồi quy đạt trên gói release; 26 lượt kiểm tra Chromium công khai đạt cho 13 trang ở viewport 390/1440. API và luồng ghi Postgres → Realtime → đọc API của Neon đã qua E2E trên site công khai.
+
+Theo lựa chọn của chủ dự án, cấu hình Supabase trên Netlify dùng bộ cấu hình đang hoạt động trong thư mục MIO, thay cho project cũ không truy cập được. Giá trị bí mật chỉ được cập nhật qua môi trường Netlify, không đưa vào Git. Cấu hình Neon được giữ nguyên.
+
 ## Phần cần chủ dự án xác minh trước khi vận hành dữ liệu thật
 
 - Chính sách RLS/trigger đang áp dụng trên Supabase cần đối chiếu migration `database/Admin/014_admin_login_security.sql` và `database/User/038_api_write_hardening.sql`. File 038 được chuẩn bị nhưng **chưa áp dụng lên database**. Lần kiểm tra kết nối PostgreSQL Supabase trực tiếp bị từ chối; API Supabase vẫn đọc được danh mục.

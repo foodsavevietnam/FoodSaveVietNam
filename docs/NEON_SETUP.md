@@ -62,4 +62,4 @@ Danh sách allowed origins của Realtime nằm trong `neon.ts`. Khi đổi tên
 - PostgreSQL trực tiếp cũ của Supabase chưa kết nối được từ máy kiểm thử; backend dùng fallback hiện có cho tính điểm uy tín. Điều này không phải kết nối Neon.
 - MoMo và chi trả ngân hàng tự động vẫn cần hoàn thiện như trước.
 - Không kiểm thử đăng nhập bằng tài khoản người thật hoặc thanh toán thật trong lần thiết lập này.
-- `npm audit` báo 3 vấn đề trong dependency hiện có (1 moderate, 2 high). Một bản sửa yêu cầu nâng Zod sang major mới; chưa áp dụng thay đổi phá vỡ tương thích trong lần tích hợp này.
+- Các cảnh báo dependency ban đầu đã được xử lý, gồm nâng Zod 4 và bổ sung kiểm thử tương thích; `npm audit` hiện báo 0 vulnerabilities.

@@ -32,6 +32,8 @@ Lần build đầu thiếu TypeScript vì `NODE_ENV=production` bỏ qua devDepe
 
 Theo lựa chọn của chủ dự án, cấu hình Supabase trên Netlify dùng bộ cấu hình đang hoạt động trong thư mục MIO, thay cho project cũ không truy cập được. Giá trị bí mật chỉ được cập nhật qua môi trường Netlify, không đưa vào Git. Cấu hình Neon được giữ nguyên.
 
+Sau khi deploy lại với cấu hình đã chọn: health, danh sách sản phẩm, cửa hàng và hoạt động đều trả HTTP 200; route hồ sơ thiếu đăng nhập trả 401, JSON không hợp lệ trả 400. Kiểm thử Neon E2E trên site công khai tiếp tục đạt và dọn bản ghi thử thành công.
+
 ## Phần cần chủ dự án xác minh trước khi vận hành dữ liệu thật
 
 - Chính sách RLS/trigger đang áp dụng trên Supabase cần đối chiếu migration `database/Admin/014_admin_login_security.sql` và `database/User/038_api_write_hardening.sql`. File 038 được chuẩn bị nhưng **chưa áp dụng lên database**. Lần kiểm tra kết nối PostgreSQL Supabase trực tiếp bị từ chối; API Supabase vẫn đọc được danh mục.

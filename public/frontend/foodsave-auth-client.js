@@ -11,8 +11,8 @@
   // Nay mỗi trang lưu riêng: foodsave.auth.session.customer / .partner / .charity
   const LEGACY_AUTH_STORAGE_KEY = "foodsave.auth.session";
   const PHONE_OTP_STORAGE_KEY = "foodsave.auth.phoneOtp";
-  const SUPABASE_URL = "https://uqyqayrwhcicuctfnwix.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_tUk1J3EpJfW4h9SkPDg_hg_FAJPOUuX";
+  const SUPABASE_URL = "https://idhpydhlgnxjjtyrgfkj.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf";
   let oauthNoticeTimer = 0;
   let customerLoginPending = false;
   let customerRegisterPending = false;

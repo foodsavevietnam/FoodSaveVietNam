@@ -9,6 +9,8 @@ import { distanceKmBetween, isValidCoordinates } from "../utils/geoDistance";
 import { handleSupabaseError, requireRecord, supabaseAdmin } from "./supabaseService";
 import { createNotification } from "./notificationService";
 import { pushService } from "./pushService";
+import { locationService } from "./locationService";
+import { logger } from "../utils/logger";
 
 // Đội TNV nhiều người cho mỗi lô + ảnh minh chứng do TNV chụp (tổ chức duyệt, quá hạn tự gửi sang cửa hàng)
 
@@ -444,6 +446,15 @@ export const teamService = {
       .eq("volunteer_id", volunteerId)
       .eq("stage", stage);
     if (error) handleSupabaseError(error, "Failed to complete stage");
+
+    // TNV không còn phần việc nào đang mở → dừng chia sẻ vị trí (không để lỗi này chặn luồng bàn giao)
+    try {
+      const { data: openRows, error: openError } = await supabaseAdmin.from("donation_assignments").select("id").eq("volunteer_id", volunteerId).is("done_at", null);
+      if (openError) throw openError;
+      if ((openRows ?? []).length === 0) await locationService.clear({ kind: "volunteer", id: volunteerId });
+    } catch (clearError) {
+      logger.warn("Không xóa được vị trí TNV sau khi xong phần việc", { volunteerId, error: clearError });
+    }
 
     const { data: volunteer } = await supabaseAdmin.from("volunteers").select("full_name").eq("id", volunteerId).maybeSingle();
     const name = (volunteer as { full_name: string } | null)?.full_name ?? "TNV";

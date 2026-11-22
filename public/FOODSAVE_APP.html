@@ -180,6 +180,7 @@ label.l{display:block;font-size:11px;font-weight:800;text-transform:uppercase;co
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
+<link rel="stylesheet" href="/frontend/foodsave-location.css?v=20261122a">
 </head>
 <body>
 <div id="view"></div>
@@ -329,7 +330,8 @@ window.foodsaveAfterProductsReplace = function () {
   else probeNet();
   softRefresh();
 };
-window.foodsaveAfterOrdersReplace = function () { S.authedData = true; softRefresh(); };
+/* tải đơn lỗi (danh sách rỗng giả) thì giữ nguyên trạng thái theo dõi, không dừng nhầm */
+window.foodsaveAfterOrdersReplace = function () { S.authedData = true; if (!(window.FS && FS.sync && typeof FS.sync.ordersLoadFailed === 'function' && FS.sync.ordersLoadFailed())) syncLocationTask(); softRefresh(); };
 window.foodsaveAfterNotifsReplace = function () { onNotifs(); softRefresh(); };
 let _probing = false;
 function probeNet() {   // Danh sách rỗng: do chưa có hàng hay do lỗi mạng? Hỏi nhanh để phân biệt.
@@ -448,6 +450,37 @@ async function togglePush() {
     }
   } catch (e) { toast(errMsg(e)); } finally { S.busy = false; if (curScreen() === 'notifset') draw(); }
 }
+/* ---------- vị trí khi làm nhiệm vụ (frontend/foodsave-location.js); thiếu thư viện thì mọi hàm bỏ qua êm ---------- */
+const locationShareOn = () => { try { return Boolean(window.FoodSaveLocation) && FoodSaveLocation.consentState() === 'granted'; } catch (e) { return false; } };
+function toggleLocationShare() {
+  if (!window.FoodSaveLocation) return;
+  try {
+    const on = !locationShareOn();
+    Promise.resolve(FoodSaveLocation.setConsent(on)).then(
+      () => toast(on ? 'Đã bật chia sẻ vị trí khi làm nhiệm vụ' : 'Đã tắt chia sẻ vị trí'),
+      () => toast('Chưa gửi được lựa chọn chia sẻ vị trí lên máy chủ. MIO sẽ tự gửi lại khi có mạng.'));
+  } catch (e) { /* bỏ qua */ }
+  if (curScreen() === 'notifset') draw();
+}
+/* Đơn mới nhất đã thanh toán và chưa nhận thì theo dõi; không còn đơn nào thì dừng. */
+function syncLocationTask() {
+  if (!window.FoodSaveLocation) return;
+  try {
+    const act = ORD.filter(o => isPaid(o) && ['pending', 'confirmed', 'ready'].includes(o.status))
+      .sort((a, b) => tms(b.created_at) - tms(a.created_at))[0];
+    if (act) FoodSaveLocation.startTask({ kind: 'order', id: act.id }); else FoodSaveLocation.stopTask();
+  } catch (e) { /* bỏ qua */ }
+}
+/* Link chỉ đường (origin = vị trí hiện tại, tính lại lúc bấm); null khi cửa hàng chưa có tọa độ hợp lệ. */
+const dirUrl = (la, ln) => {
+  if (!validLL(la, ln)) return null;
+  const FL = window.FoodSaveLocation;
+  return FL && FL.directionsUrl ? FL.directionsUrl({ lat: +la, lng: +ln }) : `https://www.google.com/maps/dir/?api=1&destination=${+la},${+ln}`;
+};
+const dirBtn = (la, ln, cls) => {
+  const u = dirUrl(la, ln);
+  return u ? `<a class="btn ghost sm ${cls}" style="width:100%;text-decoration:none" target="_blank" rel="noopener" href="${esc(u)}" onclick="this.href=dirUrl(${+la},${+ln})||this.href"><i class="ti ti-direction"></i>Chỉ đường tới cửa hàng</a>` : '';
+};
 /* nội dung pháp lý dùng chung với web (frontend/foodsave-legal-content.js); "Liên hệ" chuyển sang gửi yêu cầu hỗ trợ trong app */
 window.openLegal = k => { if (k === 'contact') { S.filt.ht = 'req'; go('help'); } else go('legaldoc', k); };
 window.closeLegal = () => back();
@@ -612,6 +645,7 @@ async function finishLoc() {
   go('notifperm');
 }
 async function doLogout(silent) {
+  try { if (window.FoodSaveLocation) FoodSaveLocation.clearServer(); } catch (e) { /* bỏ qua */ }   // luôn xóa vị trí trên máy chủ trước khi mất token
   try { await sb().auth.signOut(); } catch (e) { /* bỏ qua */ }
   try { await AUTH().logout('customer'); } catch (e) { /* bỏ qua */ }
   try { AUTH().clearSession(); } catch (e) { /* bỏ qua */ }
@@ -742,6 +776,7 @@ async function refreshOrder(id) {
   const sig = o => [o.status, o.payment_status, o.pickup_deadline, o.pay_deadline, o.updated_at, (o.complaints || []).length].join('|');
   if (i >= 0) { const before = sig(ORD[i]); ORD[i] = { ...ORD[i], ...data }; orderChanged = before !== sig(ORD[i]); } else { ORD.unshift(data); orderChanged = true; }
   creditPaidOrders();
+  syncLocationTask();
   return orderOf(id);
 }
 const complaintOf = o => COMPLAINTS.find(c => c.orderId === o.id);
@@ -949,7 +984,7 @@ const SCR = {
     return `<div class="scr">${topbar(esc(s.name))}<div class="pad"><div style="background:linear-gradient(120deg,var(--g9),var(--g7));color:#fff;border-radius:22px;padding:22px;text-align:center"><div>${(raw && raw.logo_url) ? `<img src="${esc(raw.logo_url)}" alt="" style="width:64px;height:64px;border-radius:18px;object-fit:cover" onerror="this.outerHTML='<span style=&quot;font-size:46px&quot;>${esc(s.logo)}</span>'">` : `<span style="font-size:46px">${esc(s.logo)}</span>`}</div><b style="font-size:18px">${esc(s.name)}</b>${s.rating ? `<div class="sm"><i class="ti ti-star-filled" style="font-size:13px;color:var(--y)"></i> ${s.rating.toFixed(1)}</div>` : ''}${s.verified ? '<div class="xs" style="opacity:.85;margin-top:2px"><i class="ti ti-rosette-discount-check"></i> Cửa hàng đã xác minh</div>' : ''}</div>
  <div class="card mt12"><h2 class="sm"><i class="ti ti-map-pin" style="color:var(--red)"></i> Thông tin liên hệ</h2><div class="sm mt8" style="line-height:1.9"><b>Địa chỉ:</b> <span class="mut">${esc(s.addr)}</span>${hours ? `<br><b>Giờ mở cửa:</b> <span style="color:var(--g8)">${esc(hours)}</span>` : ''}${s.distanceText ? `<br><b>Khoảng cách:</b> <span class="mut">${esc(s.distanceText)}</span>` : ''}</div>
   ${validLL(lat, lng) ? '<div class="mapbox mt12" id="smap" style="margin:12px 0 0;height:150px"></div>' : ''}
-  ${lat != null && lng != null ? `<a class="btn ghost sm mt12" style="width:100%;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}"><i class="ti ti-direction"></i>Chỉ đường Google Maps</a>` : ''}</div>
+  ${lat != null && lng != null ? dirBtn(lat, lng, 'mt12') : ''}</div>
  <div class="mt16"><h2 class="sm" style="margin-bottom:8px"><i class="ti ti-flame" style="color:var(--red)"></i> Sản phẩm đang bán</h2>${listOrState(L, prodRow, '<p class="sm mut">Hiện chưa có sản phẩm.</p>')}</div></div></div>`;
   },
 
@@ -1038,7 +1073,7 @@ const SCR = {
  ${waiting ? `<div class="tree-card mt12" onclick="go('impact')"><div class="mini">💧🌱</div><div class="grow"><b class="sm">+25 giọt nước cho cây uy tín</b><div class="xs mut">Bạn đang có ${t.waterReserve} giọt · bấm để tưới cây</div></div><i class="ti ti-chevron-right mut"></i></div>
  <div class="qrbox mt12"><div class="xs mut" style="margin-bottom:8px">Đưa mã này cho nhân viên cửa hàng</div>${qrSvg(o.qr_code)}<div style="font-size:${String(o.qr_code).length > 14 ? 15 : 22}px;font-weight:900;letter-spacing:.08em;margin-top:8px;word-break:break-all">${esc(o.qr_code)}</div><div class="xs mut">Thanh toán qua ${esc(payLbl(o.payment_method))}</div></div>
  <div class="card row mt12" style="background:var(--grbg);border:0"><i class="ti ti-alarm" style="font-size:24px;color:var(--red)"></i><div><div class="xs mut">Hẹn lấy hàng</div><b>Trước ${hhmm(o.pickup_deadline)} ${dmy(o.pickup_deadline) === dmy(new Date()) ? 'hôm nay' : dmy(o.pickup_deadline)}</b></div></div>` : ''}
- ${validLL(s.latitude, s.longitude) && isActive(o) ? `<div class="card mt12" style="padding:10px"><div class="mapbox" id="omap" style="margin:0;height:140px"></div><a class="btn ghost sm mt8" style="width:100%;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}"><i class="ti ti-direction"></i>Chỉ đường Google Maps</a></div>` : ''}
+ ${validLL(s.latitude, s.longitude) && isActive(o) ? `<div class="card mt12" style="padding:10px"><div class="mapbox" id="omap" style="margin:0;height:140px"></div>${dirBtn(s.latitude, s.longitude, 'mt8')}</div>` : ''}
  <div class="card mt12 row"><div>${storeAv(s, 26)}</div><div class="grow"><b>${esc(s.name)}</b><div class="xs mut">${esc(s.addr || '')}</div></div>${paid ? `<button class="btn soft sm" onclick="go('chat','${q1(o.id)}')"><i class="ti ti-message-circle"></i>Chat${(S.unreadChat && S.unreadChat[o.id]) ? ` (${S.unreadChat[o.id]})` : ''}</button>` : ''}</div>
  <div class="card mt12"><div class="xs b mut" style="text-transform:uppercase;margin-bottom:6px">Mặt hàng đã đặt</div>${items.map(i => { const p = prod(i.product_id) || { name: i.product_name, label: lb, cat: 'other' }; return `<div class="row" style="padding:6px 0"><div class="pimg ${p.label}" style="width:48px;height:48px;font-size:26px;border-radius:12px">${pic(p, 26)}</div><div class="grow"><b class="sm">${esc(i.product_name)}</b><div class="xs mut">x${i.quantity} · Nhãn ${LAB[p.label] ? LAB[p.label].n : ''}</div></div><b class="sm">${fmt(i.unit_price_cents * i.quantity)}</b></div>`; }).join('')}
   <div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px" class="sm">${o.discount_cents ? `<div class="row between"><span class="mut">Giảm giá${o.voucher_code ? ' (' + esc(o.voucher_code) + ')' : ''}</span><b style="color:var(--g7)">-${fmt(o.discount_cents)}</b></div>` : ''}${o.platform_fee_cents ? `<div class="row between mt8"><span class="mut">Phí dịch vụ</span><b>${fmt(o.platform_fee_cents)}</b></div>` : ''}<div class="row between mt8"><span class="mut">${paid ? 'Đã thanh toán' : 'Tổng cộng'}</span><b style="font-size:16px">${fmt(o.total_cents)}</b></div></div></div>
@@ -1075,6 +1110,8 @@ const SCR = {
     return `<div class="scr">${topbar('Cài đặt thông báo')}<div class="pad">
  <div class="card row"><span class="ico" style="width:38px;height:38px;border-radius:12px;background:var(--grbg);display:grid;place-items:center;flex:none"><i class="ti ti-device-mobile-message" style="color:var(--g8)"></i></span><div class="grow"><b class="sm">Thông báo đẩy trên thiết bị này</b><div class="xs mut">${pushTxt}</div></div>${sw(i.subscribed, 'togglePush()')}</div>
  <p class="xs mut mt8">Tắt thông báo đẩy thì bạn vẫn thấy thông báo trong app (biểu tượng chuông).</p>
+ <h2 class="sm mt16" style="margin-bottom:8px">Vị trí</h2>
+ <div class="card row"><span class="ico" style="width:38px;height:38px;border-radius:12px;background:var(--grbg);display:grid;place-items:center;flex:none"><i class="ti ti-current-location" style="color:var(--g8)"></i></span><div class="grow"><b class="sm">Chia sẻ vị trí khi làm nhiệm vụ</b><div class="xs mut">Chỉ dùng khi bạn có đơn đã thanh toán chưa nhận, xóa khi đơn hoàn tất.</div></div>${sw(locationShareOn(), 'toggleLocationShare()')}</div>
  <h2 class="sm mt16" style="margin-bottom:8px">Nhận thông báo về</h2>
  ${NGROUPS.map(g => `<div class="card row" style="margin-bottom:8px"><span class="ico" style="width:38px;height:38px;border-radius:12px;background:var(--grbg);display:grid;place-items:center;flex:none"><i class="ti ${g[1]}" style="color:var(--g8)"></i></span><div class="grow"><b class="sm">${g[2]}</b><div class="xs mut">${g[3]}</div></div>${sw(prefOn(g[0]), "setPref('" + g[0] + "'," + !prefOn(g[0]) + ")")}</div>`).join('')}</div></div>`;
   },
@@ -1421,7 +1458,22 @@ document.addEventListener('DOMContentLoaded', boot);
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="frontend/foodsave-legal-content.js?v=20260927"></script>
 <script src="frontend/foodsave-auth-client.js?v=20261003e"></script>
-<script src="frontend/foodsave-live-data.js?v=20261030a"></script>
+<script src="frontend/foodsave-live-data.js?v=20261122d"></script>
+<script src="frontend/foodsave-location.js?v=20261122c"></script>
+<script>
+  /* Client vị trí: hộp xin quyền một lần; chỉ theo dõi khi có đơn đã thanh toán chưa nhận (syncLocationTask). */
+  (function () {
+    var FL = window.FoodSaveLocation, sync = window.FS && window.FS.sync;
+    if (!FL) return;
+    try {
+      FL.init({
+        apiBase: sync && sync.apiBaseUrl,
+        getAuthHeader: function () { return sync && typeof sync.authHeader === 'function' ? sync.authHeader() : null; },
+        getActorKey: function () { return sync && typeof sync.actorKey === 'function' ? sync.actorKey() : null; }
+      });
+    } catch (e) { /* bỏ qua */ }
+  })();
+</script>
 <script src="frontend/foodsave-pwa.js?v=20261030a"></script>
 </body>
 </html>

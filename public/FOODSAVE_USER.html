@@ -1626,6 +1626,7 @@
   </style>
   <link rel="stylesheet" href="frontend/foodsave-responsive.css">
   <link rel="stylesheet" href="frontend/foodsave-minimal.css?v=20261009">
+  <link rel="stylesheet" href="frontend/foodsave-location.css?v=20261122a">
   <link rel="stylesheet" href="frontend/foodsave-cookie-consent.css?v=20261003">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <style id="fs-buyer-v2">
@@ -2884,7 +2885,7 @@
                   <label class="pay-method" onclick="selectPay(this)"><input type="radio" name="pay" value="card" style="display:none"><div class="pay-logo card"><i class="ti ti-credit-card" style="font-size:22px"></i></div><div style="flex:1"><div style="font-weight:800;font-size:14px">Visa / Mastercard</div><div style="font-size:12px;color:var(--muted)">Thẻ tín dụng hoặc ghi nợ quốc tế</div></div></label>
                 </div>
               </div>
-
+              
             </div>
           </div>
 
@@ -3626,6 +3627,12 @@
               </div>
               <div class="field"><label>Giới thiệu bản thân</label><textarea placeholder="Vài dòng về bạn để cộng đồng MIO hiểu thêm..."></textarea></div>
               <button class="btn btn-primary" onclick="toast('✓ Đã cập nhật thông tin','info')"><i class="ti ti-device-floppy"></i> Lưu thay đổi</button>
+            </div>
+
+            <div class="card" style="margin-top:18px">
+              <h3>Vị trí khi làm nhiệm vụ</h3>
+              <p class="text-muted" style="font-size:13px;margin-bottom:14px">MIO chỉ dùng vị trí khi bạn có đơn đã thanh toán chưa nhận, để cửa hàng biết bạn còn cách bao xa. Vị trí được xóa khi đơn hoàn tất. <a href="/chinh-sach.html#privacy-9">Xem chính sách</a></p>
+              <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="loc-share-toggle" onchange="toggleLocationShare(this)"> Chia sẻ vị trí khi làm nhiệm vụ</label>
             </div>
 
             <div class="card" style="margin-top:18px">
@@ -6268,7 +6275,7 @@ function renderOrderDetail() {
         <div><span class="text-muted">⏰ Khung nhận:</span> <strong>${o.pickup}</strong></div>
         <div><span class="text-muted">📞 Hotline:</span> <strong>1900 1545</strong></div>
       </div>
-      <button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px"><i class="ti ti-route"></i> Chỉ đường đến cửa hàng</button>`;
+      ${storeRouteUrl(store) ? '<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" onclick="openOrderStoreRoute()"><i class="ti ti-route"></i> Chỉ đường tới cửa hàng</button>' : ''}`;
   }
 
   // QR
@@ -6300,6 +6307,8 @@ function confirmPickup() {
 
 // Khi dữ liệu đơn được làm mới: báo nhận hàng thành công, cập nhật màn hình đang mở
 window.foodsaveAfterUserOrdersReplace = function (previousStatus) {
+  // Tải đơn lỗi (danh sách rỗng giả) thì giữ nguyên trạng thái theo dõi, không dừng nhầm.
+  if (typeof syncLocationTask === 'function' && !(window.FS && FS.sync && typeof FS.sync.ordersLoadFailed === 'function' && FS.sync.ordersLoadFailed())) syncLocationTask();
   let justCompleted = null;
   orders.forEach(o => {
     const before = o.backendId && previousStatus ? previousStatus[o.backendId] : null;
@@ -6668,6 +6677,7 @@ function accTab(t, el) {
 
   if (t === 'addresses') { renderAddresses(); if (!ADDR_LOADED) loadAddresses(); }
   if (t === 'payment') renderCards();
+  if (t === 'profile' && typeof refreshLocationToggle === 'function') refreshLocationToggle();
   if (t === 'help') renderHelpFaq();
 }
 
@@ -7502,13 +7512,95 @@ function updateReputationRules(){
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="frontend/foodsave-map.js?v=20261003e"></script>
-<script src="frontend/foodsave-live-data.js?v=20261029a"></script>
+<script src="frontend/foodsave-live-data.js?v=20261122d"></script>
 
 
 <script>window.FS = window.FS || {}; /* Backend data sync is loaded from frontend/foodsave-live-data.js. */</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="frontend/foodsave-auth-client.js?v=20261003e"></script>
+<script src="frontend/foodsave-location.js?v=20261122c"></script>
+<script>
+  // Vị trí khi làm nhiệm vụ: chỉ theo dõi khi có đơn đã thanh toán chưa nhận; mọi lỗi đều bị nuốt để luồng đơn chạy bình thường.
+  (function () {
+    const FL = window.FoodSaveLocation;
+    const sync = window.FS && window.FS.sync;
+    if (!FL) return;
+    try {
+      FL.init({
+        apiBase: sync && sync.apiBaseUrl,
+        getAuthHeader: function () { return sync && typeof sync.authHeader === 'function' ? sync.authHeader() : null; },
+        getActorKey: function () { return sync && typeof sync.actorKey === 'function' ? sync.actorKey() : null; }
+      });
+    } catch (error) { /* bỏ qua */ }
+  })();
+
+  // foodsave-auth-client.js ghi đè window.logout bằng bản đăng xuất thật: dừng theo dõi và LUÔN xóa vị trí trên máy chủ trước khi mất token.
+  (function () {
+    const baseLogout = window.logout;
+    if (typeof baseLogout !== 'function') return;
+    window.logout = function () {
+      try { if (window.FoodSaveLocation) window.FoodSaveLocation.clearServer(); } catch (error) { /* bỏ qua */ }
+      return baseLogout.apply(this, arguments);
+    };
+  })();
+
+  const LOCATION_ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'ready'];
+
+  // Đơn mới nhất đã thanh toán và chưa nhận thì theo dõi; không còn đơn nào thì dừng.
+  function syncLocationTask() {
+    const FL = window.FoodSaveLocation;
+    if (!FL) return;
+    try {
+      const active = (Array.isArray(orders) ? orders : [])
+        .filter(o => o && o.backendId && o.paymentStatus === 'paid' && LOCATION_ACTIVE_ORDER_STATUSES.includes(o.status))
+        .sort((a, b) => (Date.parse(b.created) || 0) - (Date.parse(a.created) || 0))[0];
+      if (active) FL.startTask({ kind: 'order', id: active.backendId });
+      else FL.stopTask();
+    } catch (error) { /* bỏ qua */ }
+  }
+
+  // Điểm đến là null (cửa hàng chưa có tọa độ) thì không hiện nút chỉ đường.
+  function storeRouteUrl(store) {
+    const FL = window.FoodSaveLocation;
+    const c = storeCoordinates(store);
+    if (!FL || !c || (c.latitude === 0 && c.longitude === 0)) return null;
+    return FL.directionsUrl({ lat: c.latitude, lng: c.longitude });
+  }
+
+  function openOrderStoreRoute() {
+    const o = orders.find(x => x.id === currentOrderId);
+    const store = o && STORES.find(s => s.id === o.storeId);
+    const url = store && storeRouteUrl(store);
+    if (url) window.open(url, '_blank', 'noopener');
+  }
+
+  function refreshLocationToggle() {
+    const toggle = document.getElementById('loc-share-toggle');
+    const FL = window.FoodSaveLocation;
+    if (!toggle) return;
+    toggle.disabled = !FL;
+    toggle.checked = Boolean(FL) && FL.consentState() === 'granted';
+  }
+
+  function toggleLocationShare(toggle) {
+    const FL = window.FoodSaveLocation;
+    if (!FL) return;
+    const want = Boolean(toggle.checked);
+    // Lựa chọn đã lưu ở máy (tắt thì đã ngừng theo dõi ngay); chỉ chưa gửi được lên máy chủ → MIO tự gửi lại khi có mạng.
+    const rollback = function () {
+      refreshLocationToggle();
+      toast('Chưa gửi được lựa chọn chia sẻ vị trí lên máy chủ. MIO sẽ tự gửi lại khi có mạng.', 'warn');
+    };
+    try {
+      Promise.resolve(FL.setConsent(want)).then(function () {
+        toast(want ? 'Đã bật chia sẻ vị trí khi làm nhiệm vụ' : 'Đã tắt chia sẻ vị trí', 'info');
+        refreshLocationToggle();
+      }, rollback);
+    } catch (error) { rollback(); }
+  }
+  refreshLocationToggle();
+</script>
 <script src="frontend/foodsave-order-flow.js?v=20261029b"></script>
 <script src="frontend/foodsave-pwa.js?v=20261030a"></script>
 <script src="frontend/foodsave-install.js?v=20261030a"></script>

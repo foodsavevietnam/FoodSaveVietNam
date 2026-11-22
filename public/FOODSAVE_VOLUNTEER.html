@@ -94,6 +94,15 @@ button{cursor:pointer;border:0;background:none}
 .phone-input.bad{border-color:#C0553A}
 .form-err{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--urgent-bg);color:var(--urgent-ink);font-size:14px;font-weight:600}
 .login-note{margin-top:22px;text-align:center;font-size:14px;color:var(--muted)}
+.login-text{width:100%;height:60px;padding:0 18px;border-radius:var(--r);border:2px solid var(--line);background:#fff;font-size:20px;font-weight:700;color:var(--ink);font-family:inherit}
+.login-text.code{font-size:28px;letter-spacing:.4em;text-align:center}
+.login-text:focus{outline:none;border-color:var(--emerald);box-shadow:0 0 0 4px rgba(0,108,77,.12)}
+.login-text.bad{border-color:#C0553A}
+.login-ok{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--ok-bg);color:var(--ok-ink);font-size:14px;font-weight:600}
+.login-alt{margin-top:26px;padding-top:18px;border-top:1px dashed var(--line)}
+.org-list{display:grid;gap:10px;margin-top:6px}
+.org-list .btn{width:100%;justify-content:flex-start;text-align:left}
+.login-back{margin-top:14px;width:100%;text-align:center;font-size:14px;font-weight:700;color:var(--emerald-deep);padding:10px}
 
 /* ---------- Tiêu đề màn nhiệm vụ ---------- */
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-top:6px}
@@ -326,6 +335,7 @@ small.lock{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px
 }
 </style>
 <link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
+<link rel="stylesheet" href="frontend/foodsave-location.css?v=20261122a">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 </head>
 <body>
@@ -340,8 +350,7 @@ small.lock{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
-
-
+<script src="frontend/foodsave-location.js?v=20261122c"></script>
 <script>
 (function () {
 'use strict';
@@ -386,8 +395,10 @@ var CONFIG = { liveActions: true };
 /* ======================================================================
    2. TRẠNG THÁI GIAO DIỆN
    ====================================================================== */
-var S = { screen: 'login', tab: 'tasks', filter: 'active', load: 'ok', sheet: null, data: fresh(), login: { phone: '', error: '', busy: false }, open: {}, demo: 'login' };
+var S = { screen: 'login', tab: 'tasks', filter: 'active', load: 'ok', sheet: null, data: fresh(), login: freshLogin(), open: {}, demo: 'login' };
 function fresh() { return JSON.parse(JSON.stringify(DATA)); }
+/* step: email -> code -> (select khi email thuộc nhiều tổ chức) */
+function freshLogin(error) { return { step: 'email', email: '', code: '', phone: '', error: error || '', notice: '', busy: false, selection: null, options: [] }; }
 var $ = function (id) { return document.getElementById(id); };
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
@@ -456,17 +467,40 @@ function digits(v) { var d = String(v).replace(/\D/g, ''); return d.indexOf('84'
    ====================================================================== */
 
 /* 5.1 Đăng nhập */
+/* Đăng nhập thử bằng số điện thoại chỉ hiện ở chế độ demo (?demo=1): máy chủ cũng chỉ chấp nhận khi DEMO_MODE */
+function isDemoLogin() { return /[?&]demo=1(&|$)/.test(window.location.search) || window.FOODSAVE_DEMO_MODE === true; }
+function loginError(st) { return '<div id="login-err" aria-live="polite">' + (st.error ? '<div class="form-err">' + ico('alert', 20) + '<span>' + esc(st.error) + '</span></div>' : '') + '</div>'; }
 function renderLogin(st) {
+  var body, busyTxt = st.busy ? 'ĐANG XỬ LÝ…' : '';
+  if (st.step === 'select') {
+    body = '<p class="login-note" style="margin-top:0;text-align:left">Email này đã được nhiều tổ chức đăng ký. Chọn tổ chức bạn muốn làm việc cùng:</p>' +
+      '<div class="org-list">' + st.options.map(function (o) { return '<button class="btn btn-ghost" type="button" data-act="pick-org" data-id="' + esc(o.volunteer_id) + '"' + (st.busy ? ' disabled' : '') + '>' + ico('leaf', 20) + esc(o.charity_name) + '</button>'; }).join('') + '</div>' +
+      loginError(st) + '<button class="login-back" type="button" data-act="otp-back">Dùng email khác</button>';
+  } else if (st.step === 'code') {
+    body = '<form id="login-form" novalidate>' +
+      '<div class="login-ok">' + esc(st.notice || 'Nếu email đã được tổ chức đăng ký, mã sẽ được gửi.') + '</div>' +
+      '<label class="field-label" for="otp-code" style="margin-top:16px">Mã 6 số trong email</label>' +
+      '<input class="login-text code' + (st.error ? ' bad' : '') + '" id="otp-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" value="' + esc(st.code) + '" aria-describedby="login-err">' +
+      loginError(st) +
+      '<button class="btn btn-primary' + (st.busy ? ' busy' : '') + '" type="submit" style="margin-top:18px"' + (st.busy ? ' disabled' : '') + '>' + (busyTxt || 'XÁC NHẬN') + '</button>' +
+      '</form><button class="login-back" type="button" data-act="otp-resend"' + (st.busy ? ' disabled' : '') + '>Gửi lại mã</button><button class="login-back" type="button" data-act="otp-back" style="margin-top:0">Dùng email khác</button>';
+  } else {
+    body = '<form id="login-form" novalidate>' +
+      '<label class="field-label" for="email">Email</label>' +
+      '<input class="login-text' + (st.error ? ' bad' : '') + '" id="email" type="email" inputmode="email" autocomplete="email" placeholder="ten@email.com" value="' + esc(st.email) + '" aria-describedby="login-err">' +
+      loginError(st) +
+      '<button class="btn btn-primary' + (st.busy ? ' busy' : '') + '" type="submit" style="margin-top:18px"' + (st.busy ? ' disabled' : '') + '>' + (busyTxt || 'GỬI MÃ ĐĂNG NHẬP') + '</button>' +
+      '</form>' +
+      '<p class="login-note">Dùng đúng email mà tổ chức từ thiện đã đăng ký cho bạn. Mã 6 số sẽ được gửi tới email đó.</p>';
+  }
+  var demo = st.step === 'email' && isDemoLogin() ? '<form id="phone-form" class="login-alt" novalidate>' +
+    '<label class="field-label" for="phone">Đăng nhập thử bằng số điện thoại (chế độ demo)</label>' +
+    '<input class="phone-input" id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0901 234 567" value="' + esc(st.phone) + '">' +
+    '<button class="btn btn-ghost" type="submit" style="margin-top:14px">ĐĂNG NHẬP THỬ</button></form>' : '';
   return '<section class="login">' +
     '<div class="logo">' +
       '<img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64"><div class="logo-role">TÌNH NGUYỆN VIÊN</div></div>' +
-    '<form id="login-form" novalidate>' +
-      '<label class="field-label" for="phone">Số điện thoại</label>' +
-      '<input class="phone-input' + (st.error ? ' bad' : '') + '" id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0901 234 567" value="' + esc(st.phone) + '" aria-describedby="login-err">' +
-      '<div id="login-err" aria-live="polite">' + (st.error ? '<div class="form-err">' + ico('alert', 20) + '<span>' + esc(st.error) + '</span></div>' : '') + '</div>' +
-      '<button class="btn btn-primary' + (st.busy ? ' busy' : '') + '" type="submit" style="margin-top:18px">' + (st.busy ? 'ĐANG ĐĂNG NHẬP…' : 'ĐĂNG NHẬP') + '</button>' +
-    '</form>' +
-    '<p class="login-note">Dùng đúng số điện thoại mà tổ chức từ thiện đã đăng ký cho bạn.</p>' +
+    body + demo +
   '</section>';
 }
 
@@ -681,6 +715,8 @@ function renderNotifications(data) {
 /* ----- Kết nối hệ thống (API) ----- */
 var TOKEN_KEY = 'foodsave-volunteer-token', INFO_KEY = 'foodsave-volunteer-info', NOTIF_KEY = 'foodsave-volunteer-notifs';
 var pollBusy = false, firstLoad = true, actionBusy = false;
+/* Đếm phiên: tăng khi đăng nhập/đăng xuất để bỏ kết quả của request bắt đầu ở phiên cũ */
+var sessionGen = 0;
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
@@ -701,7 +737,7 @@ function api(path, options) {
     return response.json().catch(function () { return null; }).then(function (payload) {
       if (!response.ok || !payload || payload.success !== true) {
         var err = new Error((payload && payload.error && payload.error.message) || 'Máy chủ báo lỗi.');
-        err.status = response.status; throw err;
+        err.status = response.status; err.code = payload && payload.error ? payload.error.code : undefined; throw err;
       }
       return payload.data;
     });
@@ -724,7 +760,8 @@ function mapTask(row) {
     my_photos: row.my_photos || [], pickup_photo_count: Number(row.pickup_photo_count) || 0, status: row.status, packed_at: row.packed_at || null, pickup_code: row.pickup_code || null,
     due_text: done ? 'Đã lấy lúc ' + fmtTime(row.completed_at) : (exp && !isNaN(exp) ? 'Lấy trước ' + fmtTime(row.expires_at) : 'Lấy trong ngày'),
     due_urgent: !done && mins !== null && mins < 60, completed_at: row.completed_at || null,
-    stores: { name: st.name || 'Cửa hàng', address: st.address || '', latitude: st.latitude, longitude: st.longitude, emoji: st.emoji || '🍱', phone: st.public_hotline || '' }
+    stores: { name: st.name || 'Cửa hàng', address: st.address || '', latitude: st.latitude, longitude: st.longitude, emoji: st.emoji || '🍱', phone: st.public_hotline || '' },
+    route: row.route || null
   };
 }
 function notifKey() { return NOTIF_KEY + ':' + (S.data.volunteer.id || ''); }
@@ -766,8 +803,9 @@ function applyData(me, rows) {
 }
 
 function forceLogout(message) {
+  sessionGen++; stopLocation(); /* trước khi xóa token: DELETE /location cần Authorization (gửi cả khi chưa theo dõi) */
   lsSet(TOKEN_KEY, null); lsSet(INFO_KEY, null);
-  S.screen = 'login'; S.sheet = null; S.data = fresh(); S.login = { phone: '', error: message || '', busy: false }; firstLoad = true;
+  S.screen = 'login'; S.sheet = null; S.data = fresh(); S.login = freshLogin(message); firstLoad = true;
   render();
 }
 
@@ -775,11 +813,16 @@ function forceLogout(message) {
 function loadAll(silent) {
   if (pollBusy) return Promise.resolve();
   pollBusy = true;
+  var gen = sessionGen;
+  function stale() { return gen !== sessionGen || S.screen !== 'app' || !lsGet(TOKEN_KEY); }
   return Promise.all([api('/volunteer/me'), api('/volunteer/tasks')]).then(function (r) {
+    if (stale()) return; /* đã đăng xuất (hoặc đổi phiên) trong lúc chờ: không áp dữ liệu, không bật lại theo dõi vị trí */
     applyData(r[0], (r[1] && r[1].items) || []);
     S.load = 'ok';
+    syncLocationTask(); /* chỉ sau khi tải THÀNH CÔNG: tải lỗi không có nghĩa là hết việc */
   }).catch(function (e) {
-    if (e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (stale()) return;
+    if (endSession(e, true)) return;
     if (!silent) S.load = 'error';
   }).then(function () { pollBusy = false; if (S.screen === 'app') render(); });
 }
@@ -790,14 +833,105 @@ function poll() {
   loadAll(true);
 }
 
-/* Đăng nhập bằng số điện thoại do tổ chức đăng ký */
+/* ----- Vị trí khi làm nhiệm vụ (foodsave-location.js): mọi lỗi đều bị nuốt để luồng nhiệm vụ chạy bình thường ----- */
+function locationAuthHeader() { var t = lsGet(TOKEN_KEY); return t ? 'Bearer ' + t : null; }
+/* Lựa chọn chia sẻ vị trí gắn với đúng TNV đang đăng nhập (máy dùng chung không thừa hưởng lựa chọn của người khác) */
+function locationActorKey() {
+  if (!lsGet(TOKEN_KEY)) return null;
+  try { var info = JSON.parse(lsGet(INFO_KEY) || 'null'); return info && info.id ? 'volunteer:' + info.id : null; } catch (e) { return null; }
+}
+function initLocation() {
+  try { if (window.FoodSaveLocation) window.FoodSaveLocation.init({ apiBase: apiBase(), getAuthHeader: locationAuthHeader, getActorKey: locationActorKey }); } catch (e) {}
+}
+/* Việc đang làm: ưu tiên lô đang trên đường lấy, sau đó phần việc chưa xong đầu tiên (lấy chưa hoàn tất hoặc phát chưa xong) */
+function activeLocationTaskId() {
+  var items = activeTasks().filter(function (it) { return !(it.kind === 'pickup' && it.t.status === 'completed'); });
+  if (!items.length) return null;
+  var running = items.filter(function (it) { return it.kind === 'pickup' && it.t.status === 'in_route'; })[0];
+  return (running || items[0]).t.id;
+}
+function syncLocationTask() {
+  try {
+    var FL = window.FoodSaveLocation; if (!FL) return;
+    var id = activeLocationTaskId();
+    if (id) FL.startTask({ kind: 'donation', id: id }); else FL.stopTask();
+  } catch (e) {}
+}
+function stopLocation() { try { if (window.FoodSaveLocation) window.FoodSaveLocation.clearServer(); } catch (e) {} }
+
+/* Lỗi nghĩa là phiên không còn dùng được → đăng xuất kèm lý do. withForbidden: cả 403 AUTH_FORBIDDEN (TNV bị tạm ngưng);
+   không bật cho thao tác nhiệm vụ vì ở đó AUTH_FORBIDDEN có thể là quy tắc nghiệp vụ (lần tải sau sẽ đăng xuất nếu thật sự bị khóa). */
+function sessionEndMessage(e, withForbidden) {
+  if (!e) return '';
+  if (e.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+  if (e.status === 403 && e.code === 'AUTH_VERIFICATION_REQUIRED') return 'Phiên đăng nhập cần xác minh lại bằng mã gửi qua email. Vui lòng đăng nhập lại.';
+  if (withForbidden && e.status === 403 && e.code === 'AUTH_FORBIDDEN') return 'Tài khoản tình nguyện viên đang tạm ngưng hoặc không còn thuộc tổ chức. Vui lòng liên hệ tổ chức của bạn.';
+  return '';
+}
+function endSession(e, withForbidden) {
+  var message = sessionEndMessage(e, withForbidden);
+  if (!message) return false;
+  forceLogout(message);
+  return true;
+}
+
+/* Lưu phiên và vào màn nhiệm vụ (dùng chung cho OTP và đăng nhập thử bằng số điện thoại) */
+function finishLogin(data) {
+  lsSet(TOKEN_KEY, data.token); lsSet(INFO_KEY, JSON.stringify(data.volunteer));
+  sessionGen++; S.login = freshLogin(); S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; S.data = fresh(); S.data.volunteer.id = data.volunteer.id; firstLoad = true;
+  try { if (window.FoodSaveLocation) window.FoodSaveLocation.syncConsent(); } catch (e) {}
+  render(); loadAll(); toast('Đăng nhập thành công');
+}
+function loginFail(e) { S.login.busy = false; S.login.error = e.message || 'Không đăng nhập được.'; render(); }
+
+/* Bước 1: gửi mã 6 số tới email (máy chủ luôn trả cùng một thông báo) */
+function onOtpRequest(email) {
+  email = String(email || '').trim();
+  S.login.email = email;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { S.login.error = 'Vui lòng nhập email hợp lệ.'; render(); return; }
+  S.login.error = ''; S.login.busy = true; render();
+  api('/volunteer/otp/request', { method: 'POST', body: { email: email } }).then(function (r) {
+    S.login.busy = false; S.login.step = 'code'; S.login.code = ''; S.login.notice = (r && r.message) || ''; render();
+  }).catch(loginFail);
+}
+/* Gửi lại mã cho cùng email; 429 (gửi quá nhanh) hiện thông báo rõ ràng */
+function onOtpResend() {
+  if (S.login.busy || !S.login.email) return;
+  S.login.error = ''; S.login.busy = true; render();
+  api('/volunteer/otp/request', { method: 'POST', body: { email: S.login.email } }).then(function (r) {
+    S.login.busy = false; S.login.notice = (r && r.message) || ''; render();
+  }).catch(function (e) {
+    if (e.status === 429) e = new Error('Bạn yêu cầu mã quá nhanh. Vui lòng đợi ít phút rồi thử lại.');
+    loginFail(e);
+  });
+}
+/* Bước 2: nhập mã. Một tổ chức -> vào luôn; nhiều tổ chức -> màn chọn */
+function onOtpVerify(code) {
+  code = String(code || '').replace(/\D/g, '');
+  S.login.code = code;
+  if (!/^\d{6}$/.test(code)) { S.login.error = 'Vui lòng nhập đủ mã 6 số.'; render(); return; }
+  S.login.error = ''; S.login.busy = true; render();
+  api('/volunteer/otp/verify', { method: 'POST', body: { email: S.login.email, code: code } }).then(function (data) {
+    if (data && data.token) { finishLogin(data); return; }
+    if (data && data.selection_token && Array.isArray(data.options) && data.options.length) {
+      S.login.busy = false; S.login.step = 'select'; S.login.selection = data.selection_token; S.login.options = data.options; render(); return;
+    }
+    throw new Error('Phản hồi không hợp lệ. Vui lòng thử lại.');
+  }).catch(loginFail);
+}
+function onOtpSelect(volunteerId) {
+  if (S.login.busy || !S.login.selection) return;
+  S.login.error = ''; S.login.busy = true; render();
+  api('/volunteer/otp/select', { method: 'POST', body: { selection_token: S.login.selection, volunteer_id: volunteerId } }).then(finishLogin).catch(function (e) {
+    if (e.status === 401 || e.status === 400) { S.login = freshLogin('Phiên chọn tổ chức đã hết hạn. Vui lòng nhập email để lấy mã mới.'); render(); return; }
+    loginFail(e);
+  });
+}
+
+/* Đăng nhập thử bằng số điện thoại: chỉ ở chế độ demo (máy chủ từ chối khi không bật DEMO_MODE) */
 function onLogin(phone) {
   S.login.phone = phone; S.login.error = ''; S.login.busy = true; render();
-  api('/volunteer/login', { method: 'POST', body: { phone: phone } }).then(function (data) {
-    lsSet(TOKEN_KEY, data.token); lsSet(INFO_KEY, JSON.stringify(data.volunteer));
-    S.login.busy = false; S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; S.data = fresh(); S.data.volunteer.id = data.volunteer.id; firstLoad = true;
-    render(); loadAll(); toast('Đăng nhập thành công');
-  }).catch(function (e) {
+  api('/volunteer/login', { method: 'POST', body: { phone: phone } }).then(finishLogin).catch(function (e) {
     S.login.busy = false;
     S.login.error = digits(phone).length < 9 ? 'Vui lòng nhập số điện thoại hợp lệ.' : (e.message || 'Không đăng nhập được.');
     render();
@@ -812,7 +946,7 @@ function onStartTask(id) {
     toast('Đã bắt đầu. Hãy đưa mã cho cửa hàng khi đến nơi.');
     S.sheet = { type: 'task', id: id }; pollBusy = false; return loadAll(true);
   }).catch(function (e) {
-    if (e.status === 401) forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); else toast(e.message || 'Không cập nhật được', 'warn');
+    if (!endSession(e, false)) toast(e.message || 'Không cập nhật được', 'warn');
   }).then(function () { actionBusy = false; });
 }
 
@@ -833,7 +967,7 @@ function onSaveProfile(values) {
     lsSet(INFO_KEY, JSON.stringify({ id: me.id, full_name: me.full_name, charity_name: me.charity_name }));
     toast('Đã lưu. Tổ chức sẽ thấy thông tin mới.'); closeSheet(); render();
   }).catch(function (e) {
-    if (e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (endSession(e, true)) return;
     fail(e.message || 'Không lưu được. Vui lòng thử lại.');
     var b = document.querySelector('[form="edit-form"]'); if (b) { b.disabled = false; b.textContent = 'Lưu thay đổi'; }
   }).then(function () { actionBusy = false; });
@@ -871,7 +1005,7 @@ function onAvatarPick(file) {
     S.data.volunteer.avatar_url = me.avatar_url || info.public_url;
     toast('Đã đổi ảnh đại diện. Tổ chức sẽ thấy ngay.');
   }).catch(function (e) {
-    if (e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (endSession(e, true)) return;
     toast(e.message || 'Không đổi được ảnh đại diện.', 'warn');
   }).then(function () { actionBusy = false; render(); });
 }
@@ -1043,7 +1177,7 @@ function camSend() {
     toast('Đã gửi ảnh cho tổ chức xem.'); camClose(); return loadAll(true);
   }).catch(function (e) {
     CAM.busy = false;
-    if (e && e.status === 401) { camClose(); forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (sessionEndMessage(e, false)) { camClose(); endSession(e, false); return; }
     toast((e && e.message) || 'Không gửi được ảnh. Vui lòng thử lại.', 'warn'); camRender();
   });
 }
@@ -1055,7 +1189,7 @@ function onStageDone(id, stage) {
     toast(stage === 'pickup' ? 'Đã hoàn tất lấy hàng. Tổ chức sẽ xem ảnh của bạn.' : 'Đã hoàn tất phần phát hàng. Cảm ơn bạn!');
     return loadAll(true);
   }).catch(function (e) {
-    if (e && e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (endSession(e, false)) return;
     toast((e && e.message) || 'Chưa hoàn tất được. Vui lòng thử lại.', 'warn');
   }).then(function () { actionBusy = false; render(); });
 }
@@ -1073,7 +1207,7 @@ function onToggleActive() {
     toast(me.active_today ? 'Đã bật hoạt động. Tổ chức có thể giao việc cho bạn.' : 'Đã tạm nghỉ hôm nay.');
   }).catch(function (e) {
     S.data.volunteer.active_today = !want;
-    if (e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (endSession(e, true)) return;
     toast(e.message || 'Không đổi được trạng thái. Vui lòng thử lại.', 'warn');
   }).then(function () { actionBusy = false; render(); });
 }
@@ -1086,7 +1220,7 @@ function onSetRole(role) {
     toast('Đã đổi vai trò. Tổ chức sẽ thấy ngay.');
   }).catch(function (e) {
     S.data.volunteer.duty_role = prev;
-    if (e.status === 401) { forceLogout('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); return; }
+    if (endSession(e, true)) return;
     toast(e.message || 'Không đổi được vai trò.', 'warn');
   }).then(function () { actionBusy = false; render(); });
 }
@@ -1097,7 +1231,8 @@ function onLogout() { forceLogout(''); toast('Đã đăng xuất'); }
 /* Mở chỉ đường. Sau này: bật CONFIG.liveActions để mở Google Maps theo toạ độ cửa hàng. */
 function onOpenDirections(task) {
   var s = task.stores;
-  var url = s.latitude != null ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(s.latitude + ',' + s.longitude) : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address);
+  var best = task.route && task.route.directions && task.route.directions.google;
+  var url = typeof best === 'string' && /^https:\/\//.test(best) ? best : s.latitude != null ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(s.latitude + ',' + s.longitude) : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address);
   if (CONFIG.liveActions) window.open(url, '_blank', 'noopener'); else toast('Đang mở bản đồ đến ' + s.name);
 }
 
@@ -1123,7 +1258,7 @@ function render() {
   var view = $('view'), nav = $('nav');
   if (S.screen === 'login') {
     view.innerHTML = renderLogin(S.login); nav.classList.add('hidden');
-    var inp = $('phone'); if (inp && S.login.error) inp.focus();
+    var inp = $(S.login.step === 'code' ? 'otp-code' : 'email'); if (inp && (S.login.error || S.login.step === 'code')) inp.focus();
   } else {
     view.style.setProperty('--accent', ACCENT[S.tab]);
     view.innerHTML = S.tab === 'tasks' ? renderTasks(S.data, S) : S.tab === 'history' ? renderHistory(S.data) : renderProfile(S.data, S);
@@ -1210,23 +1345,32 @@ document.addEventListener('click', function (e) {
     case 'acc': S.open[el.getAttribute('data-k')] = !S.open[el.getAttribute('data-k')]; render(); break;
     case 'edit': S.sheet = { type: 'edit' }; sheetOpen = false; render(); break;
     case 'logout': onLogout(); break;
+    case 'pick-org': onOtpSelect(id); break;
+    case 'otp-resend': onOtpResend(); break;
+    case 'otp-back': S.login = freshLogin(); render(); break;
     case 'toggle-active': onToggleActive(); break;
     case 'set-role': onSetRole(el.getAttribute('data-r')); break;
   }
 });
 document.addEventListener('submit', function (e) {
-  if (e.target.id === 'login-form') { e.preventDefault(); onLogin($('phone').value); }
+  if (e.target.id === 'login-form') { e.preventDefault(); if (S.login.step === 'code') onOtpVerify($('otp-code').value); else onOtpRequest($('email').value); }
+  else if (e.target.id === 'phone-form') { e.preventDefault(); onLogin($('phone').value); }
   else if (e.target.id === 'edit-form') {
     e.preventDefault();
     onSaveProfile({ full_name: $('ef-name').value, email: $('ef-email').value.trim(), vehicle: $('ef-vehicle').value,
       zones: Array.prototype.map.call(document.querySelectorAll('#ef-zones input:checked'), function (i) { return i.value; }), schedule: $('ef-schedule').value });
   }
 });
-document.addEventListener('input', function (e) { if (e.target.id === 'phone') S.login.phone = e.target.value; });
+document.addEventListener('input', function (e) {
+  if (e.target.id === 'phone') S.login.phone = e.target.value;
+  else if (e.target.id === 'email') S.login.email = e.target.value;
+  else if (e.target.id === 'otp-code') S.login.code = e.target.value;
+});
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.sheet) closeSheet(); });
 
 window.addEventListener('load', drawQr); /* vẽ lại QR nếu thư viện tải chậm */
 setInterval(poll, 10000);
+initLocation();
 (function boot() {
   if (lsGet(TOKEN_KEY)) {
     try { var info = JSON.parse(lsGet(INFO_KEY) || '{}'); S.data.volunteer.id = info.id || ''; S.data.volunteer.full_name = info.full_name || ''; S.data.volunteer.charity_name = info.charity_name || ''; } catch (e) {}

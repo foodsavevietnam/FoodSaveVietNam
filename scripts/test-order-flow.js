@@ -1320,6 +1320,7 @@ const scenario = async (name, fn) => {
       const res = { locals: {} };
       pushActorMiddleware.pushActor(req, res, (error) => resolve({ error, res }));
     });
+    db.seed("volunteers", [{ id: "vol-9", charity_id: "charity-1", status: "active" }]); // TNV phải còn hoạt động
     const token = createVolunteerToken("vol-9", "charity-1");
     const blocked = await run(token);
     assert.ok(blocked.error && blocked.error.statusCode === 403 && blocked.error.code === "AUTH_VERIFICATION_REQUIRED", "ngoài DEMO_MODE phải chặn token tình nguyện viên");
@@ -1332,6 +1333,18 @@ const scenario = async (name, fn) => {
       assert.deepStrictEqual(ok.res.locals.pushOwner, { kind: "volunteer", id: "vol-9" });
     } finally {
       env.DEMO_MODE = previousDemo;
+    }
+    // Token đăng nhập OTP email (amr "otp") dùng được cả ở production; token demo vẫn bị chặn
+    const previousNodeEnv = env.NODE_ENV;
+    env.NODE_ENV = "production";
+    try {
+      const otpOk = await run(createVolunteerToken("vol-9", "charity-1", "otp"));
+      assert.ok(!otpOk.error, "token OTP phải được nhận ở production");
+      assert.deepStrictEqual(otpOk.res.locals.pushOwner, { kind: "volunteer", id: "vol-9" });
+      const demoBlocked = await run(token);
+      assert.ok(demoBlocked.error && demoBlocked.error.code === "AUTH_VERIFICATION_REQUIRED", "token demo vẫn bị chặn ở production");
+    } finally {
+      env.NODE_ENV = previousNodeEnv;
     }
     const bad = await run("khong.phai.token");
     assert.ok(bad.error && bad.error.statusCode === 401, "token sai bị từ chối");

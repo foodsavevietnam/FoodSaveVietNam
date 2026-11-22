@@ -10,6 +10,7 @@ import { customerRoutes } from "./customerRoutes";
 import { donationRoutes } from "./donationRoutes";
 import { ecoImpactRoutes } from "./ecoImpactRoutes";
 import { healthRoutes } from "./healthRoutes";
+import { locationRoutes } from "./locationRoutes";
 import { marketingRoutes } from "./marketingRoutes";
 import { matchingRoutes } from "./matchingRoutes";
 import { paymentRoutes } from "./paymentRoutes";
@@ -32,6 +33,7 @@ apiRoutes.use("/support", supportRoutes);
 apiRoutes.use("/volunteer", volunteerRoutes);
 apiRoutes.use("/marketing", marketingRoutes);
 apiRoutes.use("/push", pushRoutes);   // đăng ký thiết bị nhận thông báo đẩy (người mua / tình nguyện viên)
+apiRoutes.use("/location", locationRoutes);   // chia sẻ vị trí khi làm nhiệm vụ (người mua / tình nguyện viên)
 apiRoutes.use("/payments", paymentRoutes);   // webhook cổng thanh toán (chữ ký, không đăng nhập)
 
 apiRoutes.use("/profile", authMiddleware, profileRoutes);

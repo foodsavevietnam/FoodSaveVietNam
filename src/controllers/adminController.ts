@@ -17,6 +17,7 @@ import { adminOpsService, type VoucherInput } from "../services/adminOpsService"
 import { AUTOMATION_JOBS, automationRunService, type AutomationJob } from "../services/automationRunService";
 import { policyConfigService } from "../services/policyConfigService";
 import { volunteerReminderService } from "../services/volunteerReminderService";
+import { locationService } from "../services/locationService";
 import type { PolicyConfig } from "../constants/orderPolicy";
 
 const auditActor = (req: Request): { userId: string; name: string | null } => {
@@ -48,6 +49,11 @@ export const adminController = {
 
   async systemUsers(_req: Request, res: Response): Promise<void> {
     sendSuccess(res, await adminService.systemUsers());
+  },
+
+  async listLiveLocations(req: Request, res: Response): Promise<void> {
+    const { kind } = (req.validated?.query ?? {}) as { kind?: "volunteer" | "customer" };
+    sendSuccess(res, await locationService.listForAdmin(kind ? { kind } : {}));
   },
 
   // Chạy ngay tác vụ đơn hàng (hủy quá hạn thanh toán, vắng mặt, nhắc lấy hàng)

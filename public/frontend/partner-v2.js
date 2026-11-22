@@ -221,10 +221,15 @@ function chatRepaint(o){
   var s=$('#v2msgs');if(s)s.scrollTop=s.scrollHeight;
   var inp=$('#v2ci');if(inp&&keep)inp.value=keep;
 }
-var chatSig={};
-function chatFetch(o){
-  if(DEMO||!o||!o.uuid||typeof partnerApiRequest!=='function')return;
-  partnerApiRequest('/orders/'+o.uuid+'/messages').then(function(data){
+var chatSig={},chatAt={};
+var CHAT_POLL_MS=15000;
+// force: gọi ngay (vừa gửi tin). Không force: bỏ qua nếu đơn này vừa tải < 14 giây (R() vẽ lại thường xuyên)
+function chatFetch(o,force){
+  if(DEMO||!o||!o.uuid||typeof partnerApiRequest!=='function')return false;
+  if(!force&&chatAt[o.uuid]&&Date.now()-chatAt[o.uuid]<CHAT_POLL_MS-1000)return false;
+  chatAt[o.uuid]=Date.now();
+  if(window.FS&&FS.poll)FS.poll.touch(['partner-chat']);
+  return partnerApiRequest('/orders/'+o.uuid+'/messages').then(function(data){
     var msgs=(data&&data.messages)||[];
     var list=msgs.map(function(m){return{f:m.sender_role==='partner'?'s':m.sender_role==='customer'?'c':'sys',m:m.body,t:chatTime(m.created_at)}});
     var sig=msgs.map(function(m){return m.id}).join(',')+'|'+(data&&data.can_send);
@@ -246,16 +251,16 @@ window.v2Say=function(id,txt){
     return;
   }
   if(inp)inp.value='';
-  partnerApiRequest('/orders/'+o.uuid+'/messages',{method:'POST',body:{body:m}}).then(function(){chatSig[o.id]='';chatFetch(o)}).catch(function(e){
+  partnerApiRequest('/orders/'+o.uuid+'/messages',{method:'POST',body:{body:m}}).then(function(){chatSig[o.id]='';chatFetch(o,true)}).catch(function(e){
     if(inp)inp.value=m;
     tst('Chưa gửi được tin nhắn',(e&&e.message)||'Vui lòng thử lại','info');
   });
 };
-// Cập nhật chat đang mở mỗi 6 giây (Realtime Supabase sẽ thay bằng đẩy tức thì ở bước sau)
-if(!DEMO)setInterval(function(){
-  if(document.hidden||pg!=='orders'||selO===null||!ORD[selO])return;
-  chatFetch(ORD[selO]);
-},6000);
+// Cập nhật chat đang mở mỗi 15 giây qua lịch chung FS.poll (chỉ khi tab hiển thị, người dùng còn thao tác; đóng chi tiết đơn thì dừng)
+if(!DEMO&&window.FS&&FS.poll)FS.poll.register('partner-chat',CHAT_POLL_MS,function(){
+  if(pg!=='orders'||selO===null||!ORD[selO])return false;
+  return chatFetch(ORD[selO],true);
+});
 
 /* ---------- trang: KHIẾU NẠI (luồng phản hồi 12 giờ) ---------- */
 function pComplaintsV2(){
@@ -589,6 +594,8 @@ if(!DEMO){
   window.foodsaveAfterOrdersReplace=function(sel){
     if(typeof _after==='function')_after(sel);
     if(typeof partnerApiRequest!=='function')return;
+    // Số tin chưa đọc chỉ hiện ở danh sách đơn; đang mở chi tiết đơn thì chat của đơn đó đã tự cập nhật
+    if(pg!=='orders'||selO!==null)return;
     partnerApiRequest('/orders/chat/unread').then(function(map){
       var changed=JSON.stringify(map||{})!==JSON.stringify(UNREAD);
       UNREAD=map||{};
@@ -612,3 +619,4 @@ if(DEMO){
   if(document.readyState==='complete')go2();else window.addEventListener('load',go2);
 }
 })();
+

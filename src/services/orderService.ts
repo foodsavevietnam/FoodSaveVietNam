@@ -39,6 +39,7 @@ import { env } from "../config/env";
 import { getPaymentProvider } from "./payments";
 import type { PaymentInit } from "./payments";
 import { logger } from "../utils/logger";
+import { locationService } from "./locationService";
 
 interface ProductForCheckout {
   id: string;
@@ -717,6 +718,11 @@ export const orderService = {
       if (error) handleSupabaseError(error, "Failed to complete order");
       if (!data) throw statusConflict("Đơn vừa được cập nhật ở nơi khác, hãy tải lại");
 
+      try {
+        await locationService.clearForContext({ kind: "order", id: order.id });
+      } catch (error) {
+        logger.warn("Không xóa được vị trí người mua sau khi đơn hoàn tất", { orderId: order.id, error });
+      }
       await ledgerService.syncOrderSafe(data as Order);
       try {
         await sellerReputationService.handleOrderSuccess(order.store_id, body.is_charity_order);

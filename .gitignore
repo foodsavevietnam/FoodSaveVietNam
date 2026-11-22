@@ -30,3 +30,5 @@ httpsgraph*.txt
 *.bak-*
 Check-token.js
 *.local.json
+playwright-report/
+test-results/

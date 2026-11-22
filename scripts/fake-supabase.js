@@ -152,6 +152,21 @@ class Query {
   eq(col, val) { this.filters.push((r) => String(this.get(r, col)) === String(val)); return this; }
   neq(col, val) { this.filters.push((r) => String(r[col]) !== String(val)); return this; }
   in(col, vals) { this.filters.push((r) => vals.map(String).includes(String(r[col]))); return this; }
+  // ilike: không phân biệt hoa/thường, % và _ là ký tự đại diện, \ để thoát (như Postgres)
+  ilike(col, pattern) {
+    const esc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let re = "";
+    for (let i = 0; i < pattern.length; i += 1) {
+      const c = pattern[i];
+      if (c === "\\" && i + 1 < pattern.length) { i += 1; re += esc(pattern[i]); }
+      else if (c === "%") re += ".*";
+      else if (c === "_") re += ".";
+      else re += esc(c);
+    }
+    const rx = new RegExp("^" + re + "$", "i");
+    this.filters.push((r) => typeof r[col] === "string" && rx.test(r[col]));
+    return this;
+  }
   is(col, val) { this.filters.push((r) => (val === null ? r[col] === null || r[col] === undefined : r[col] === val)); return this; }
   not(col, op, val) {
     if (op === "is") this.filters.push((r) => !(val === null ? r[col] === null || r[col] === undefined : r[col] === val));

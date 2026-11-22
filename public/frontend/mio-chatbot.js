@@ -20,7 +20,9 @@
     { q: "MIO đang hoạt động ở đâu?", a: "Khu vực có cửa hàng gần bạn hiển thị trong Chợ cứu thực phẩm sau khi đăng nhập." },
     { q: "Tôi có cần tải ứng dụng không?", a: "Không bắt buộc. Website MIO dùng tốt trên điện thoại. Nếu muốn mở nhanh hơn và nhận thông báo, bạn có thể bấm \"Thêm vào màn hình chính\" để cài như một ứng dụng." },
     { q: "Cửa hàng muốn hợp tác với MIO thì làm thế nào?", a: "Cửa hàng đăng ký tài khoản Đối tác trên website, MIO duyệt hồ sơ và hướng dẫn sử dụng. Mức phí dịch vụ được trao đổi cụ thể khi duyệt hồ sơ." },
-    { q: "Tổ chức từ thiện nhận thực phẩm thế nào?", a: "Tổ chức đăng ký tài khoản Tổ chức từ thiện. Sau khi được duyệt, bạn xem các lô thực phẩm quyên tặng, xác nhận nhận theo khung giờ và phân công tình nguyện viên đi nhận. Tổ chức không phải trả tiền." }
+    { q: "Tổ chức từ thiện nhận thực phẩm thế nào?", a: "Tổ chức đăng ký tài khoản Tổ chức từ thiện. Sau khi được duyệt, bạn xem các lô thực phẩm quyên tặng, xác nhận nhận theo khung giờ và phân công tình nguyện viên đi nhận. Tổ chức không phải trả tiền." },
+    { q: "Tổ chức từ thiện có thể đăng ký nhận những loại thực phẩm nào?", a: "Các tổ chức có thể đăng ký nhu cầu tiếp nhận nhiều nhóm thực phẩm khác nhau như rau củ, trái cây, thực phẩm đóng gói, thực phẩm chế biến sẵn và các sản phẩm phù hợp khác. Việc kết nối phụ thuộc vào loại sản phẩm, số lượng, tình trạng hàng hóa và khả năng đáp ứng từ các đối tác cung ứng trên MIO." },
+    { q: "Những mô hình kinh doanh F&B nào có thể tham gia MIO?", a: "MIO hướng đến các doanh nghiệp và cơ sở kinh doanh thực phẩm như nhà hàng, quán ăn, quán cà phê, tiệm bánh, bếp ăn và các đơn vị dịch vụ ăn uống khác. Các đối tác có nhu cầu tìm kiếm, mua thực phẩm và nguyên liệu phục vụ hoạt động kinh doanh đều có thể đăng ký tham gia hệ sinh thái MIO." }
   ];
 
   var FALLBACK = "Xin lỗi, câu hỏi này mình chưa có câu trả lời sẵn. Vui lòng liên hệ " +

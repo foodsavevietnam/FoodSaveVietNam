@@ -7505,6 +7505,155 @@ img + .img-fallback {
     .founder-photo-3 img, .founder-photo-4 img { object-position: center 20% !important; }
     @media (max-width: 1099px) { .team-grid.founders-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
     @media (max-width: 480px) { .team-grid.founders-grid { grid-template-columns: 1fr !important; } .founders-grid .team-card { padding: 32px 22px !important; } }
+
+    /* ===== Trang chủ v2 (theo mockup của chủ dự án) ===== */
+    /* Logo */
+    .brand-logo { display: block; height: 46px; width: auto; object-fit: contain; }
+    .topbar.scrolled .brand-logo { height: 42px; }
+    .brand-logo-drawer { height: 40px; }
+    .footer-logo { display: inline-flex; padding: 10px 14px; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+    .footer-logo img { display: block; height: 64px; width: auto; }
+    @media (max-width: 760px) { .brand-logo, .topbar.scrolled .brand-logo { height: 36px; } }
+    /* Hero: đoạn giới thiệu dài */
+    .hero-bowl-sub { font-size: clamp(15px, 1.12vw, 17px) !important; line-height: 1.7 !important; max-width: 720px !important; text-align: justify; hyphens: auto; }
+    @media (max-width: 980px) { .hero-bowl-grid { grid-template-columns: minmax(0, 1fr) !important; } }
+    @media (max-width: 600px) { .hero-bowl-sub { text-align: left; font-size: 15px !important; } }
+
+    /* Bốn vai trò */
+    .roles4-section { padding: 88px 0; }
+    .roles4-head { max-width: 760px; margin-bottom: 32px; }
+    .roles4-eyebrow, .retail-eyebrow { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .roles4-head h2, .retail-head h2 { margin: 14px 0 10px; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.15; color: #0a0a0a; }
+    .roles4-head p, .retail-head p { margin: 0; color: #4b5563; font-size: 16px; line-height: 1.65; }
+    .roles4-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .role4-card { display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 22px; min-width: 0; }
+    .role4-card h3 { margin: 0; font-size: clamp(21px, 1.8vw, 26px); line-height: 1.25; color: inherit; }
+    .role4-desc { margin: 0; font-size: 15px; line-height: 1.6; opacity: .92; color: inherit !important; }
+    .role4-card h3, .role4-card li { color: inherit !important; }
+    .role4-tag { align-self: flex-start; padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .role4-list { list-style: none; margin: 2px 0 6px; padding: 0; display: grid; gap: 8px; }
+    .role4-list li { position: relative; padding-left: 22px; font-size: 14.5px; line-height: 1.45; }
+    .role4-list li::before { content: "✦"; position: absolute; left: 0; top: 0; font-size: 13px; }
+    .role4-cta { align-self: flex-start; margin-top: auto; display: inline-flex; align-items: center; gap: 6px; padding: 11px 18px; border-radius: 999px; font-weight: 800; font-size: 14px; text-decoration: none; border: 0; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+    .role4-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.16); }
+    .role4-green { background: #22c55e; color: #fff; }
+    .role4-green .role4-tag { background: rgba(255,255,255,.22); color: #fff; }
+    .role4-green .role4-cta { background: #fff; color: #14532d; }
+    .role4-dark { background: #14231c; color: #f0fdf4; }
+    .role4-dark .role4-tag { background: rgba(34,197,94,.16); color: #4ade80; }
+    .role4-dark .role4-list li::before { color: #4ade80; }
+    .role4-dark .role4-cta { background: #22c55e; color: #052e16; }
+    .role4-yellow { background: #facc15; color: #1c1917; }
+    .role4-yellow .role4-tag { background: rgba(0,0,0,.08); color: #1c1917; }
+    .role4-yellow .role4-cta { background: #1c1917; color: #fff; }
+    .role4-blue { background: #dbeafe; color: #0f172a; }
+    .role4-blue .role4-tag { background: rgba(37,99,235,.12); color: #1d4ed8; }
+    .role4-blue .role4-cta { background: #0f2a4a; color: #fff; }
+    @media (max-width: 860px) { .roles4-grid { grid-template-columns: 1fr; } .roles4-section { padding: 64px 0; } .role4-card { padding: 22px; } }
+
+    /* Dành cho siêu thị & chuỗi bán lẻ */
+    .retail-section { padding: 88px 0; }
+    .retail-head { max-width: 860px; margin-bottom: 30px; }
+    .retail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+    .retail-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .retail-photo { aspect-ratio: 16 / 11; border-radius: 18px; overflow: hidden; background: #e7efe9; margin-bottom: 6px; }
+    .retail-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s; }
+    .retail-card:hover .retail-photo img { transform: scale(1.04); }
+    .retail-card h3 { margin: 0; font-size: 20px; color: #0a0a0a; }
+    .retail-card p { margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6; }
+    .retail-checks { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+    .retail-checks li { position: relative; padding-left: 22px; font-size: 14px; font-weight: 600; color: #166534; }
+    .retail-checks li::before { content: "✓"; position: absolute; left: 0; top: 0; font-weight: 900; color: #16a34a; }
+    .retail-commit { margin-top: 30px; padding: 24px 28px; border-radius: 18px; background: #0b0f0d; color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; }
+    .retail-commit-label { font-size: 12.5px; font-weight: 800; letter-spacing: .12em; color: #facc15; text-transform: uppercase; margin-bottom: 6px; }
+    .retail-commit-title { font-size: clamp(17px, 1.6vw, 21px); font-weight: 800; line-height: 1.4; }
+    .retail-commit-sub { margin-top: 6px; font-size: 13.5px; color: rgba(255,255,255,.72); }
+    .retail-commit-btn { flex-shrink: 0; background: #22c55e !important; color: #052e16 !important; border-radius: 999px; text-decoration: none; font-weight: 800; }
+    @media (max-width: 900px) { .retail-grid { grid-template-columns: 1fr; } .retail-section { padding: 64px 0; } .retail-commit { padding: 22px; } }
+
+    /* Giải pháp kinh doanh bền vững (bento) */
+    .biz-bento-section { padding: 88px 0; background: linear-gradient(180deg, #f7fbf8, #ffffff); }
+    .biz-bento-head { max-width: 880px; margin-bottom: 30px; }
+    .biz-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #15803d; font-size: 12.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .biz-bento-head h2 { margin: 12px 0 12px; font-size: clamp(32px, 4.4vw, 58px); line-height: 1.1; color: #0a0a0a; }
+    .biz-accent { color: #16a34a; text-decoration: underline; text-decoration-thickness: .08em; text-underline-offset: .14em; }
+    .biz-bento-head p { margin: 0; color: #4b5563; font-size: 16px; line-height: 1.7; }
+    .biz-bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "value esg" "value small"; gap: 20px; }
+    .biz-card { border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; position: relative; }
+    .biz-card h3 { margin: 0; font-size: clamp(21px, 2vw, 28px); line-height: 1.22; color: inherit; }
+    .biz-card p { margin: 0; font-size: 15px; line-height: 1.65; }
+    .biz-tag { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(22,163,74,.12); color: #15803d; font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .biz-tag .ti { font-size: 14px; }
+    .biz-value { grid-area: value; background: linear-gradient(180deg, #ecfdf3, #dcfce7); color: #052e16; padding-bottom: 0; }
+    .biz-value h3 { font-size: clamp(26px, 2.8vw, 38px); }
+    .biz-value p { color: #166534; }
+    .biz-value-photo { position: relative; margin: auto -28px 0; min-height: 260px; flex: 1 0 260px; }
+    .biz-value-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .biz-badge { position: absolute; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; color: #fff; font-size: 24px; box-shadow: 0 12px 26px rgba(0,0,0,.22); }
+    .biz-badge-cart { left: 34%; top: 22px; background: #22c55e; }
+    .biz-badge-leaf { right: 26px; top: 46px; background: #15803d; }
+    .biz-esg { grid-area: esg; background: linear-gradient(140deg, #052e16, #14532d); color: #fff; flex-direction: row; gap: 18px; }
+    .biz-esg-body { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+    .biz-esg p { color: rgba(255,255,255,.82); }
+    .biz-tag-dark { background: rgba(74,222,128,.16); color: #86efac; }
+    .biz-esg-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+    .biz-esg-list li { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+    .biz-esg-list .ti { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: rgba(255,255,255,.1); color: #4ade80; font-size: 17px; }
+    .biz-esg-visual { position: relative; flex: 0 0 120px; display: flex; flex-direction: column; justify-content: center; gap: 8px; align-items: center; }
+    .esg-tile { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 14px; background: linear-gradient(160deg, #e8dcc4, #c9b48d); color: #14532d; font: 900 32px/1 "Plus Jakarta Sans", system-ui, sans-serif; box-shadow: 0 10px 20px rgba(0,0,0,.3), inset 0 -4px 0 rgba(0,0,0,.12); }
+    .esg-tile:nth-of-type(2) { transform: translateX(12px); }
+    .biz-esg-leaf { position: absolute; top: -6px; right: -4px; color: #4ade80; font-size: 40px; opacity: .55; transform: rotate(-20deg); }
+    .biz-esg-leaf .ti { font-size: 40px; }
+    .biz-data, .biz-transparent { padding-bottom: 0; }
+    .biz-bento > .biz-data { grid-area: auto; }
+    .biz-small-wrap { grid-area: small; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .biz-data { background: #e0ecff; color: #0f172a; }
+    .biz-data p { color: #334155; }
+    .biz-tag-blue { background: rgba(37,99,235,.12); color: #1d4ed8; }
+    .biz-transparent { background: #fdf6e7; color: #1c1917; }
+    .biz-transparent p { color: #57534e; }
+    .biz-tag-amber { background: rgba(217,119,6,.14); color: #b45309; }
+    .biz-photo { margin: auto -28px 0; aspect-ratio: 16 / 10; overflow: hidden; }
+    .biz-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @media (max-width: 1100px) and (min-width: 861px) { .biz-esg { flex-direction: column; } .biz-esg-visual { flex-direction: row; flex-basis: auto; justify-content: flex-start; } .esg-tile:nth-of-type(2) { transform: translateY(-6px); } }
+    @media (max-width: 860px) {
+      .biz-bento { grid-template-columns: 1fr; grid-template-areas: "value" "esg" "small"; }
+      .biz-small-wrap { grid-template-columns: 1fr; }
+      .biz-bento-section { padding: 64px 0; }
+      .biz-card { padding: 22px; }
+      .biz-value, .biz-data, .biz-transparent { padding-bottom: 0; }
+      .biz-value-photo, .biz-photo { margin-left: -22px; margin-right: -22px; }
+      .biz-esg { flex-direction: column; }
+      .biz-esg-visual { flex-direction: row; flex-basis: auto; justify-content: flex-start; }
+      .esg-tile { width: 54px; height: 54px; font-size: 28px; }
+      .esg-tile:nth-of-type(2) { transform: translateY(-6px); }
+    }
+
+    /* Liên hệ */
+    .contact2-section { padding: 72px 0; }
+    .contact2-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
+    .contact2-info h2, .contact2-form h2 { margin: 0 0 6px; font-size: clamp(22px, 2vw, 28px); color: #0a0a0a; }
+    .contact2-sub { margin: 0 0 22px; color: #6b7280; font-size: 14.5px; line-height: 1.6; }
+    .contact2-rows { list-style: none; margin: 0; padding: 0 0 22px; display: grid; gap: 18px; border-bottom: 1px solid var(--line); }
+    .contact2-row { display: flex; gap: 12px; align-items: flex-start; }
+    .contact2-row > .ti { font-size: 20px; color: #16a34a; margin-top: 2px; }
+    .contact2-row strong { display: block; font-size: 15px; color: #0a0a0a; }
+    .contact2-row span, .contact2-row a { color: #4b5563; font-size: 14.5px; word-break: break-word; }
+    .contact2-social { padding-top: 20px; }
+    .contact2-social h3 { margin: 0 0 12px; font-size: 17px; }
+    .contact2-social-row { display: flex; gap: 12px; }
+    .contact2-social-row a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #f0fdf4; color: #15803d; font-size: 20px; }
+    .contact2-form { padding: 28px; border-radius: 20px; background: #fff; border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(15,23,42,.07); }
+    .contact2-form .field-error { min-height: 0; color: #dc2626; font-size: 12.5px; font-weight: 600; }
+    .contact2-form .field-error:empty { display: none; }
+    .contact2-form [aria-invalid="true"] { border-color: #dc2626 !important; }
+    .contact2-submit { width: 100%; justify-content: center; background: #22c55e !important; color: #fff !important; border-radius: 12px; font-weight: 800; }
+    .contact2-submit:disabled { opacity: .65; cursor: wait; }
+    .contact2-status { margin: 12px 0 0; font-size: 14px; font-weight: 600; }
+    .contact2-status:empty { display: none; }
+    .contact2-status.ok { color: #15803d; }
+    .contact2-status.error { color: #dc2626; }
+    @media (max-width: 860px) { .contact2-grid { grid-template-columns: 1fr; } .contact2-section { padding: 48px 0; } .contact2-form { padding: 22px; } }
   </style>
 </head>
 <body>
@@ -7526,8 +7675,8 @@ img + .img-fallback {
     <!-- Tier 2: Main bar -->
     <div class="topbar-main">
       <div class="wrap">
-        <button class="brand" data-route="landing" aria-label="Trang chủ MIO">
-          <span class="brand-word">MI<span>O</span></span>
+        <button class="brand" data-route="landing" aria-label="MIO - Trang chủ">
+          <img class="brand-logo" src="icons/mio-logo-full.png" alt="MIO" width="228" height="271">
         </button>
         <nav class="nav" id="nav"></nav>
         <div class="actions" id="actions"></div>
@@ -7542,7 +7691,7 @@ img + .img-fallback {
   <div class="mobile-drawer-overlay" id="mDrawerOverlay" aria-hidden="true"></div>
   <aside class="mobile-drawer" id="mDrawer" aria-hidden="true">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span class="brand-word" style="font-size:20px">MI<span>O</span></span>
+      <img class="brand-logo brand-logo-drawer" src="icons/mio-logo-full.png" alt="MIO" width="228" height="271">
       <button class="icon-btn" id="mDrawerClose" aria-label="Đóng" style="width:38px;height:38px"><i class="ti ti-x"></i></button>
     </div>
     <h4>Điều hướng</h4>
@@ -7604,7 +7753,9 @@ img + .img-fallback {
   <script>
     const state = { user: null, role: null, route: "landing", category: "all", cart: [], orders: [], activeProduct: null, activeCommunityPost: 0, communityReactions: {}, communityComments: {}, helpCategory: "finance", helpArticle: null };
     // ===== Thông tin liên hệ thật của MIO: chỉ sửa ở đây. Ô trống thì dòng/nút tương ứng bị ẩn. =====
-    const MIO_CONTACT = { email: "foodsavevietnam@gmail.com", phone: "", tel: "", address: "" };
+    // Thông tin liên hệ thật duy nhất của trang: mục nào để trống thì không hiển thị (không dùng chữ giữ chỗ).
+    const MIO_CONTACT = { email: "foodsavevietnam@gmail.com", phone: "", tel: "", address: "Quận 7, TP. Hồ Chí Minh", hours: "",
+      social: { facebook: "", instagram: "", linkedin: "", youtube: "" } };
     // ===== Dải tin chạy đầu trang: chỉ điền số liệu đã kiểm chứng, mỗi mục kèm link nguồn. =====
     // Mẫu: { icon: "ti-leaf", html: "Nội dung có <b>số liệu</b>", href: "https://nguon-kiem-chung" }
     // Mảng rỗng thì ẩn cả dải tin.
@@ -7642,6 +7793,7 @@ img + .img-fallback {
     function renderContactChrome() {
       const foot = document.getElementById("mContactFoot");
       if (foot) foot.innerHTML = [
+        MIO_CONTACT.address ? `<div><b>Địa chỉ</b> · ${mioEsc(MIO_CONTACT.address)}</div>` : "",
         MIO_CONTACT.phone ? `<div><b>Điện thoại</b> · <a href="tel:${mioEsc(mioTel())}">${mioEsc(MIO_CONTACT.phone)}</a></div>` : "",
         MIO_CONTACT.email ? `<div style="margin-top:4px"><a href="mailto:${mioEsc(MIO_CONTACT.email)}">${mioEsc(MIO_CONTACT.email)}</a></div>` : ""
       ].join("");
@@ -7808,7 +7960,7 @@ img + .img-fallback {
                 </h1>
                 <span class="title-bowl-underline" aria-hidden="true"></span>
               </div>
-              <p class="hero-bowl-sub">Đưa thực phẩm còn tốt từ doanh nghiệp đến người dùng và tổ chức từ thiện, bằng một quy trình rõ ràng, kịp thời và có trách nhiệm.</p>
+              <p class="hero-bowl-sub">MIO là nền tảng kết nối và phân phối thực phẩm cận hạn, bán chậm hoặc tồn kho dư từ các nhà bán lẻ đến người tiêu dùng, doanh nghiệp F&amp;B và tổ chức từ thiện. Thông qua hệ thống phân loại thông minh Green – Yellow – Red, MIO tối ưu hóa việc phân phối theo hạn sử dụng và nhu cầu thực tế, biến hàng hóa có nguy cơ bị lãng phí thành những giá trị thiết thực với chi phí hợp lý, hướng đến một hệ sinh thái tiêu dùng bền vững.</p>
               <div class="hero-bowl-actions" id="cong-truy-cap">
                 <button class="btn btn-accent" onclick="window.open('FOODSAVE_USER.html','_blank')" title="Mở Khu vực người dùng">${icon("ti-shopping-bag")}Dành cho người mua</button>
                 <button class="btn btn-primary" onclick="window.open('FOODSAVE_CHARITY.html','_blank')" title="Mở Cổng từ thiện">${icon("ti-heart-handshake")}Dành cho tổ chức từ thiện</button>
@@ -7851,9 +8003,7 @@ img + .img-fallback {
             </div>
           </div>
         </section>
-        ${storySection()}
         ${personaPathsSection()}
-        ${valueSection()}
         ${howItWorksSection()}
         ${expiryLabelsSection()}
         ${categoryGallery()}
@@ -7868,68 +8018,44 @@ img + .img-fallback {
 
     // 2) Live Counter — SPLIT EDITORIAL (1 số khổng lồ + danh sách dọc)
 
-    // 3) Persona Paths — ASYMMETRIC ORGANIC BLOBS (3 shape khác nhau, tilted)
+    // 3) Bốn vai trò — một hệ sinh thái (thiết kế theo mockup của chủ dự án)
     function personaPathsSection() {
-      const personas = [
-        {
-          tag: "Người mua",
-          icon: "ti-shopping-bag",
-          accent: "var(--orange-500)",
-          accentSoft: "rgba(250,204,21,.12)",
-          title: "Mua thông minh<br><em>giá ưu đãi</em>",
-          desc: "Combo cơm, bánh, rau củ còn nóng từ các bếp đối tác. Đặt qua khu vực người dùng, lấy hàng bằng mã QR.",
-          benefits: ["Lọc khu vực, hạn dùng, khoảng cách", "Nhận hàng bằng mã QR", "Khiếu nại theo chính sách"],
-          action: "auth-buyer",
-          cta: "Đăng nhập Người mua",
-          shape: "p-shape-a"
-        },
-        {
-          tag: "Đối tác doanh nghiệp",
-          icon: "ti-building-store",
-          accent: "var(--green-700)",
-          accentSoft: "rgba(34,197,94,.12)",
-          title: "Giảm lãng phí<br>thu hồi <em>doanh thu mới</em>",
-          desc: "Cửa hàng, nhà hàng, bakery, siêu thị, nông trại đăng lô thực phẩm dư. MIO duyệt hồ sơ và hướng dẫn sử dụng.",
-          benefits: ["Đăng lô thực phẩm dư", "Theo dõi đơn và bàn giao", "Quy trình xử lý rõ ràng"],
-          action: "route-business",
-          cta: "Khám phá gói đối tác",
-          shape: "p-shape-b"
-        },
-        {
-          tag: "Tổ chức từ thiện",
-          icon: "ti-heart-handshake",
-          accent: "#c2410c",
-          accentSoft: "rgba(194,65,12,.12)",
-          title: "Nguồn thực phẩm<br>biên bản <em>số rõ ràng</em>",
-          desc: "Mái ấm, bếp cộng đồng, tổ chức xã hội nhận lô quyên tặng qua 3 màn hình: Điều phối, Tình nguyện viên, Biên bản số.",
-          benefits: ["Toàn bộ lô quyên tặng miễn phí", "Phân tuyến TNV theo bản đồ", "Biên bản bàn giao có ảnh minh chứng của TNV", "Tổ chức xác nhận đã nhận hàng"],
-          action: "auth-charity",
-          cta: "Đăng nhập Tổ chức",
-          shape: "p-shape-c"
-        }
+      const roles = [
+        { tone: "green", tag: "Người tiêu dùng", title: "Mua sắm thông minh. Tiết kiệm hơn.",
+          desc: "Khám phá thực phẩm phù hợp với nhu cầu, sở thích và ngân sách của bạn.",
+          bullets: ["Gợi ý sản phẩm theo nhu cầu", "Ưu tiên sản phẩm gần bạn", "Tiếp cận nhiều lựa chọn thực phẩm", "Mua sắm thuận tiện và tiết kiệm"],
+          cta: "Khám phá sản phẩm", href: "FOODSAVE_USER.html" },
+        { tone: "dark", tag: "Cửa hàng & doanh nghiệp F&amp;B", title: "Tối ưu hàng hóa. Gia tăng giá trị.",
+          desc: "Đưa sản phẩm đến gần hơn với khách hàng, tận dụng nguồn hàng và mở rộng cơ hội kinh doanh.",
+          bullets: ["Đăng tải và quản lý sản phẩm", "Tiếp cận khách hàng tiềm năng", "Tối ưu hàng hóa và doanh thu", "Theo dõi hoạt động kinh doanh"],
+          cta: "Trở thành đối tác", href: "FOODSAVE_PARTNER.html" },
+        { tone: "yellow", tag: "Tổ chức từ thiện", title: "Kết nối nguồn lực. Lan tỏa yêu thương.",
+          desc: "Kết nối với nguồn thực phẩm phù hợp để hỗ trợ các hoạt động cộng đồng và người cần giúp đỡ.",
+          bullets: ["Đăng ký nhu cầu thực phẩm", "Tìm kiếm nguồn cung phù hợp", "Theo dõi quá trình tiếp nhận", "Ghi nhận hoạt động hỗ trợ"],
+          cta: "Tham gia mạng lưới", href: "FOODSAVE_CHARITY.html" },
+        { tone: "blue", tag: "Siêu thị đối tác", title: "Kết nối quy mô. Quản lý đồng bộ.",
+          desc: "Kết nối hệ thống siêu thị với MIO để quản lý nguồn hàng và hoạt động phân phối hiệu quả hơn.",
+          bullets: ["Kết nối dữ liệu hệ thống bán lẻ", "Đồng bộ thông tin hàng hóa", "Quản lý hoạt động trên nhiều điểm bán", "Theo dõi và tổng hợp báo cáo"],
+          cta: "Khám phá hợp tác", route: "business" }
       ];
       return `
-        <section class="persona-section" id="vai-tro">
+        <section class="roles4-section" id="vai-tro">
           <div class="wrap">
-            <div class="section-head reveal">
-              <div>
-                <span class="section-num">Lối đi của bạn</span>
-                <h2>Ba vai trò — một nền tảng</h2>
-              </div>
-              <p>Bạn đang ở đâu trong câu chuyện chống lãng phí thực phẩm? Chọn vai trò phù hợp để khám phá quyền lợi và quy trình riêng.</p>
+            <div class="roles4-head reveal">
+              <span class="roles4-eyebrow">Lợi ích của bạn</span>
+              <h2>Bốn vai trò – một hệ sinh thái</h2>
+              <p>Dù bạn là người mua, nhà bán lẻ, tổ chức từ thiện hay hệ thống siêu thị, MIO đều có một không gian phù hợp.</p>
             </div>
-            <div class="persona-flow stagger-group">
-              ${personas.map((p, i) => `
-                <article class="persona-petal ${p.shape} reveal" style="--accent:${p.accent};--accent-soft:${p.accentSoft}">
-                  <span class="petal-watermark" aria-hidden="true">${icon(p.icon)}</span>
-                  <span class="petal-num" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span>
-                  <span class="petal-tag">${p.tag}</span>
-                  <h3>${p.title}</h3>
-                  <p class="petal-desc">${p.desc}</p>
-                  <ul class="petal-list">
-                    ${p.benefits.map(b => `<li><span class="petal-bullet" aria-hidden="true"></span>${b}</li>`).join("")}
-                  </ul>
-                  <button class="petal-cta" ${p.action === "route-business" ? `onclick="window.open('FOODSAVE_PARTNER.html','_blank')"` : p.action === "auth-buyer" ? `onclick="window.open('FOODSAVE_USER.html','_blank')"` : p.action === "auth-charity" ? `onclick="window.open('FOODSAVE_CHARITY.html','_blank')"` : `data-action="${p.action}"`}>${p.cta} ${icon("ti-arrow-right")}</button>
+            <div class="roles4-grid">
+              ${roles.map((r, i) => `
+                <article class="role4-card role4-${r.tone} reveal">
+                  <span class="role4-tag">${String(i + 1).padStart(2, "0")} · ${r.tag}</span>
+                  <h3>${r.title}</h3>
+                  <p class="role4-desc">${r.desc}</p>
+                  <ul class="role4-list">${r.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
+                  ${r.route
+                    ? `<button type="button" class="role4-cta" data-route="${r.route}">${r.cta} <span aria-hidden="true">→</span></button>`
+                    : `<a class="role4-cta" href="${r.href}" target="_blank" rel="noopener">${r.cta} <span aria-hidden="true">→</span></a>`}
                 </article>`).join("")}
             </div>
           </div>
@@ -8102,29 +8228,6 @@ img + .img-fallback {
 
 
 
-    function storySection() {
-      return `
-        <section id="gioi-thieu">
-          <div class="wrap grid-2">
-            <div class="reveal">
-              <span class="eyebrow">${icon("ti-sparkles")}Câu chuyện ra đời</span>
-              <h2 style="margin-top:16px">MIO bắt đầu từ một câu hỏi rất đời thường.</h2>
-              <p class="lead">Mỗi tối, rất nhiều cửa hàng vẫn còn những phần ăn tốt, còn hạn, được bảo quản đúng cách nhưng không kịp bán. Cùng lúc đó, nhiều người muốn ăn tốt hơn với chi phí hợp lý, còn các tổ chức xã hội cần nguồn thực phẩm minh bạch để hỗ trợ cộng đồng. MIO được tạo ra để nối ba nhu cầu đó bằng một hệ thống rõ ràng, có trách nhiệm và dễ sử dụng.</p>
-              <p>Chúng tôi không xem thực phẩm dư là rác. Đó là giá trị đang đứng sai thời điểm, sai kênh phân phối hoặc thiếu một cơ chế điều phối đủ nhanh. Vì vậy, MIO tập trung vào tốc độ, niềm tin và khả năng truy xuất: món nào còn tốt, ai đăng, nhận ở đâu, hạn dùng khi nào, quy trình bàn giao ra sao và tác động được ghi nhận thế nào.</p>
-            </div>
-            <div class="card story-logo-card reveal" style="color:#050505;background:radial-gradient(circle at 88% 10%,rgba(250,204,21,.22),transparent 25%),radial-gradient(circle at 8% 90%,rgba(34,197,94,.12),transparent 32%),linear-gradient(145deg,#ffffff 0%,#fffdf2 48%,#fef3c7 100%);border-color:rgba(250,204,21,.38);box-shadow:0 28px 70px rgba(15,23,42,.12)">
-              <div class="wordmark story-wordmark" style="text-shadow:none;margin-bottom:28px">MI<span>O</span></div>
-              <h3 style="color:#050505;font-size:26px">Thông điệp cốt lõi</h3>
-              <p style="color:#374151">Cứu thực phẩm không chỉ là tiết kiệm tiền. Đó là cách một thành phố vận hành thông minh hơn: ít lãng phí hơn, nhiều lựa chọn tốt hơn và nhiều cơ hội sẻ chia hơn.</p>
-              <div class="deep-list">
-                <button data-modal="Cam kết minh bạch|<h3>MIO minh bạch ở từng điểm chạm</h3><p>Chúng tôi không chỉ nói “thực phẩm còn tốt”. Mỗi lô đăng lên cần có ảnh thực tế, hạn dùng, điều kiện bảo quản, điểm nhận và khung giờ bàn giao rõ ràng.</p><ul><li><strong>Với người mua:</strong> biết mình đang mua gì, nhận ở đâu, trước thời điểm nào.</li><li><strong>Với đối tác:</strong> có lịch sử đơn, biên bản và dữ liệu doanh thu để đối soát.</li><li><strong>Với tổ chức từ thiện:</strong> có mã QR, người phụ trách và dấu thời gian bàn giao.</li></ul><p>Mục tiêu là biến niềm tin thành dữ liệu có thể kiểm tra, không phải một lời hứa mơ hồ.</p>">${icon("ti-certificate")} Cam kết minh bạch <i class="ti ti-chevron-right"></i></button>
-                <button data-modal="Vấn đề cần giải quyết|<h3>Vì sao MIO cần tồn tại?</h3><p>Thực phẩm cuối ngày thường mất giá rất nhanh, dù vẫn còn an toàn và có thể sử dụng. Khi không có kênh điều phối đủ nhanh, cửa hàng mất doanh thu, người mua mất cơ hội tiết kiệm, còn cộng đồng mất đi những phần ăn đáng lẽ có thể được chia sẻ.</p><ul><li><strong>Lãng phí kinh tế:</strong> hàng tồn bị xử lý như rác thay vì thu hồi một phần giá trị.</li><li><strong>Lãng phí xã hội:</strong> nhiều tổ chức cần thực phẩm nhưng khó tiếp cận nguồn ổn định.</li><li><strong>Lãng phí môi trường:</strong> thực phẩm bị bỏ đi tạo thêm phát thải và chi phí xử lý.</li></ul><p>MIO giải quyết bằng một cơ chế nhanh: đăng lô, định giá/quyên tặng, nhận bằng QR, lưu biên bản và báo cáo tác động.</p>">${icon("ti-clock-bolt")} Vấn đề cần giải quyết <i class="ti ti-chevron-right"></i></button>
-              </div>
-            </div>
-          </div>
-        </section>`;
-    }
-
     function aboutSection() {
       return `
         <section id="about">
@@ -8180,35 +8283,6 @@ img + .img-fallback {
         </section>`;
     }
 
-    function valueSection() {
-      return `
-        <section>
-          <div class="wrap">
-            <div class="section-head reveal">
-              <div>
-                <span class="section-num">Giá trị nền tảng</span>
-                <h2>MIO giúp ích gì?</h2>
-              </div>
-              <p>Nền tảng được thiết kế cho ba nhóm cùng có lợi, nhưng không đánh đổi sự an toàn, minh bạch và trách nhiệm vận hành.</p>
-            </div>
-            <div class="grid-3 stagger-group">
-              ${[
-                ["val-user", "ti-user-heart", "Người dùng", "Tiếp cận thực phẩm còn tốt với giá hợp lý, xem rõ hạn dùng, điều kiện nhận, thành phần và lịch sử đơn hàng.", ["Giá hợp lý","Nhận hàng khu vực gần","Kiểm tra hàng khi nhận"]],
-                ["val-business", "ti-building-store", "Doanh nghiệp", "Giảm thất thoát cuối ngày, thu hồi một phần doanh thu, có báo cáo ESG và quy trình xử lý thực phẩm dư chuyên nghiệp.", ["Thu hồi doanh thu","Báo cáo tác động","Quy trình xử lý thực phẩm dư"]],
-                ["val-charity", "ti-heart-handshake", "Tổ chức xã hội", "Nhận nguồn thực phẩm minh bạch hơn, có biên bản bàn giao, phân công tình nguyện viên và quản lý trách nhiệm rõ ràng.", ["Lô quyên tặng miễn phí","Biên bản điện tử","Điều phối chuyên biệt"]]
-              ].map(c => `<article class="card reveal-up" data-detail="${c[0]}">
-                <div class="card-icon">${icon(c[1])}</div>
-                <h3>${c[2]}</h3>
-                <p>${c[3]}</p>
-                <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-                  ${c[4].map(b => `<div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--green-800)"><i class="ti ti-circle-check" style="color:var(--green-700);font-size:15px"></i>${b}</div>`).join("")}
-                </div>
-              </article>`).join("")}
-            </div>
-          </div>
-        </section>`;
-    }
-
     function impactSection() {
       return `
         <section class="band">
@@ -8228,36 +8302,40 @@ img + .img-fallback {
     }
 
     function businessSection() {
+      const cards = [
+        { img: "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=640&q=75", alt: "Lối đi giữa các kệ hàng trong siêu thị", title: "Quản lý hàng hóa",
+          text: "Theo dõi danh mục sản phẩm, tồn kho và tình trạng hàng hóa trên hệ thống.",
+          checks: ["Quản lý dữ liệu sản phẩm", "Theo dõi tồn kho", "Hỗ trợ cập nhật dữ liệu tập trung"] },
+        { img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=640&q=75", alt: "Màn hình bảng số liệu phân tích hoạt động", title: "Báo cáo và phân tích ESG",
+          text: "Theo dõi lượng hàng được phân phối, thu hồi và các giá trị tạo ra từ hoạt động của hệ thống.",
+          checks: ["Theo dõi dữ liệu hoạt động", "Tổng hợp báo cáo", "Hỗ trợ đánh giá tác động"] },
+        { img: "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=640&q=75", alt: "Kho hàng với các dãy kệ chứa thùng hàng", title: "Tối ưu vận hành",
+          text: "Hỗ trợ kết nối nguồn cung với nhu cầu thị trường và các đơn vị tiếp nhận phù hợp.",
+          checks: ["Kết nối nhiều điểm bán", "Hỗ trợ điều phối hàng hóa", "Theo dõi quá trình phân phối"] }
+      ];
       return `
-        <section>
+        <section class="retail-section" id="sieu-thi">
           <div class="wrap">
-            <div class="section-head reveal">
-              <div>
-                <span class="section-num">Dành cho đối tác</span>
-                <h2>Dành cho doanh nghiệp thực phẩm</h2>
-              </div>
-              <p>Cửa hàng, siêu thị, bếp công nghiệp và bakery có thể giảm tồn kho cuối ngày, tăng trách nhiệm ESG và minh bạch hóa quy trình xử lý thực phẩm.</p>
+            <div class="retail-head reveal">
+              <span class="retail-eyebrow">Dành cho đối tác</span>
+              <h2>Dành cho hệ thống siêu thị và chuỗi bán lẻ</h2>
+              <p>MIO hỗ trợ siêu thị quản lý nguồn hàng, tối ưu phân phối sản phẩm và theo dõi hiệu quả sử dụng hàng hóa thông qua một nền tảng kết nối tập trung.</p>
             </div>
-            <div class="grid-3 stagger-group">
-              ${[
-                ["val-business", "ti-building-store", "Đăng lô nhanh", "Tạo lô với ảnh, số lượng, hạn dùng, điểm nhận và điều kiện bảo quản.", ["Chụp ảnh thực tế","Hạn dùng bắt buộc"]],
-                ["about-impact", "ti-file-analytics", "Theo dõi tác động", "Theo dõi các lô đã bàn giao cho người mua và tổ chức từ thiện.", ["Xem trong cổng đối tác","Theo dõi theo từng lô"]],
-                ["about-ops", "ti-headset", "Hỗ trợ vận hành", "Quy trình phản hồi sự cố, thu hồi, xác minh chất lượng và biên bản bàn giao rõ ràng.", ["Hướng dẫn sử dụng","Biên bản bàn giao","Xử lý sự cố theo chính sách"]]
-              ].map(c => `<article class="card reveal-up" data-detail="${c[0]}">
-                <div class="card-icon">${icon(c[1])}</div>
-                <h3>${c[2]}</h3>
-                <p>${c[3]}</p>
-                <ul style="list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:5px">
-                  ${c[4].map(b => `<li style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--green-800)"><i class="ti ti-check" style="color:var(--green-700);font-size:14px"></i>${b}</li>`).join("")}
-                </ul>
+            <div class="retail-grid">
+              ${cards.map(c => `<article class="retail-card reveal">
+                <div class="retail-photo"><img src="${c.img}" alt="${c.alt}" loading="lazy" width="640" height="440"></div>
+                <h3>${c.title}</h3>
+                <p>${c.text}</p>
+                <ul class="retail-checks">${c.checks.map(t => `<li>${t}</li>`).join("")}</ul>
               </article>`).join("")}
             </div>
-            <div style="margin-top:24px;padding:24px 28px;border-radius:16px;background:var(--green-950);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px" class="reveal">
+            <div class="retail-commit reveal">
               <div>
-                <div style="font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--orange-500);text-transform:uppercase;margin-bottom:6px">Cam kết của MIO</div>
-                <div style="font-size:17px;font-weight:700;line-height:1.5">Điều kiện hợp tác được trao đổi cụ thể khi MIO duyệt hồ sơ đối tác.</div>
+                <div class="retail-commit-label">Cam kết của MIO</div>
+                <div class="retail-commit-title">Kết nối dữ liệu. Tối ưu nguồn hàng. Gia tăng giá trị.</div>
+                <div class="retail-commit-sub">Cùng MIO xây dựng hệ sinh thái thực phẩm hiệu quả hơn.</div>
               </div>
-              <button class="btn btn-accent" onclick="window.open('FOODSAVE_PARTNER.html','_blank')" style="flex-shrink:0">${icon("ti-send")} Đăng ký cửa hàng đối tác</button>
+              <a class="btn retail-commit-btn" href="FOODSAVE_PARTNER.html" target="_blank" rel="noopener">Đăng ký hợp tác</a>
             </div>
           </div>
         </section>`;
@@ -8265,62 +8343,53 @@ img + .img-fallback {
 
     function partnerGrowthShieldSection() {
       return `
-        <section class="partner-shield-section">
+        <section class="biz-bento-section" id="giai-phap-kinh-doanh">
           <div class="wrap">
-            <div class="section-head reveal">
-              <div>
-                <span class="section-num">Bệ phóng kinh doanh bền vững</span>
-                <h2>Giảm lãng phí, thêm doanh thu.</h2>
-              </div>
-              <p>MIO giúp cửa hàng xử lý sản phẩm cuối ngày minh bạch, thu hồi một phần doanh thu và thể hiện trách nhiệm với cộng đồng.</p>
+            <div class="biz-bento-head reveal">
+              <span class="biz-eyebrow">${icon("ti-leaf")}Giải pháp kinh doanh bền vững</span>
+              <h2>Tối ưu nguồn hàng.<br>Gia tăng giá trị <span class="biz-accent">bền vững</span>.</h2>
+              <p>MIO giúp hệ thống siêu thị và chuỗi bán lẻ quản lý, kết nối và phân phối nguồn hàng hiệu quả hơn. Qua đó, doanh nghiệp có thể khai thác tốt hơn giá trị hàng hóa, hạn chế lãng phí và hướng đến mô hình kinh doanh bền vững.</p>
             </div>
-
-            <div class="partner-shield-grid">
-              <article class="partner-bento partner-profit reveal">
-                <span class="mini-label">${icon("ti-trending-up")}Lợi nhuận kép</span>
-                <div class="profit-viz" aria-hidden="true">
-                  <svg class="profit-wave" viewBox="0 0 560 220" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#22c55e" stop-opacity=".32"/>
-                        <stop offset="1" stop-color="#22c55e" stop-opacity="0"/>
-                      </linearGradient>
-                    </defs>
-                    <path d="M0 182 C78 168 100 122 164 132 C228 142 236 88 304 94 C382 101 386 48 456 58 C502 65 530 38 560 26 L560 220 L0 220 Z" fill="url(#profitFill)"/>
-                    <path d="M0 182 C78 168 100 122 164 132 C228 142 236 88 304 94 C382 101 386 48 456 58 C502 65 530 38 560 26" fill="none" stroke="#16a34a" stroke-width="7" stroke-linecap="round"/>
-                  </svg>
-                  <div class="receipt-chip">
-                    <strong>Thu hồi</strong>
-                    <span>Doanh thu cuối ngày</span>
-                  </div>
-                </div>
-                <h3>Hàng cận hạn có thêm cơ hội bán.</h3>
-                <p>Cửa hàng đăng sản phẩm cận hạn với giá ưu đãi để người mua gần đó đặt và đến nhận, giảm lượng phải tiêu hủy.</p>
-              </article>
-
-              <article class="partner-bento partner-esg reveal">
-                <span class="mini-label" style="background:rgba(34,197,94,.14);color:#86efac">${icon("ti-leaf")}Tấm vé ESG</span>
-                <h3>Hướng tới kinh tế tuần hoàn.</h3>
-                <p>MIO ghi nhận các lô đã bàn giao để cửa hàng theo dõi lượng thực phẩm được luân chuyển thay vì bỏ đi.</p>
-                <div class="esg-metrics" aria-hidden="true">
-                  <div class="esg-metric"><strong>CO2</strong><span>Giảm thiểu</span></div>
-                  <div class="esg-metric"><strong>QR</strong><span>Biên bản</span></div>
-                  <div class="esg-metric"><strong>Lô</strong><span>Theo dõi</span></div>
+            <div class="biz-bento">
+              <article class="biz-card biz-value reveal">
+                <span class="biz-tag">${icon("ti-chart-arrows-vertical")}Tối ưu giá trị hàng hóa</span>
+                <h3>Biến nguồn hàng chưa được khai thác hiệu quả thành giá trị mới.</h3>
+                <p>MIO hỗ trợ kết nối nguồn cung với nhu cầu phù hợp, tạo thêm cơ hội phân phối cho những sản phẩm còn giá trị sử dụng. Qua đó, doanh nghiệp có thể cải thiện hiệu quả sử dụng hàng hóa và hạn chế tình trạng tồn đọng, lãng phí.</p>
+                <div class="biz-value-photo">
+                  <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=75" alt="Quầy rau củ quả tươi trong siêu thị" loading="lazy" width="900" height="560">
+                  <span class="biz-badge biz-badge-cart" aria-hidden="true">${icon("ti-shopping-cart")}</span>
+                  <span class="biz-badge biz-badge-leaf" aria-hidden="true">${icon("ti-leaf")}</span>
                 </div>
               </article>
-
-              <div class="partner-bottom-grid">
-                <article class="partner-bento partner-small reveal">
-                  <div class="bento-icon">${icon("ti-shield-lock")}</div>
-                  <h3>Bảo vệ dữ liệu.</h3>
-                  <p>Dữ liệu được xử lý theo <a href="chinh-sach.html" style="text-decoration:underline">Chính sách bảo mật</a> của MIO.</p>
-                </article>
-
-                <article class="partner-bento partner-small partner-support reveal">
-                  <div class="bento-icon">${icon("ti-lifebuoy")}</div>
-                  <h3>Xử lý khiếu nại minh bạch.</h3>
-                  <p>Quy trình tiếp nhận, đối soát và xử lý khiếu nại minh bạch dựa trên bằng chứng hình ảnh thực tế. MIO hỗ trợ theo chính sách tại trang Chính sách.</p>
-                </article>
+              <article class="biz-card biz-esg reveal">
+                <div class="biz-esg-body">
+                  <span class="biz-tag biz-tag-dark">${icon("ti-plant-2")}Hướng đến phát triển bền vững</span>
+                  <h3>Đồng hành cùng mục tiêu ESG.</h3>
+                  <p>MIO giúp doanh nghiệp nâng cao hiệu quả sử dụng tài nguyên thực phẩm, thúc đẩy hoạt động phân phối có trách nhiệm và tạo ra giá trị tích cực cho cộng đồng.</p>
+                  <ul class="biz-esg-list">
+                    <li>${icon("ti-recycle")}Tối ưu nguồn thực phẩm</li>
+                    <li>${icon("ti-trash-off")}Hạn chế lãng phí</li>
+                    <li>${icon("ti-users-group")}Gia tăng giá trị cộng đồng</li>
+                  </ul>
+                </div>
+                <div class="biz-esg-visual" aria-hidden="true">
+                  <span class="biz-esg-leaf">${icon("ti-leaf")}</span>
+                  <span class="esg-tile">E</span><span class="esg-tile">S</span><span class="esg-tile">G</span>
+                </div>
+              </article>
+              <div class="biz-small-wrap">
+              <article class="biz-card biz-data reveal">
+                <span class="biz-tag biz-tag-blue">${icon("ti-plug-connected")}Kết nối dữ liệu</span>
+                <h3>Liên thông trong quản lý.</h3>
+                <p>Kết nối thông tin hàng hóa giữa hệ thống quản lý của siêu thị với nền tảng MIO, hỗ trợ giảm thao tác nhập liệu thủ công và nâng cao tính đồng bộ trong quá trình vận hành.</p>
+                <div class="biz-photo"><img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=640&q=75" alt="Máy tính xách tay hiển thị bảng điều khiển dữ liệu" loading="lazy" width="640" height="400"></div>
+              </article>
+              <article class="biz-card biz-transparent reveal">
+                <span class="biz-tag biz-tag-amber">${icon("ti-shield-check")}Minh bạch phân phối</span>
+                <h3>Rõ ràng trong từng hoạt động.</h3>
+                <p>Hỗ trợ theo dõi thông tin hàng hóa và quá trình phân phối trên nền tảng tập trung, tạo cơ sở để doanh nghiệp kiểm soát hoạt động hợp tác và đánh giá hiệu quả triển khai.</p>
+                <div class="biz-photo"><img src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=640&q=75" alt="Thùng hàng được xếp trong kho phân phối" loading="lazy" width="640" height="400"></div>
+              </article>
               </div>
             </div>
           </div>
@@ -8385,11 +8454,17 @@ img + .img-fallback {
         { q: "Nếu tôi đến trễ khung giờ nhận thì sao?", a: "Mỗi deal có khung giờ nhận để đảm bảo an toàn thực phẩm. Nếu có thể đến trễ, hãy báo cửa hàng sớm. Đơn quá khung giờ được xử lý theo trang Chính sách của MIO." },
         { q: "Tôi muốn yêu cầu biên nhận điện tử?", a: "Hãy gửi email cho MIO kèm mã đơn để được hướng dẫn về biên nhận." }
       ]},
-      { id: "charity", icon: "ti-heart-handshake", title: "Tổ chức từ thiện", desc: "Quy trình tiếp nhận, điều phối và lưu biên bản.", items: [
-        { q: "Tổ chức từ thiện tiếp nhận thực phẩm thế nào?", a: "Sau khi đăng nhập với vai trò Tổ chức, hệ thống mở 3 màn hình: Điều phối (xem lô chờ và xác nhận tiếp nhận theo khung giờ), Tình nguyện viên (phân công TNV + tuyến nhận), Biên bản (kiểm đếm và xác nhận bàn giao có ảnh minh chứng). Tổ chức không thanh toán - mọi lô từ thiện đều miễn phí và có dấu thời gian để truy xuất." },
-        { q: "Tổ chức cần hồ sơ gì để đăng ký?", a: "Tổ chức gửi qua " + contact.email + " các giấy tờ: giấy phép hoạt động/quyết định thành lập, mã số tổ chức, người phụ trách, địa chỉ điểm nhận, danh sách năng lực tình nguyện viên. MIO xác minh hồ sơ, sau đó cấp tài khoản truy cập khu vực Điều phối." },
-        { q: "Tình nguyện viên có được bảo hiểm không?", a: "Quyền lợi của tình nguyện viên do tổ chức từ thiện quản lý TNV đó quy định. MIO không cung cấp gói bảo hiểm riêng; vui lòng hỏi tổ chức của bạn." },
-        { q: "Tổ chức có thể chuyển nhượng thực phẩm tiếp nhận không?", a: "Không. Thực phẩm tiếp nhận từ chương trình quyên tặng MIO chỉ được dùng cho mục đích hỗ trợ cộng đồng và không được thương mại hóa. Tổ chức phải lưu hồ sơ phân phối và cho phép kiểm tra định kỳ để duy trì tài khoản đối tác." }
+      { id: "charity", icon: "ti-heart-handshake", title: "Tổ chức từ thiện", desc: "Quy trình đăng ký, kết nối nguồn cung và tiếp nhận thực phẩm.", items: [
+        { q: "Tổ chức từ thiện có thể đăng ký nhận những loại thực phẩm nào?", a: "Các tổ chức có thể đăng ký nhu cầu tiếp nhận nhiều nhóm thực phẩm khác nhau như rau củ, trái cây, thực phẩm đóng gói, thực phẩm chế biến sẵn và các sản phẩm phù hợp khác. Việc kết nối phụ thuộc vào loại sản phẩm, số lượng, tình trạng hàng hóa và khả năng đáp ứng từ các đối tác cung ứng trên MIO." },
+        { q: "Tổ chức cần cung cấp thông tin gì để đăng ký tham gia MIO?", a: "Tổ chức cần cung cấp các thông tin cơ bản như tên tổ chức, thông tin người đại diện, địa chỉ hoạt động, thông tin liên hệ và lĩnh vực hỗ trợ cộng đồng. Ngoài ra, tổ chức cần mô tả nhu cầu tiếp nhận thực phẩm, bao gồm loại sản phẩm, số lượng dự kiến và khả năng tiếp nhận để MIO có cơ sở hỗ trợ kết nối phù hợp." },
+        { q: "Làm thế nào để tổ chức nhận được nguồn thực phẩm từ MIO?", a: 'Sau khi đăng ký và hoàn tất bước xác minh thông tin theo quy trình của MIO, tổ chức có thể cập nhật nhu cầu tiếp nhận trên <a href="FOODSAVE_CHARITY.html" target="_blank" rel="noopener" style="text-decoration:underline">Charity Portal</a>. MIO hỗ trợ kết nối nhu cầu đó với nguồn hàng phù hợp từ các nhà cung ứng và đối tác tham gia hệ sinh thái. Việc tiếp nhận được phối hợp giữa các bên dựa trên thông tin sản phẩm, số lượng và điều kiện bàn giao thực tế.' },
+        { q: "Tổ chức có thể chuyển giao hoặc sử dụng thực phẩm đã tiếp nhận như thế nào?", a: "Thực phẩm được tiếp nhận cần được sử dụng đúng mục đích hỗ trợ cộng đồng và phù hợp với nhu cầu đã đăng ký. Tổ chức có trách nhiệm bảo quản, phân phối và quản lý thực phẩm theo điều kiện an toàn phù hợp, đồng thời phối hợp cung cấp thông tin về kết quả tiếp nhận khi cần thiết." }
+      ]},
+      { id: "fnb", icon: "ti-tools-kitchen-2", title: "Cửa hàng &amp; doanh nghiệp F&amp;B", desc: "Giải đáp thắc mắc về đăng ký, tìm nguồn cung và mua thực phẩm trên MIO.", items: [
+        { q: "Những mô hình kinh doanh F&amp;B nào có thể tham gia MIO?", a: "MIO hướng đến các doanh nghiệp và cơ sở kinh doanh thực phẩm như nhà hàng, quán ăn, quán cà phê, tiệm bánh, bếp ăn và các đơn vị dịch vụ ăn uống khác. Các đối tác có nhu cầu tìm kiếm, mua thực phẩm và nguyên liệu phục vụ hoạt động kinh doanh đều có thể đăng ký tham gia hệ sinh thái MIO." },
+        { q: "Doanh nghiệp F&amp;B cần cung cấp thông tin gì để đăng ký?", a: "Doanh nghiệp cần cung cấp các thông tin cơ bản như tên cửa hàng hoặc doanh nghiệp, loại hình kinh doanh, địa chỉ hoạt động, thông tin người đại diện và phương thức liên hệ. Những thông tin này giúp MIO xác định nhu cầu và hỗ trợ doanh nghiệp tiếp cận các nguồn cung phù hợp." },
+        { q: "Doanh nghiệp có thể mua thực phẩm với số lượng lớn trên MIO không?", a: "Có. MIO hướng đến việc hỗ trợ doanh nghiệp F&amp;B tìm kiếm và kết nối với nguồn cung thực phẩm theo nhu cầu kinh doanh, bao gồm các đơn hàng có số lượng lớn. Doanh nghiệp có thể lựa chọn sản phẩm, xác định số lượng cần mua và trao đổi với nhà cung ứng dựa trên thông tin hàng hóa, giá bán và điều kiện giao dịch thực tế." },
+        { q: "Làm thế nào để theo dõi đơn hàng và quá trình nhận thực phẩm?", a: "Doanh nghiệp có thể theo dõi thông tin đơn hàng và trạng thái giao dịch thông qua tài khoản trên nền tảng MIO. Các thông tin về sản phẩm, số lượng, giá trị đơn hàng và tình trạng tiếp nhận sẽ hỗ trợ doanh nghiệp chủ động phối hợp với nhà cung ứng trong quá trình mua hàng." }
       ]},
       { id: "partner", icon: "ti-building-store", title: "Đối tác doanh nghiệp", desc: "Đăng ký, đăng lô, doanh thu, ESG và báo cáo.", items: [
         { q: "Đối tác nhận được gì khi tham gia MIO?", a: "Đối tác giảm lãng phí cuối ngày, thu hồi một phần doanh thu từ thực phẩm dư, theo dõi các lô đã bàn giao trong cổng đối tác và được MIO hướng dẫn sử dụng." },
@@ -8817,7 +8892,6 @@ img + .img-fallback {
       )
       + inspirationStory()
       + teamSection()
-      + valueSection()
       + aboutSection()
       + trustSection()
       + faqSection()
@@ -8933,37 +9007,104 @@ img + .img-fallback {
       return "";
     }
 
+    // Mạng xã hội lấy từ MIO_CONTACT.social; chỉ trả về kênh đã có URL.
+    function mioSocialLinks() {
+      return [
+        ["facebook", "Facebook", "ti-brand-facebook"], ["instagram", "Instagram", "ti-brand-instagram"],
+        ["linkedin", "LinkedIn", "ti-brand-linkedin"], ["youtube", "YouTube", "ti-brand-youtube"]
+      ].filter(([k]) => (MIO_CONTACT.social || {})[k]);
+    }
+    const CONTACT_TOPICS = ["Hợp tác cửa hàng / doanh nghiệp", "Hợp tác siêu thị", "Tổ chức từ thiện", "Hỗ trợ đơn hàng", "Góp ý", "Khác"];
     function contactPage() {
-      return `<section><div class="wrap">
-        <div class="section-head"><h2>Liên hệ MIO</h2><p>Phản hồi trong giờ làm việc.</p></div>
-        <div class="grid-2">
-          <div class="card"><h3>Thông tin</h3>
-            <div class="timeline">
-${MIO_CONTACT.address ? `<div class="timeline-item">${icon("ti-map-pin")}<div><strong>Địa chỉ</strong><br><span style="color:var(--muted)">${mioEsc(MIO_CONTACT.address)}</span></div></div>` : ""}
-              ${MIO_CONTACT.phone ? `<div class="timeline-item">${icon("ti-phone")}<div><strong>Điện thoại</strong><br><a href="tel:${mioEsc(mioTel())}" style="color:var(--muted)">${mioEsc(MIO_CONTACT.phone)}</a></div></div>` : ""}
-              <div class="timeline-item">${icon("ti-mail")}<div><strong>Email</strong><br><a href="mailto:${mioEsc(MIO_CONTACT.email)}" style="color:var(--muted)">${mioEsc(MIO_CONTACT.email)}</a></div></div>
-            </div>
+      const rows = [
+        ["ti-map-pin", "Địa chỉ", MIO_CONTACT.address ? mioEsc(MIO_CONTACT.address) : ""],
+        ["ti-phone", "Điện thoại", MIO_CONTACT.phone ? `<a href="tel:${mioEsc(mioTel())}">${mioEsc(MIO_CONTACT.phone)}</a>` : ""],
+        ["ti-mail", "Email", MIO_CONTACT.email ? `<a href="mailto:${mioEsc(MIO_CONTACT.email)}">${mioEsc(MIO_CONTACT.email)}</a>` : ""],
+        ["ti-clock", "Thời gian hỗ trợ", MIO_CONTACT.hours ? mioEsc(MIO_CONTACT.hours) : ""]
+      ].filter(r => r[2]);
+      const socials = mioSocialLinks();
+      return `<section class="contact2-section"><div class="wrap">
+        <div class="contact2-grid">
+          <div class="contact2-info">
+            <h2>Thông tin liên hệ</h2>
+            <p class="contact2-sub">Kết nối với đội ngũ MIO qua các kênh dưới đây.</p>
+            <ul class="contact2-rows">
+              ${rows.map(([ic, label, value]) => `<li class="contact2-row">${icon(ic)}<div><strong>${label}</strong><span>${value}</span></div></li>`).join("")}
+            </ul>
+            ${socials.length ? `<div class="contact2-social"><h3>Theo dõi MIO</h3><div class="contact2-social-row">
+              ${socials.map(([k, label, ic]) => `<a href="${mioEsc(MIO_CONTACT.social[k])}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(ic)}</a>`).join("")}
+            </div></div>` : ""}
           </div>
-          <form class="card" id="contactForm"><h3>Gửi tin nhắn</h3>
-            <p style="color:var(--muted);font-size:14px">Nút Gửi mở ứng dụng email của bạn, thư được gửi tới ${mioEsc(MIO_CONTACT.email)}.</p>
-            <div class="field"><label for="contactName">Họ tên</label><input id="contactName" name="name" placeholder="Tên của bạn"></div>
-            <div class="field"><label for="contactEmail">Email</label><input id="contactEmail" name="email" type="email" placeholder="email@example.com"></div>
-            <div class="field"><label for="contactMessage">Nội dung</label><textarea id="contactMessage" name="message" placeholder="Nội dung..." required></textarea></div>
-            <button class="btn btn-accent" type="submit" style="width:100%">Gửi</button>
+          <form class="contact2-form" id="contactForm" novalidate>
+            <h2>Gửi tin nhắn</h2>
+            <p class="contact2-sub">Điền thông tin bên dưới, đội ngũ MIO sẽ tiếp nhận yêu cầu của bạn.</p>
+            <div class="field"><label for="contactName">Họ và tên *</label><input id="contactName" name="full_name" placeholder="Nhập họ và tên của bạn" autocomplete="name" maxlength="140"><small class="field-error" data-error-for="full_name"></small></div>
+            <div class="field"><label for="contactEmail">Email *</label><input id="contactEmail" name="email" type="email" placeholder="example@email.com" autocomplete="email"><small class="field-error" data-error-for="email"></small></div>
+            <div class="field"><label for="contactPhone">Số điện thoại</label><input id="contactPhone" name="phone" type="tel" placeholder="Nhập số điện thoại" autocomplete="tel" maxlength="30"><small class="field-error" data-error-for="phone"></small></div>
+            <div class="field"><label for="contactSubject">Chủ đề liên hệ *</label><select id="contactSubject" name="subject"><option value="">Chọn chủ đề liên hệ</option>${CONTACT_TOPICS.map(t => `<option>${t}</option>`).join("")}</select><small class="field-error" data-error-for="subject"></small></div>
+            <div class="field"><label for="contactMessage">Nội dung *</label><textarea id="contactMessage" name="message" placeholder="Nhập nội dung bạn muốn gửi..." maxlength="5000"></textarea><small class="field-error" data-error-for="message"></small></div>
+            <button class="btn contact2-submit" type="submit">Gửi tin nhắn <span aria-hidden="true">→</span></button>
+            <p class="contact2-status" id="contactStatus" role="status" aria-live="polite"></p>
           </form>
         </div>
       </div></section>${footer()}`;
     }
 
+    // Kiểm tra giống createContactMessageBodySchema (src/schemas/supportSchemas.ts).
+    function validateContact(v) {
+      const err = {};
+      if (v.full_name.length < 2 || v.full_name.length > 140) err.full_name = "Họ và tên cần từ 2 đến 140 ký tự.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) err.email = "Email chưa đúng định dạng.";
+      if (v.phone && (v.phone.length < 8 || v.phone.length > 30)) err.phone = "Số điện thoại cần từ 8 đến 30 ký tự.";
+      if (v.subject.length < 2) err.subject = "Vui lòng chọn chủ đề liên hệ.";
+      if (v.message.length < 10) err.message = "Nội dung cần ít nhất 10 ký tự.";
+      else if (v.message.length > 5000) err.message = "Nội dung tối đa 5000 ký tự.";
+      return err;
+    }
 
-
-
+    async function submitContactForm(f) {
+      const btn = f.querySelector('button[type="submit"]');
+      const status = f.querySelector("#contactStatus");
+      const v = {};
+      ["full_name", "email", "phone", "subject", "message"].forEach(k => { v[k] = String(f.elements[k].value || "").trim(); });
+      const err = validateContact(v);
+      f.querySelectorAll("[data-error-for]").forEach(el => {
+        const msg = err[el.dataset.errorFor] || "";
+        el.textContent = msg;
+        const input = f.elements[el.dataset.errorFor];
+        if (input) input.setAttribute("aria-invalid", msg ? "true" : "false");
+      });
+      status.className = "contact2-status";
+      status.textContent = "";
+      if (Object.keys(err).length) { const first = f.elements[Object.keys(err)[0]]; if (first) first.focus(); return; }
+      const body = { full_name: v.full_name, email: v.email, subject: v.subject, message: v.message };
+      if (v.phone) body.phone = v.phone;
+      btn.disabled = true;
+      const label = btn.innerHTML;
+      btn.textContent = "Đang gửi...";
+      try {
+        const base = String(window.FOODSAVE_API_BASE || "/api/v1").replace(/\/+$/, "");
+        const res = await fetch(base + "/support/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error(res.status === 429 ? "rate" : "http");
+        f.reset();
+        status.classList.add("ok");
+        status.textContent = "Cảm ơn bạn! MIO đã nhận được tin nhắn.";
+      } catch (e) {
+        status.classList.add("error");
+        status.textContent = e && e.message === "rate"
+          ? "Bạn gửi hơi nhanh, vui lòng thử lại sau ít phút."
+          : "Chưa gửi được tin nhắn. Vui lòng thử lại sau hoặc gửi email tới " + MIO_CONTACT.email + ".";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = label;
+      }
+    }
 
     function footer() {
       return `<footer>
         <div class="footer-main"><div class="wrap footer-grid">
           <div class="footer-brand">
-            <span class="wordmark-foot">MI<span>O</span></span>
+            <span class="footer-logo"><img src="icons/mio-logo-full.png" alt="MIO" width="228" height="271" loading="lazy"></span>
             <p>Manage More. Waste Less.</p>
             <div class="legal-block">${mioContactLines()}</div>
           </div>
@@ -8978,14 +9119,12 @@ ${MIO_CONTACT.address ? `<div class="timeline-item">${icon("ti-map-pin")}<div><s
           </div>
         </div></div>
         <div class="footer-divider"></div>
-        <div class="footer-social">
+        ${mioSocialLinks().length ? `<div class="footer-social">
           <div class="tagline">Hãy liên lạc thường xuyên nhé</div>
           <div class="footer-social-row">
-            <button class="social-btn" aria-label="Facebook">${icon("ti-brand-facebook")}</button>
-            <button class="social-btn" aria-label="Instagram">${icon("ti-brand-instagram")}</button>
-            <button class="social-btn" aria-label="Twitter">${icon("ti-brand-twitter")}</button>
+            ${mioSocialLinks().map(([k, label, ic]) => `<a class="social-btn" href="${mioEsc(MIO_CONTACT.social[k])}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(ic)}</a>`).join("")}
           </div>
-        </div>
+        </div>` : ""}
         <div class="footer-bottom"><div class="wrap footer-bottom-row">
           <div>© MIO ${new Date().getFullYear()}</div>
         </div></div>
@@ -9152,14 +9291,7 @@ ${MIO_CONTACT.address ? `<div class="timeline-item">${icon("ti-map-pin")}<div><s
     document.addEventListener("submit",(e)=>{
       e.preventDefault();
       // #aiForm do mio-chatbot.js xử lý; các form khác không giả lập "đã gửi".
-      if(e.target.id==="contactForm"){
-        const f=e.target;const name=f.elements.name.value.trim();const from=f.elements.email.value.trim();const msg=f.elements.message.value.trim();
-        if(!msg){toast("Nhập nội dung trước đã");return;}
-        const subject="Liên hệ từ website MIO"+(name?" - "+name:"");
-        const body=msg+"\n\n"+[name,from].filter(Boolean).join(" - ");
-        window.location.href="mailto:"+MIO_CONTACT.email+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
-        toast("Đang mở ứng dụng email của bạn");
-      }
+      if(e.target.id==="contactForm"&&!e.target.querySelector('button[type="submit"]').disabled)submitContactForm(e.target);
     });
 
 

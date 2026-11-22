@@ -1,6 +1,6 @@
 // Dữ liệu mẫu cho GET /admin/finance/summary (fs_finance_summary + reconcile). Tiền tính bằng đồng.
 export default {
-  wallets: { platform: 1250000, escrow: 480000 },
+  wallets: { external: -9150000, escrow: 480000, platform_revenue: 1250000, charity_pool: 310000 },
   store_wallets_total: 3620000,
   refunded_total: 215000,
   forfeited_total: 64000,

@@ -252,6 +252,7 @@ test('today: 3 khối mức Đỏ/Vàng/Xám, bấm dòng khiếu nại → #/co
   await expect(box.locator('[data-level="m"]')).not.toContainText('khóa nhãn đỏ'); // số 0 thì ẩn
   // 4 ô số
   await expect(page.locator('[data-block="finance"]')).toContainText('480.000đ');
+  await expect(page.locator('[data-block="finance"]')).toContainText('Nền tảng 1.250.000đ'); // khóa thật platform_revenue
   await expect(page.locator('[data-block="today"]')).toContainText('18');
   await expect(page.locator('[data-block="esg"]')).toContainText('412,5');
   await expect(page.locator('[data-block="labels"]')).toContainText('12');
@@ -1298,15 +1299,23 @@ test('T12: câu xác nhận tài khoản nhận tiền theo loại cảnh báo (
   expect(errors).toEqual([]);
 });
 
-test('M7: khiếu nại cũ dẫn tới "Mở trang cũ → mục Tranh chấp"; màn chưa di trú nêu tên mục ở trang cũ', async ({ page }) => {
+test('M7: khiếu nại cũ dẫn tới "Mở trang cũ → mục Tranh chấp"', async ({ page }) => {
+  // Đợt 2 tạm: cả 19 màn đều có nội dung, màn chờ _pending chỉ còn được kiểm ở test đơn vị.
   const legacy = complaints.map((c) => (c.status === 'in_review' ? { ...c, reason_code: null } : c));
   const { errors } = await setup(page, { complaints: legacy });
   await page.goto(`${PAGE}#/complaints`);
   await page.click('[data-col="in_review"] [data-act="open"]');
   await expect(page.locator('#drawer a[href="/quan-tri"]')).toHaveText('Mở trang cũ → mục Tranh chấp');
-  await page.evaluate(() => { location.hash = '#/ledger'; });
-  await expect(page.locator('#screen a[href="/quan-tri"]')).toHaveText('Mở trang cũ → mục Tài chính · Sổ cái');
-  await page.evaluate(() => { location.hash = '#/orders'; });
-  await expect(page.locator('#screen a[href="/quan-tri"]')).toHaveText('Mở trang cũ → mục Đơn hàng');
   expect(errors).toEqual([]);
+});
+
+test('Đợt 2 tạm: 10 màn từng trống không còn màn chờ "Chưa nối API"', async ({ page }) => {
+  const { errors } = await setup(page, { ignoreStatuses: [404, 500] });
+  for (const id of ['customers', 'stores', 'charities', 'orders', 'donations', 'tracking', 'inventory', 'ledger', 'marketing', 'settings']) {
+    await page.goto(`${PAGE}#/${id}`);
+    await expect(page.locator('#pt')).not.toHaveText('');
+    await expect(page.locator('#screen')).not.toContainText('Chưa nối API');
+    await expect(page.locator('#screen')).not.toContainText('Màn này chưa có trên cổng mới');
+  }
+  expect(errors.filter((e) => !/status of (404|500)/.test(e))).toEqual([]);
 });

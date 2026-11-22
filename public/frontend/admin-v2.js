@@ -10,6 +10,14 @@
   'use strict';
   if (typeof pg === 'undefined' || typeof go !== 'function') return;
 
+  /* Mục đã di trú sang cổng mới /admin/ (chỉ chuyển khi người dùng bấm). disputes/finance còn luồng cũ nên ở lại. */
+  var MIGRATED = { hub: 'complaints', verification: 'verify', payouts: 'payouts', risks: 'alerts', policy: 'rules', automation: 'rules', vouchers: 'vouchers', esg: 'esg', audits: 'audit' };
+  var origGo = go;
+  go = function (p) {
+    if (Object.prototype.hasOwnProperty.call(MIGRATED, p)) { location.href = '/admin/index.html#/' + MIGRATED[p]; return; }
+    return origGo.apply(this, arguments);
+  };
+
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   function toast(m) { var t = document.createElement('div'); t.className = 'v2toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
   var K = function (l, v, n, c) { return '<div class="K"><div class="K-l">' + l + '</div><div class="K-v" style="color:' + (c || 'var(--text)') + '">' + v + '</div><div class="K-n">' + (n || '') + '</div></div>'; };

@@ -1638,14 +1638,13 @@ const scenario = async (name, fn) => {
     db.seed("charity_profiles", [{ id: "c-p", owner_id: "y", name: "TC", status: "pending" }]);
     db.seed("complaints", [{ id: "k1", status: "in_review" }, { id: "k2", status: "open" }]);
     db.seed("withdrawals", [{ id: "w1", status: "requested", store_id: "s-1", amount_cents: 1 }, { id: "w2", status: "paid", store_id: "s-1", amount_cents: 1 }]);
-    db.seed("store_payout_accounts", []);
-    db.seed("payout_accounts", [{ id: "a1", status: "pending_verification" }]);
+    db.seed("store_payout_accounts", [{ id: "a1", status: "pending_verification" }, { id: "a2", status: "verified" }]);
     db.table("profiles").find((p) => p.id === OTHER).red_ban_until = iso(5 * 24 * HOUR);
     const w = await adminOpsService.adminOpsService.workStrip();
     assert.strictEqual(w.verification_pending, 2);
     assert.strictEqual(w.complaints_waiting_admin, 1);
     assert.strictEqual(w.customers_locked, 1);
-    assert.ok(w.withdrawals_pending >= 1);
+    assert.strictEqual(w.withdrawals_pending, 2, "1 yêu cầu rút + 1 tài khoản chờ duyệt");
     assert.strictEqual(typeof w.fraud_open, "number");
   });
 

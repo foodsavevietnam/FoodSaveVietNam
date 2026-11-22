@@ -32,3 +32,9 @@
 .G3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
 .G5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}
 @media(max-width:1000px){.v2strip,.G5{grid-template-columns:repeat(2,1fr)}.v2board,.G3{grid-template-columns:1fr}}
+
+
+.npb{display:flex;align-items:center;gap:8px;margin:0 12px;padding:4px 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg2,#f4f7f4);font-size:12px}
+.npb[hidden]{display:none}
+.npb a{font-weight:700;text-decoration:underline}
+.npb button{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;color:inherit}

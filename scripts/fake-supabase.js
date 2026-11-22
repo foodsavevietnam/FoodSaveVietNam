@@ -120,8 +120,23 @@ const parseOr = (expr) => expr.split(",").map((part) => {
   return { col, op, val: rest.join(".") };
 });
 
+// Mẫu ilike (% và _ là ký tự đại diện, \ để thoát) -> RegExp không phân biệt hoa thường
+const ilikeRegex = (pattern) => {
+  const esc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let re = "";
+  for (let i = 0; i < pattern.length; i += 1) {
+    const c = pattern[i];
+    if (c === "\\" && i + 1 < pattern.length) { i += 1; re += esc(pattern[i]); }
+    else if (c === "%") re += ".*";
+    else if (c === "_") re += ".";
+    else re += esc(c);
+  }
+  return new RegExp("^" + re + "$", "i");
+};
+
 const matchOne = (row, { col, op, val }) => {
   const v = row[col];
+  if (op === "ilike") return typeof v === "string" && ilikeRegex(val).test(v);
   if (op === "is") return val === "null" ? v === null || v === undefined : String(v) === val;
   if (op === "eq") return String(v) === val;
   if (op === "neq") return String(v) !== val;
@@ -131,7 +146,7 @@ const matchOne = (row, { col, op, val }) => {
 class Query {
   constructor(db, name) {
     this.db = db; this.name = name; this.op = "select"; this.filters = []; this.payload = null;
-    this.selectCols = "*"; this.countMode = null; this.head = false; this.limitN = null; this.orderBy = null; this.returning = false; this.mode = "many";
+    this.selectCols = "*"; this.countMode = null; this.head = false; this.limitN = null; this.offsetN = 0; this.orderBy = null; this.returning = false; this.mode = "many";
   }
   select(cols, opts) {
     if (this.op === "select") this.selectCols = cols || "*";
@@ -180,7 +195,7 @@ class Query {
   or(expr) { const conds = parseOr(expr); this.filters.push((r) => conds.some((c) => matchOne(r, c))); return this; }
   order(col, opts) { this.orderBy = { col, asc: !opts || opts.ascending !== false }; return this; }
   limit(n) { this.limitN = n; return this; }
-  range(from, to) { this.limitN = to - from + 1; return this; }
+  range(from, to) { this.offsetN = from; this.limitN = to - from + 1; return this; }
   single() { this.mode = "single"; return this; }
   maybeSingle() { this.mode = "maybe"; return this; }
   then(resolve, reject) { return Promise.resolve(this.run()).then(resolve, reject); }
@@ -235,9 +250,10 @@ class Query {
       const { col, asc } = this.orderBy;
       rows = rows.slice().sort((a, b) => (a[col] > b[col] ? 1 : a[col] < b[col] ? -1 : 0) * (asc ? 1 : -1));
     }
-    if (this.limitN !== null) rows = rows.slice(0, this.limitN);
-    if (this.head) return { data: null, error: null, count: rows.length };
-    return this.shape(rows.map((r) => this.withEmbeds(r)), rows.length);
+    const total = rows.length; // count: "exact" đếm trước khi phân trang
+    if (this.offsetN || this.limitN !== null) rows = rows.slice(this.offsetN, this.limitN === null ? undefined : this.offsetN + this.limitN);
+    if (this.head) return { data: null, error: null, count: total };
+    return this.shape(rows.map((r) => this.withEmbeds(r)), total);
   }
 
   shape(rows, count) {
@@ -252,4 +268,29 @@ class Query {
   }
 }
 
-module.exports = { FakeDb, uuid };
+/** Stub supabaseAdmin.auth.admin lưu vào bảng giả auth_users của FakeDb hiện hành */
+const installFakeAuthAdmin = (getDb) => {
+  const users = () => getDb().table("auth_users");
+  const clean = (u) => ({ ...u });
+  return {
+    async createUser(attrs) {
+      if (users().some((u) => u.email === attrs.email)) return { data: { user: null }, error: { message: "User already registered" } };
+      const user = { id: uuid(), email: attrs.email, phone: attrs.phone || null, user_metadata: attrs.user_metadata || {}, created_at: new Date().toISOString() };
+      users().push(user);
+      return { data: { user: clean(user) }, error: null };
+    },
+    async getUserById(id) {
+      const user = users().find((u) => u.id === id);
+      return user ? { data: { user: clean(user) }, error: null } : { data: { user: null }, error: { message: "User not found" } };
+    },
+    async deleteUser(id) {
+      const i = users().findIndex((u) => u.id === id);
+      if (i < 0) return { data: { user: null }, error: { message: "User not found" } };
+      users().splice(i, 1);
+      return { data: { user: null }, error: null };
+    },
+    async listUsers() { return { data: { users: users().map(clean) }, error: null }; }
+  };
+};
+
+module.exports = { FakeDb, uuid, installFakeAuthAdmin };

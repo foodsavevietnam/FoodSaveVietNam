@@ -9206,7 +9206,9 @@ img + .img-fallback {
     function updateScrollEffects(){
       const max=Math.max(1,document.documentElement.scrollHeight-innerHeight);const pct=Math.min(100,Math.max(0,scrollY/max*100));
       const bar=$("#scrollProgress");if(bar)bar.style.width=pct+"%";
-      const topbar=document.querySelector(".topbar");if(topbar)topbar.classList.toggle("scrolled",scrollY>30);
+      // Header thu gọn làm trang lệch ~49px; trình duyệt bù vị trí cuộn theo phần lệch đó.
+      // Dùng hai ngưỡng cách nhau hơn 49px (bật > 96, tắt < 24) để việc bù không đẩy qua lại giữa hai trạng thái gây nháy.
+      const topbar=document.querySelector(".topbar");if(topbar){const on=topbar.classList.contains("scrolled");if(!on&&scrollY>96)topbar.classList.add("scrolled");else if(on&&scrollY<24)topbar.classList.remove("scrolled");}
       document.querySelectorAll(".floating-card").forEach((el,index)=>{el.style.transform=`translateY(${Math.sin(scrollY/180+index)*8}px)`;});
       const collage=document.getElementById("heroFoodCollage");
       if(collage){const r=collage.getBoundingClientRect();const center=r.top+r.height/2;const offset=Math.max(-30,Math.min(30,(innerHeight/2-center)*.04));collage.style.setProperty("--collage-drift",offset+"px");}
@@ -9337,13 +9339,13 @@ img + .img-fallback {
 <!-- ════════════════════════════════════════════════════════════
      GLOBAL: Cookie Consent · Legal Modals · Help Center
      ════════════════════════════════════════════════════════════ -->
-<div id="cookie-banner" style="position:fixed;bottom:18px;left:18px;right:18px;max-width:680px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:18px;padding:18px 22px;box-shadow:0 24px 60px rgba(0,0,0,.28);z-index:3000;display:none;align-items:center;gap:16px;border:1.5px solid rgba(255,255,255,.1)">
+<div id="cookie-banner" style="position:fixed;bottom:18px;left:18px;right:18px;max-width:680px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:18px;padding:18px 22px;box-shadow:0 24px 60px rgba(0,0,0,.28);z-index:3000;display:none;flex-wrap:wrap;align-items:center;gap:12px 16px;border:1.5px solid rgba(255,255,255,.1)">
   <div style="width:42px;height:42px;border-radius:12px;background:#facc15;color:#0a0a0a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px"><i class="ti ti-cookie"></i></div>
-  <div style="flex:1;min-width:0">
+  <div style="flex:1 1 180px;min-width:0">
     <div style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:#fff;margin-bottom:4px">Chúng tôi sử dụng cookies</div>
     <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.5;font-weight:500">Cookies giúp cải thiện trải nghiệm. Bạn có thể chấp nhận tất cả hoặc tuỳ chỉnh. <a onclick="openLegal('cookie')" style="color:#facc15;cursor:pointer;font-weight:700">Chính sách Cookie</a></div>
   </div>
-  <div style="display:flex;gap:8px;flex-shrink:0">
+  <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;flex:0 1 auto;margin-left:auto">
     <button onclick="setCookieConsent('reject')" style="padding:9px 14px;border-radius:999px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Từ chối</button>
     <button onclick="setCookieConsent('customize')" style="padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Tuỳ chỉnh</button>
     <button onclick="setCookieConsent('accept')" style="padding:9px 16px;border-radius:999px;background:#facc15;color:#0a0a0a;border:0;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit">Chấp nhận</button>

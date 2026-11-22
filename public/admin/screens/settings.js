@@ -64,7 +64,7 @@ export default {
       const a = ctx.state?.admin;
       const me = [row('Tên', html`${a?.full_name || '—'}`), row('Email', html`${a?.email || '—'}`), row('Số quản trị viên', html`${count}`, 'admin-count'), count === '—' ? html`<small style="color:var(--t3)">Không đọc được số quản trị viên.</small>` : ''].join('');
       const guide = html`<ol style="margin:0;padding-left:20px;line-height:1.7">
-        <li>Tạo người dùng mới trong Supabase, mục Authentication, tab Users.</li>
+        <li>Tạo người dùng mới trong trang quản lý cơ sở dữ liệu, mục Authentication, tab Users.</li>
         <li>Chạy câu lệnh SQL cấp quyền quản trị cho hồ sơ của người đó (bảng profiles, vai trò admin).</li>
         <li>Người đó đăng nhập lại ở cổng này.</li></ol>
         <p style="font-size:.74rem;color:var(--t3);margin:8px 0 0">Không gửi mật khẩu hay khóa dịch vụ qua tin nhắn hoặc ghi vào tài liệu.</p>`;

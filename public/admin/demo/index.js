@@ -50,7 +50,7 @@ export function createDemoApi() {
     const path = String(rawPath).split('?')[0];
     const key = `${method} ${path}`;
     for (const fx of SCREEN_FIXTURES) {
-      const hit = typeof fx.resolve === 'function' ? fx.resolve(method, path, body) : undefined;
+      const hit = typeof fx.resolve === 'function' ? fx.resolve(method, path, body, String(rawPath)) : undefined;
       if (hit !== undefined) return structuredClone(hit);
     }
     if (method === 'GET') {

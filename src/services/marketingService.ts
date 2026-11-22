@@ -4,6 +4,7 @@ import { HTTP_STATUS } from "../constants/http";
 import type { UserRole } from "../types/domain";
 import { AppError } from "../utils/appError";
 import { logger } from "../utils/logger";
+import { adminSettingsService } from "./adminSettingsService";
 import { handleSupabaseError, requireRecord, supabaseAdmin } from "./supabaseService";
 import { createNotification } from "./notificationService";
 
@@ -244,19 +245,10 @@ const updatePost = async (id: string | null, patch: Record<string, unknown>): Pr
 };
 
 // ───── Cài đặt chung của hệ thống (bảng app_settings trong SQL 026). Chưa có bảng thì dùng giá trị mặc định.
-const getAppSetting = async <T>(key: string, fallback: T): Promise<T> => {
-  const { data, error } = await supabaseAdmin.from("app_settings").select("value").eq("key", key).maybeSingle();
-  if (error || !data) return fallback;
-  return ((data as { value: T }).value ?? fallback) as T;
-};
-const setAppSetting = async (key: string, value: unknown): Promise<void> => {
-  const { error } = await supabaseAdmin.from("app_settings").upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
-  if (error) throw new AppError("Không lưu được cài đặt. Hãy chạy file SQL 026 trên Supabase.", HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
-};
 // Công tắc "AI Agent": bật thì n8n được dùng AI viết caption và tạo ảnh; tắt thì n8n dùng ngay caption mẫu
-const aiEnabled = async (): Promise<boolean> => (await getAppSetting<{ enabled?: boolean; auto?: boolean }>("ai_agent", {})).enabled !== false;
+const aiEnabled = async (): Promise<boolean> => (await adminSettingsService.get<{ enabled?: boolean; auto?: boolean }>("ai_agent", {})).enabled !== false;
 // Công tắc "Bật AI Agent tự đăng bài" của Fanpage trung tâm (Admin). Tắt thì n8n không kéo bài tổng hợp nữa; "Chạy thử ngay" vẫn dùng được.
-const centralAutoEnabled = async (): Promise<boolean> => (await getAppSetting<{ enabled?: boolean; auto?: boolean }>("ai_agent", {})).auto !== false;
+const centralAutoEnabled = async (): Promise<boolean> => (await adminSettingsService.get<{ enabled?: boolean; auto?: boolean }>("ai_agent", {})).auto !== false;
 
 // ───── Đăng Facebook: n8n trước, nếu n8n không gọi được thì đăng trực tiếp (nếu có token Fanpage trong .env)
 const sendToN8n = async (url: string | undefined, payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
@@ -734,9 +726,9 @@ export const marketingService = {
   },
 
   async adminSetSettings(patch: { ai_enabled?: boolean | undefined; auto_enabled?: boolean | undefined }): Promise<{ ai_enabled: boolean; auto_enabled: boolean }> {
-    const current = await getAppSetting<{ enabled?: boolean; auto?: boolean }>("ai_agent", {});
+    const current = await adminSettingsService.get<{ enabled?: boolean; auto?: boolean }>("ai_agent", {});
     const next = { enabled: patch.ai_enabled ?? current.enabled !== false, auto: patch.auto_enabled ?? current.auto !== false };
-    await setAppSetting("ai_agent", next);
+    await adminSettingsService.set("ai_agent", next);
     return { ai_enabled: next.enabled, auto_enabled: next.auto };
   },
 

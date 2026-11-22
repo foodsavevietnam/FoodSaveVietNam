@@ -10,6 +10,7 @@ export const PAGE_ALIASES = Object.freeze({
   '/tu-thien': 'FOODSAVE_CHARITY.html',
   '/tinh-nguyen': 'FOODSAVE_VOLUNTEER.html',
   '/quan-tri': 'ADMIN_FOODSAVE.html',
+  '/admin': 'admin/index.html',
   '/ung-dung': 'FOODSAVE_APP.html',
   '/foodsave_user': 'FOODSAVE_USER.html',
   '/foodsave_partner': 'FOODSAVE_PARTNER.html',

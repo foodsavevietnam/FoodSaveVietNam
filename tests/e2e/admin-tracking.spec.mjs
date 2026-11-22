@@ -1,34 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { FAKE_SUPABASE } from './helpers/fake-supabase.mjs';
 
 // Task 7: tab "Bản đồ theo dõi" của trang quản trị (/quan-tri). Auth Supabase và API đều được stub.
 const NOW = new Date('2026-11-22T10:00:00Z');
 const ok = data => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const minutesAgo = m => new Date(NOW.getTime() - m * 60000).toISOString();
-
-// Thay thư viện Supabase bằng bản giả: phiên admin hợp lệ, mọi truy vấn bảng trả về rỗng.
-const FAKE_SUPABASE = `
-window.supabase = { createClient() {
-  const chain = table => new Proxy(function () {}, {
-    get(_, prop) {
-      if (prop === 'then') return resolve => resolve({ data: [], error: null, count: 0 });
-      if (prop === 'maybeSingle' || prop === 'single') return () => Promise.resolve({ data: table === 'profiles' ? { id: 'a1', role: 'admin', full_name: 'Admin Thử', email: 'admin@mio.vn', status: 'active' } : null, error: null });
-      return () => chain(table);
-    },
-    apply() { return chain(table); },
-  });
-  return {
-    auth: {
-      getSession: async () => ({ data: { session: { access_token: 'admin-token', user: { id: 'a1', email: 'admin@mio.vn' } } } }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
-      signOut: async () => ({}),
-      signInWithPassword: async () => ({ data: { user: { id: 'a1' } }, error: null }),
-    },
-    from: table => chain(table),
-    channel: () => ({ on() { return this; }, subscribe() { return this; } }),
-    removeChannel() {},
-  };
-} };
-`;
 
 function row(over = {}) {
   return {

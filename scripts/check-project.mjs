@@ -18,6 +18,47 @@ export const HTML_FILES = Object.freeze([
   'FOODSAVE_APP_demo.html',
   'FOODSAVE_PARTNER_v2.html',
   'ADMIN_FOODSAVE_v2.html',
+  'admin/index.html',
+]);
+
+// Module ES của cổng quản trị mới (bổ sung dần theo từng task).
+export const ADMIN_MODULE_FILES = Object.freeze([
+  'admin/core/config.js',
+  'admin/core/app.js',
+  'admin/core/api.js',
+  'admin/core/router.js',
+  'admin/core/ui.js',
+  'admin/core/format.js',
+  'admin/core/vi.js',
+  'admin/core/table.js',
+  'admin/core/poll.js',
+  'admin/core/auth.js',
+  'admin/core/state.js',
+  'admin/core/shell.js',
+  'admin/screens/manifest.js',
+  'admin/screens/_pending.js',
+  'admin/screens/today.js',
+  'admin/screens/audit.js',
+  'admin/screens/complaints.js',
+  'admin/screens/verify.js',
+  'admin/screens/payouts.js',
+  'admin/screens/alerts.js',
+  'admin/screens/rules.js',
+  'admin/screens/vouchers.js',
+  'admin/screens/esg.js',
+  'admin/demo/index.js',
+  'admin/demo/fixtures/work.js',
+  'admin/demo/fixtures/complaints.js',
+  'admin/demo/fixtures/verify.js',
+  'admin/demo/fixtures/payouts.js',
+  'admin/demo/fixtures/alerts.js',
+  'admin/demo/fixtures/audit.js',
+  'admin/demo/fixtures/finance.js',
+  'admin/demo/fixtures/labels.js',
+  'admin/demo/fixtures/esg.js',
+  'admin/demo/fixtures/automation.js',
+  'admin/demo/fixtures/policy.js',
+  'admin/demo/fixtures/vouchers.js',
 ]);
 
 export const FRONTEND_FILES = Object.freeze([
@@ -158,7 +199,7 @@ export async function checkProject({ publicRoot = DEFAULT_PUBLIC_ROOT } = {}) {
   let checkedReferences = 0;
   let checkedScripts = 0;
   const contents = new Map();
-  const files = [...HTML_FILES, ...FRONTEND_FILES, ...MANIFEST_FILES, 'sw.js'];
+  const files = [...HTML_FILES, ...FRONTEND_FILES, ...ADMIN_MODULE_FILES, ...MANIFEST_FILES, 'sw.js'];
 
   const addIssue = (file, line, message) => issues.push({ file, line, message });
   for (const file of files) {
@@ -202,11 +243,11 @@ export async function checkProject({ publicRoot = DEFAULT_PUBLIC_ROOT } = {}) {
     for (const script of scripts) checkScript(file, script.code, script.line);
   }
 
-  for (const file of FRONTEND_FILES) {
+  for (const file of [...FRONTEND_FILES, ...ADMIN_MODULE_FILES]) {
     const content = contents.get(file);
     if (content === undefined) continue;
-    if (file.endsWith('.js')) checkScript(file, content);
-    if (file.endsWith('.mjs')) {
+    if (file.endsWith('.js') && !file.startsWith('admin/')) checkScript(file, content);
+    if (file.endsWith('.mjs') || file.startsWith('admin/')) {
       checkedScripts += 1;
       const result = spawnSync(process.execPath, ['--check', '--input-type=module'], {
         input: content,

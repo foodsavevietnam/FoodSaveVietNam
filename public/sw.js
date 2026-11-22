@@ -4,7 +4,7 @@
  * - KHÔNG BAO GIỜ cache /api/, Supabase hay bất kỳ nội dung khác nguồn gốc / có token.
  * - Nhận Web Push và mở đúng đơn / nhiệm vụ khi bấm thông báo.
  * Đổi CACHE_VERSION khi muốn xóa sạch cache cũ ở mọi máy. */
-var CACHE_VERSION = "mio-v4";
+var CACHE_VERSION = "mio-v5";
 var CDN_CACHE = "mio-cdn-v1";   // thư viện bên thứ ba có phiên bản cố định (Leaflet, Supabase JS, biểu tượng, QR); không chứa dữ liệu người dùng
 var SHELL = [
   "/offline.html", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png", "/icons/apple-touch-icon-180.png",
@@ -31,7 +31,7 @@ self.addEventListener("activate", function (event) {
 });
 
 function isStaticAsset(url) {
-  return url.origin === self.location.origin && (/\.(?:m?js|css|png|jpg|jpeg|svg|webp|woff2?|webmanifest)$/i.test(url.pathname) && url.pathname.indexOf("/api/") !== 0);
+  return url.origin === self.location.origin && (/\.(?:m?js|css|png|jpg|jpeg|svg|webp|woff2?|webmanifest)$/i.test(url.pathname) && url.pathname.indexOf("/api/") !== 0 && url.pathname.indexOf("/admin/") !== 0);
 }
 
 self.addEventListener("fetch", function (event) {
@@ -53,7 +53,7 @@ self.addEventListener("fetch", function (event) {
     return;
   }
   // Chỉ xử lý cùng nguồn gốc; không đụng /api/, Supabase, bản đồ, font ngoài...
-  if (url.origin !== self.location.origin || url.pathname.indexOf("/api/") === 0 || url.pathname.indexOf("/.netlify/") === 0) return;
+  if (url.origin !== self.location.origin || url.pathname.indexOf("/api/") === 0 || url.pathname.indexOf("/.netlify/") === 0 || url.pathname.indexOf("/admin/") === 0) return;
   if (url.pathname === "/sw.js") return;
 
   if (request.mode === "navigate") {

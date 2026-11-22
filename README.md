@@ -21,6 +21,7 @@ Mở **http://127.0.0.1:5500**. Không cần cài dependency để xem giao di�
 | Tổ chức từ thiện | `/FOODSAVE_CHARITY.html` |
 | Tình nguyện viên | `/FOODSAVE_VOLUNTEER.html` |
 | Quản trị | `/ADMIN_FOODSAVE.html` |
+| Quản trị (cổng mới, đang thay dần) | `/admin/` |
 | Chính sách / điều khoản | `/chinh-sach.html`, `/dieu-khoan.html` |
 
 Các đường dẫn ngắn `/nguoi-mua`, `/ung-dung`, `/doi-tac`, `/tu-thien`, `/tinh-nguyen`, `/quan-tri` chuyển hướng tới trang HTML tương ứng. Tên URL cũ được giữ vì mã giao diện dùng tên trang để xác định vai trò.

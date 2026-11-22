@@ -21,3 +21,8 @@ export const getActor = (req: Request): ActorContext => {
     profile: req.profile
   };
 };
+
+export const auditActor = (req: Request): { userId: string; name: string | null } => {
+  const actor = getActor(req);
+  return { userId: actor.userId, name: actor.profile.full_name ?? null };
+};

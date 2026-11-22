@@ -600,15 +600,19 @@ export const orderService = {
 
   async applyMomoWebhookMock(body: MomoWebhookMockBody): Promise<Order> {
         const result = await momoPaymentService.applyMockWebhook(body);
-
+        
         if (!result) {
             throw new Error("Không tìm thấy đơn hàng sau khi xử lý webhook");
         }
-
+        
         return result as Order;
     },
 
   async listOrders(actorId: string, actorRole: UserRole, query: OrderListQuery): Promise<PaginatedResponse<unknown>> {
+    // Mặc định từ chối: role không được lọc bên dưới sẽ đọc được toàn bộ bảng đơn.
+    if (actorRole !== "customer" && actorRole !== "partner" && actorRole !== "admin") {
+      throw new AppError("You do not have permission to perform this action", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
+    }
     const { from, to } = getRange(query);
     let request = supabaseAdmin
       .from("orders")
@@ -653,6 +657,11 @@ export const orderService = {
       .single();
 
     if (error) handleSupabaseError(error, "Failed to load order details");
+    // Người mua không thấy ghi chú nội bộ của admin (giống complaintService.list)
+    if (actorRole === "customer" && data && Array.isArray((data as { complaints?: unknown }).complaints)) {
+      const withComplaints = data as { complaints: Array<Record<string, unknown>> };
+      return { ...withComplaints, complaints: withComplaints.complaints.map((c) => ({ ...c, admin_note: null })) };
+    }
     return data;
   },
 
@@ -766,7 +775,9 @@ export const orderService = {
       throw new AppError("You can only confirm payment for your own order", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
     }
     // Chỉ nhà cung cấp mô phỏng cho người mua tự bấm "Đã thanh toán". Cổng thật: chỉ webhook đã kiểm tra chữ ký mới xác nhận.
-    if (actorRole === "customer" && !getPaymentProvider().allowsManualConfirm) {
+    // Ở production, nút mô phỏng chỉ dùng được khi bật DEMO_MODE có chủ đích (tránh quên cấu hình PAYMENT_PROVIDER).
+    const simulatedAllowed = env.NODE_ENV !== "production" || env.DEMO_MODE;
+    if (actorRole === "customer" && (!getPaymentProvider().allowsManualConfirm || !simulatedAllowed)) {
       throw new AppError("Đơn hàng này được xác nhận thanh toán tự động bởi cổng thanh toán, không thể tự bấm xác nhận", HTTP_STATUS.FORBIDDEN, ERROR_CODES.PAYMENT_REQUIRES_PROVIDER);
     }
     return orderService.markPaid(order, paymentMethod);

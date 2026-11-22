@@ -244,6 +244,10 @@ export const complaintService = {
 
   /** Danh sách theo vai trò: người mua của mình, cửa hàng của mình, admin tất cả (lọc theo trạng thái) */
   async list(actorId: string, role: UserRole, filter: { status?: string | undefined } = {}): Promise<unknown[]> {
+    // Mặc định từ chối: role không được lọc bên dưới sẽ đọc được mọi khiếu nại.
+    if (role !== "customer" && role !== "partner" && role !== "admin") {
+      throw new AppError("You do not have permission to perform this action", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
+    }
     let query = supabaseAdmin.from("complaints").select("*").order("created_at", { ascending: false }).limit(300);
     if (role === "customer") query = query.eq("customer_id", actorId);
     if (role === "partner") {

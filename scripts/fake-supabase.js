@@ -178,6 +178,7 @@ class Query {
       out.stores = store ? { ...store } : null;
     }
     if (/order_items\(/.test(cols)) out.order_items = this.db.table("order_items").filter((i) => i.order_id === row.id);
+    if (/\bcomplaints\(/.test(cols)) out.complaints = this.db.table("complaints").filter((c) => c.order_id === row.id).map((c) => ({ ...c }));
     if (/profiles!customer_id|customer:profiles/.test(cols)) out.customer = this.db.table("profiles").find((p) => p.id === row.customer_id) || null;
     return out;
   }

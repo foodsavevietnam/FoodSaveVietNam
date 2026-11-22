@@ -41,6 +41,7 @@ const ROUTES = {
   'GET /admin/fraud-alerts': alerts,
   'GET /admin/vouchers': vouchers,
 };
+for (const fx of SCREEN_FIXTURES) Object.assign(ROUTES, fx.routes || {});
 
 export function createDemoApi() {
   const saved = new Map(); // 'METHOD path' → body ghi gần nhất (chỉ giữ trong bộ nhớ)
@@ -48,6 +49,10 @@ export function createDemoApi() {
   async function request(method, rawPath, body) {
     const path = String(rawPath).split('?')[0];
     const key = `${method} ${path}`;
+    for (const fx of SCREEN_FIXTURES) {
+      const hit = typeof fx.resolve === 'function' ? fx.resolve(method, path, body) : undefined;
+      if (hit !== undefined) return structuredClone(hit);
+    }
     if (method === 'GET') {
       if (/^\/orders\/[^/]+\/messages$/.test(path)) return structuredClone({ messages: complaintMessages, can_send: false });
       if (!(key in ROUTES)) throw new ApiError('RESOURCE_NOT_FOUND', `Chưa có dữ liệu mẫu cho ${path}`, 404);

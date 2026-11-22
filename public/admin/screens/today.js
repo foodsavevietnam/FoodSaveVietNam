@@ -63,7 +63,7 @@ export default {
       finance: {
         url: () => '/admin/finance/summary',
         draw: (d) => kpi('Tiền đang giữ', vnd(d?.wallets?.escrow),
-          `Nền tảng ${vnd(d?.wallets?.platform)} · Ví cửa hàng ${vnd(d?.store_wallets_total)} · ${d?.reconcile?.ok === false ? 'Sổ cái đang lệch' : 'Sổ cái khớp'}`),
+          `Nền tảng ${vnd(d?.wallets?.platform_revenue)} · Ví cửa hàng ${vnd(d?.store_wallets_total)} · ${d?.reconcile?.ok === false ? 'Sổ cái đang lệch' : 'Sổ cái khớp'}`),
       },
       labels: {
         url: () => '/admin/labels',

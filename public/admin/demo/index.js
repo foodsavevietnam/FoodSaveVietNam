@@ -12,6 +12,19 @@ import payouts, { REVEAL_SAMPLE } from './fixtures/payouts.js';
 import verify, { accounts as payoutAccounts } from './fixtures/verify.js';
 import alerts from './fixtures/alerts.js';
 import vouchers from './fixtures/vouchers.js';
+import * as fx_customers from './fixtures/customers.js';
+import * as fx_stores from './fixtures/stores.js';
+import * as fx_charities from './fixtures/charities.js';
+import * as fx_orders from './fixtures/orders.js';
+import * as fx_donations from './fixtures/donations.js';
+import * as fx_tracking from './fixtures/tracking.js';
+import * as fx_inventory from './fixtures/inventory.js';
+import * as fx_ledger from './fixtures/ledger.js';
+import * as fx_marketing from './fixtures/marketing.js';
+import * as fx_settings from './fixtures/settings.js';
+
+// Màn Đợt 2 tạm: mỗi file fixture tự khai báo routes (đường dẫn cố định) và resolve (đường dẫn động).
+const SCREEN_FIXTURES = [fx_customers, fx_stores, fx_charities, fx_orders, fx_donations, fx_tracking, fx_inventory, fx_ledger, fx_marketing, fx_settings];
 
 const ROUTES = {
   'GET /admin/dashboard/work': work,
@@ -28,6 +41,7 @@ const ROUTES = {
   'GET /admin/fraud-alerts': alerts,
   'GET /admin/vouchers': vouchers,
 };
+for (const fx of SCREEN_FIXTURES) Object.assign(ROUTES, fx.routes || {});
 
 export function createDemoApi() {
   const saved = new Map(); // 'METHOD path' → body ghi gần nhất (chỉ giữ trong bộ nhớ)
@@ -35,6 +49,10 @@ export function createDemoApi() {
   async function request(method, rawPath, body) {
     const path = String(rawPath).split('?')[0];
     const key = `${method} ${path}`;
+    for (const fx of SCREEN_FIXTURES) {
+      const hit = typeof fx.resolve === 'function' ? fx.resolve(method, path, body, String(rawPath)) : undefined;
+      if (hit !== undefined) return structuredClone(hit);
+    }
     if (method === 'GET') {
       if (/^\/orders\/[^/]+\/messages$/.test(path)) return structuredClone({ messages: complaintMessages, can_send: false });
       if (!(key in ROUTES)) throw new ApiError('RESOURCE_NOT_FOUND', `Chưa có dữ liệu mẫu cho ${path}`, 404);

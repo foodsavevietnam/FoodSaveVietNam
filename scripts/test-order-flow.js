@@ -1313,20 +1313,95 @@ const scenario = async (name, fn) => {
     });
   });
 
-  await scenario("P9. Xác thực /push: token tình nguyện viên hợp lệ → chủ sở hữu là tình nguyện viên; token sai / thiếu → 401", async () => {
+  await scenario("P9. Xác thực /push: token tình nguyện viên chỉ dùng được trong DEMO_MODE (ngoài demo → 403 cần OTP); token sai / thiếu → 401", async () => {
     const { createVolunteerToken } = require("../dist/utils/volunteerToken");
     const run = (token) => new Promise((resolve) => {
       const req = { headers: token ? { authorization: "Bearer " + token } : {} };
       const res = { locals: {} };
       pushActorMiddleware.pushActor(req, res, (error) => resolve({ error, res }));
     });
-    const ok = await run(createVolunteerToken("vol-9", "charity-1"));
-    assert.ok(!ok.error);
-    assert.deepStrictEqual(ok.res.locals.pushOwner, { kind: "volunteer", id: "vol-9" });
+    db.seed("volunteers", [{ id: "vol-9", charity_id: "charity-1", status: "active" }]); // TNV phải còn hoạt động
+    const token = createVolunteerToken("vol-9", "charity-1");
+    const blocked = await run(token);
+    assert.ok(blocked.error && blocked.error.statusCode === 403 && blocked.error.code === "AUTH_VERIFICATION_REQUIRED", "ngoài DEMO_MODE phải chặn token tình nguyện viên");
+    assert.strictEqual(blocked.res.locals.pushOwner, undefined);
+    const previousDemo = env.DEMO_MODE;
+    env.DEMO_MODE = true;
+    try {
+      const ok = await run(token);
+      assert.ok(!ok.error);
+      assert.deepStrictEqual(ok.res.locals.pushOwner, { kind: "volunteer", id: "vol-9" });
+    } finally {
+      env.DEMO_MODE = previousDemo;
+    }
+    // Token đăng nhập OTP email (amr "otp") dùng được cả ở production; token demo vẫn bị chặn
+    const previousNodeEnv = env.NODE_ENV;
+    env.NODE_ENV = "production";
+    try {
+      const otpOk = await run(createVolunteerToken("vol-9", "charity-1", "otp"));
+      assert.ok(!otpOk.error, "token OTP phải được nhận ở production");
+      assert.deepStrictEqual(otpOk.res.locals.pushOwner, { kind: "volunteer", id: "vol-9" });
+      const demoBlocked = await run(token);
+      assert.ok(demoBlocked.error && demoBlocked.error.code === "AUTH_VERIFICATION_REQUIRED", "token demo vẫn bị chặn ở production");
+    } finally {
+      env.NODE_ENV = previousNodeEnv;
+    }
     const bad = await run("khong.phai.token");
     assert.ok(bad.error && bad.error.statusCode === 401, "token sai bị từ chối");
     const none = await run("");
     assert.ok(none.error && none.error.statusCode === 401, "thiếu token bị từ chối");
+  });
+
+  // ───────────────────────── Phân quyền danh sách (IDOR) + thanh toán mô phỏng ở production ─────────────────────────
+  const { donationService } = require("../dist/services/donationService");
+  const CHARITY = "charity-user-1";
+
+  await scenario("S1. GET /orders: charity (role không có danh sách đơn) bị từ chối, không lộ đơn / SĐT / QR", async () => {
+    await pay(await create("p-yellow"));
+    await rejects(() => orderService.listOrders(CHARITY, "charity", { page: 1, limit: 20 }), "AUTH_FORBIDDEN");
+    const mine = await orderService.listOrders(CUST, "customer", { page: 1, limit: 20 });
+    assert.strictEqual(mine.items.length, 1, "người mua vẫn thấy đơn của mình");
+    const others = await orderService.listOrders(OTHER, "customer", { page: 1, limit: 20 });
+    assert.strictEqual(others.items.length, 0, "người mua khác không thấy");
+  });
+
+  await scenario("S2. Danh sách khiếu nại: charity bị từ chối, không lộ khiếu nại / admin_note", async () => {
+    db.seed("complaints", [{ id: "c-s2", order_id: "o-x", customer_id: CUST, store_id: "s-1", status: "open", admin_note: "nội bộ" }]);
+    await rejects(() => complaintService.list(CHARITY, "charity", {}), "AUTH_FORBIDDEN");
+    const own = await complaintService.list(CUST, "customer", {});
+    assert.strictEqual(own.length, 1);
+    assert.strictEqual(own[0].admin_note, null, "người mua không thấy ghi chú nội bộ");
+  });
+
+  await scenario("S3. GET /donations: người mua bị từ chối, không lộ pickup_code / SĐT tình nguyện viên", async () => {
+    db.seed("donations", [{ id: "d-s3", store_id: "s-1", status: "open", pickup_code: "123456" }]);
+    await rejects(() => donationService.listDonations(CUST, "customer", { page: 1, limit: 20 }), "AUTH_FORBIDDEN");
+  });
+
+  await scenario("S4. Chi tiết đơn: người mua không thấy admin_note của khiếu nại, admin vẫn thấy", async () => {
+    const o = await pay(await create("p-yellow"));
+    db.seed("complaints", [{ id: "c-s4", order_id: o.id, customer_id: CUST, store_id: "s-1", status: "open", admin_note: "nội bộ" }]);
+    const forBuyer = await orderService.getOrder(CUST, "customer", o.id);
+    assert.strictEqual(forBuyer.complaints.length, 1);
+    assert.strictEqual(forBuyer.complaints[0].admin_note, null, "ẩn admin_note với người mua");
+    const forAdmin = await orderService.getOrder(ADMIN, "admin", o.id);
+    assert.strictEqual(forAdmin.complaints[0].admin_note, "nội bộ");
+  });
+
+  await scenario("S5. Thanh toán mô phỏng: ở production (không DEMO_MODE) người mua KHÔNG tự xác nhận được; webhook giả cũng bị khóa", async () => {
+    const o = await create("p-yellow");
+    const prevEnv = env.NODE_ENV, prevDemo = env.DEMO_MODE;
+    env.NODE_ENV = "production";
+    try {
+      await rejects(() => pay(o), "PAYMENT_REQUIRES_PROVIDER");
+      assert.strictEqual(row(o.id).payment_status, "pending", "đơn chưa được đánh dấu đã trả");
+      env.DEMO_MODE = true;
+      await assert.rejects(() => orderController.mockMomoWebhook({ validated: { body: { order_id: o.id, resultCode: 0 } } }, { status() { return this; }, json() { return this; } }), (e) => e.statusCode === 404, "webhook giả khóa ở production kể cả DEMO_MODE");
+    } finally {
+      env.NODE_ENV = prevEnv;
+      env.DEMO_MODE = prevDemo;
+    }
+    assert.strictEqual((await pay(o)).payment_status, "paid", "ngoài production vẫn dùng nút mô phỏng như cũ");
   });
 
   // ───────────────────────── Đợt 4b: Admin + cổng cửa hàng dùng dữ liệu thật ─────────────────────────

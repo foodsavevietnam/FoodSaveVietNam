@@ -44,6 +44,7 @@ partnerRoutes.post("/product-images/upload-url", validateRequest({ body: product
 
 partnerRoutes.get("/payout-account", requireRoles("partner"), asyncHandler(partnerController.getPayoutAccount));
 partnerRoutes.post("/payout-account", requireRoles("partner"), validateRequest({ body: payoutAccountBodySchema }), asyncHandler(partnerController.submitPayoutAccount));
+partnerRoutes.get("/orders/:id/customer-eta", requireRoles("partner"), validateRequest({ params: uuidParamSchema }), asyncHandler(partnerController.customerEta));
 partnerRoutes.get("/customers", requireRoles("partner"), asyncHandler(partnerController.listCustomers));
 partnerRoutes.get("/vouchers", requireRoles("partner"), asyncHandler(partnerController.listVouchers));
 partnerRoutes.post("/vouchers", requireRoles("partner"), validateRequest({ body: voucherBodySchema }), asyncHandler(partnerController.createVoucher));

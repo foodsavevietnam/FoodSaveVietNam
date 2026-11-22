@@ -10,6 +10,11 @@ import { sendSuccess } from "../utils/response";
 
 const loginBodySchema = z.object({ phone: z.string().trim().min(8).max(20) }).strict();
 
+// Đăng nhập OTP email: email chuẩn hóa ở service (lowercase + trim)
+const otpRequestBodySchema = z.object({ email: z.string().trim().email().max(200) }).strict();
+const otpVerifyBodySchema = z.object({ email: z.string().trim().email().max(200), code: z.string().regex(/^\d{6}$/) }).strict();
+const otpSelectBodySchema = z.object({ selection_token: z.string().min(10).max(1000), volunteer_id: z.string().uuid() }).strict();
+
 // TNV chỉ được sửa các trường này; số điện thoại do tổ chức quản lý nên không có ở đây (.strict từ chối trường lạ)
 const updateProfileBodySchema = z.object({
   full_name: z.string().trim().min(2).max(140).optional(),
@@ -45,6 +50,22 @@ export const volunteerRoutes = Router();
 volunteerRoutes.post("/login", validateRequest({ body: loginBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as { phone: string };
   sendSuccess(res, await volunteerService.login(body.phone));
+}));
+
+// Đăng nhập OTP email (dùng được ở production): gửi mã → xác minh → (nếu email thuộc nhiều tổ chức) chọn tổ chức
+volunteerRoutes.post("/otp/request", validateRequest({ body: otpRequestBodySchema }), asyncHandler(async (req, res) => {
+  const body = req.validated?.body as z.infer<typeof otpRequestBodySchema>;
+  sendSuccess(res, await volunteerService.requestOtp(body.email));
+}));
+
+volunteerRoutes.post("/otp/verify", validateRequest({ body: otpVerifyBodySchema }), asyncHandler(async (req, res) => {
+  const body = req.validated?.body as z.infer<typeof otpVerifyBodySchema>;
+  sendSuccess(res, await volunteerService.verifyOtp(body.email, body.code));
+}));
+
+volunteerRoutes.post("/otp/select", validateRequest({ body: otpSelectBodySchema }), asyncHandler(async (req, res) => {
+  const body = req.validated?.body as z.infer<typeof otpSelectBodySchema>;
+  sendSuccess(res, await volunteerService.selectVolunteer(body.selection_token, body.volunteer_id));
 }));
 
 volunteerRoutes.get("/me", volunteerAuth, asyncHandler(async (_req, res) => {

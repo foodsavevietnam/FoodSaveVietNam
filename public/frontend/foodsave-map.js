@@ -114,7 +114,8 @@
     addTileLayer(map);
     el.__foodsaveMap = map;
     // Khung vừa được chèn vào trang: tính lại kích thước để không vỡ ô bản đồ
-    window.setTimeout(() => map.invalidateSize(), 120);
+    // Bỏ qua nếu bản đồ đã bị gỡ trong 120 ms đó (trang vẽ lại) để Leaflet không ném lỗi
+    window.setTimeout(() => { if (el.__foodsaveMap === map) map.invalidateSize(); }, 120);
     return map;
   }
 

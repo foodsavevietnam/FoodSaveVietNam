@@ -871,6 +871,7 @@ textarea.inp{resize:none;font-family:inherit}
 <link rel="stylesheet" href="frontend/foodsave-cookie-consent.css?v=20261003">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="frontend/foodsave-map.css?v=20261003e">
+<link rel="stylesheet" href="frontend/foodsave-location.css?v=20261122a">
 <link rel="stylesheet" href="frontend/partner-v2.css?v=20261029a">
 <link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
@@ -914,7 +915,7 @@ textarea.inp{resize:none;font-family:inherit}
   <div class="topbar-main">
     <div class="wrap">
       <div class="brand" onclick="goView('landing')">
-
+        
         <div class="brand-stack">
           <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
           <span class="brand-tagline">FOR BUSINESS · PARTNER</span>
@@ -945,7 +946,7 @@ textarea.inp{resize:none;font-family:inherit}
     <div class="auth-left">
       <div class="auth-hero">
         <div class="auth-brand-big">
-
+          
           <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
         </div>
         <h1 class="auth-h-title">Cứu thực phẩm.<br>Tăng <em>doanh thu</em>.<br>Cho cửa hàng <em>của bạn</em>.</h1>
@@ -965,7 +966,7 @@ textarea.inp{resize:none;font-family:inherit}
 <div class="app-w" id="portal">
   <div class="side">
     <div class="side-logo">
-
+      
       <div class="brand-stack">
         <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
         <span class="side-cap">Cổng đối tác</span>
@@ -1002,6 +1003,7 @@ let view='landing',aS='login',regStep=0,pg='dash',selO=null,oP='',sSt='active',o
 
 function goView(v){
   view=v;
+  if((v==='landing'||v==='auth')&&typeof resetNewOrderTracking==='function')resetNewOrderTracking();
   ['landing','auth','portal'].forEach(x=>{
     document.getElementById(x).classList.toggle('show',x===v);
   });
@@ -2405,13 +2407,37 @@ window.foodsaveBeforeOrdersReplace=function(){
   return(selO!==null&&ORD[selO]&&ORD[selO].uuid)?ORD[selO].uuid:null;
 };
 let lastNewOrderCount=null;
-window.foodsaveAfterOrdersReplace=function(selectedUuid){
-  for(let i=0;i<ORD.length;i++){if(ORD[i]&&ORD[i].order_number)ORD[i]=toUiOrder(ORD[i]);}
-  const newCount=ORD.filter(o=>o.st==='new').length;
+let baseDocTitle=null;
+function setNewOrderTitle(n){
+  if(baseDocTitle===null)baseDocTitle=document.title;
+  document.title=n>0?'('+n+') Đơn mới – '+baseDocTitle:baseDocTitle;
+}
+function restoreDocTitle(){if(baseDocTitle!==null)document.title=baseDocTitle;}
+['pointerdown','keydown','touchstart'].forEach(t=>document.addEventListener(t,restoreDocTitle,{capture:true,passive:true}));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')restoreDocTitle();});
+let lastOrdersStoreKey=null;
+function resetNewOrderTracking(){lastNewOrderCount=null;lastOrdersStoreKey=null;restoreDocTitle();}
+// Dùng chung cho lần tải bình thường và lần kiểm tra lúc rảnh: so sánh số đơn `new`, báo khi tăng.
+// Lần tải lỗi (ordersLoadFailed) hoặc đổi cửa hàng thì không đụng tới mốc/tiêu đề.
+function trackNewOrders(items,newCount){
+  if(window.FS&&FS.sync&&typeof FS.sync.ordersLoadFailed==='function'&&FS.sync.ordersLoadFailed())return;
+  const key=items&&items[0]?items[0].store_id:null;
+  if(key&&lastOrdersStoreKey&&key!==lastOrdersStoreKey){lastNewOrderCount=null;restoreDocTitle();}
+  if(key)lastOrdersStoreKey=key;
   if(lastNewOrderCount!==null&&newCount>lastNewOrderCount&&typeof tst==='function'){
     tst('Có đơn hàng mới','Bạn có '+newCount+' đơn đang chờ nhận · vào mục Đơn hàng để chuẩn bị','order');
-  }
+    setNewOrderTitle(newCount);
+  }else if(newCount===0)restoreDocTitle();
   lastNewOrderCount=newCount;
+}
+// Kiểm tra lúc rảnh: chỉ đếm/báo, KHÔNG thay ORD (DOM cũ còn dùng chỉ số ORD cho onclick="selO=i")
+window.foodsaveOrdersIdleCheck=function(items){
+  trackNewOrders(items,(items||[]).filter(o=>ORDER_STATUS_UI[o.status]==='new'||!ORDER_STATUS_UI[o.status]).length);
+};
+window.foodsaveAfterOrdersReplace=function(selectedUuid){
+  const items=ORD.slice();
+  for(let i=0;i<ORD.length;i++){if(ORD[i]&&ORD[i].order_number)ORD[i]=toUiOrder(ORD[i]);}
+  trackNewOrders(items,ORD.filter(o=>o.st==='new').length);
   if(selectedUuid){const idx=ORD.findIndex(o=>o.uuid===selectedUuid);selO=idx>=0?idx:null;if(selO===null)oP='';}
   const typing=document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
   if(!typing&&typeof R==='function'&&(pg==='orders'||pg==='dash'))R();
@@ -2459,6 +2485,48 @@ function orderReceiverHtml(o){
   return '<div style="font-size:13px;font-weight:900;color:var(--ink-soft);margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em;font-family:\'Plus Jakarta Sans\'">Thông tin người nhận</div>'+
     '<div class="grid-2" style="gap:8px;margin-bottom:10px">'+rows.map(r=>'<div style="padding:10px 12px;background:var(--soft);border-radius:11px"><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em"><i class="ti '+r[0]+'"></i> '+r[1]+'</div><div style="font-size:12.5px;font-weight:800;color:var(--green-950);margin-top:3px;word-break:break-word">'+orderEsc(r[2])+'</div></div>').join('')+'</div>'+
     (o.note?'<div style="padding:10px 14px;background:var(--yellow-100);border-radius:11px;margin-bottom:10px;font-size:12.5px;color:var(--ink-soft);font-weight:700"><i class="ti ti-message-2"></i> <strong>Ghi chú của khách:</strong> '+orderEsc(o.note)+'</div>':'');
+}
+// ── Khách cách bao xa: lấy từ vị trí người mua đang giữ đơn đã thanh toán (ẩn khi chưa có) ──
+const partnerEtaCache={};
+// Làm mới mỗi 120 giây khi chi tiết đơn đang mở (lịch chung FS.poll: chỉ khi tab hiển thị và người dùng còn thao tác).
+// Vị trí người mua gửi ~2 phút/lần nên nhịp 120 giây không làm chậm thông tin; rời chi tiết đơn thì không gọi.
+const PARTNER_ETA_MS=120000;
+function partnerEtaTick(){
+  const box=document.getElementById('order-eta-box');
+  if(!box)return false;
+  return loadPartnerOrderEta(box.getAttribute('data-order-eta'));
+}
+function partnerOrderEtaHtml(d){
+  if(!d||d.distance_km==null||!Number.isFinite(Number(d.distance_km)))return '';
+  const km=Number(d.distance_km).toLocaleString('vi-VN',{maximumFractionDigits:1});
+  const ageMs=d.updated_at?Date.now()-new Date(d.updated_at).getTime():NaN;
+  const ago=Number.isFinite(ageMs)?' · cập nhật '+Math.max(0,Math.round(ageMs/60000))+' phút trước':'';
+  return '<i class="ti ti-map-pin"></i> <strong>Khách cách ~'+orderEsc(km)+' km</strong>'+orderEsc(ago);
+}
+// Khung giữ chỗ trong chi tiết đơn; điền sẵn từ bộ nhớ đệm và làm mới nền (tối đa 1 lần/phút).
+function partnerOrderEtaBoxHtml(o){
+  if(!o||!o.uuid||!['new','confirmed','ready'].includes(o.st))return '';
+  const cached=partnerEtaCache[o.uuid];
+  window.setTimeout(()=>{loadPartnerOrderEta(o.uuid);if(window.FS&&FS.poll)FS.poll.register('partner-eta',PARTNER_ETA_MS,partnerEtaTick);},0);
+  const inner=partnerOrderEtaHtml(cached&&cached.data);
+  return '<div id="order-eta-box" data-order-eta="'+orderEsc(o.uuid)+'" style="'+(inner?'':'display:none;')+'padding:10px 14px;background:var(--green-50);border-radius:11px;margin-bottom:10px;font-size:12.5px;color:var(--green-900);font-weight:700">'+inner+'</div>';
+}
+function paintPartnerOrderEta(uuid){
+  const box=document.getElementById('order-eta-box');
+  if(!box||box.getAttribute('data-order-eta')!==uuid)return;
+  const html=partnerOrderEtaHtml((partnerEtaCache[uuid]||{}).data);
+  box.innerHTML=html;
+  box.style.display=html?'':'none';
+}
+async function loadPartnerOrderEta(uuid){
+  if(!uuid||window.MIO_DEMO_MODE)return;
+  const cached=partnerEtaCache[uuid];
+  if(cached&&(cached.loading||Date.now()-cached.at<PARTNER_ETA_MS-5000)){paintPartnerOrderEta(uuid);return false;}
+  partnerEtaCache[uuid]={data:cached?cached.data:null,at:cached?cached.at:0,loading:true};
+  let data=null;
+  try{data=await partnerApiRequest('/partner/orders/'+encodeURIComponent(uuid)+'/customer-eta');}catch(error){data=null;}
+  partnerEtaCache[uuid]={data,at:Date.now(),loading:false};
+  paintPartnerOrderEta(uuid);
 }
 function orderLinesHtml(o){
   if(!o.lines||!o.lines.length)return '<div style="padding:11px 14px;background:var(--soft);border-radius:12px;font-size:13.5px;color:var(--green-950);margin-bottom:10px;font-weight:600">'+orderEsc(o.items)+'</div>';
@@ -2515,6 +2583,7 @@ function ordDetail(){
     <div class="f ac jb m12"><div class="f ac g6"><span class="tg ${lT(o.l)}" style="padding:5px 11px">Nhãn ${lN(o.l)}</span><span class="tg ${stC[oP]}" style="padding:5px 11px">${stM[oP]}</span>${o.st==='cancelled'?`<span class="tg tg-r">Đã hủy${o.penalty?' · Phạt':''}</span>`:''}</div><span style="font-family:'Plus Jakarta Sans';font-size:24px;font-weight:900;color:var(--green-800);letter-spacing:-.02em">${fm(o.p)}</span></div>
     <div style="padding:14px;background:var(--soft);border-radius:13px;margin-bottom:12px"><div class="f ac g12"><div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--green-50),var(--green-100));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-user" style="font-size:22px;color:var(--green-800)"></i></div><div class="f1"><div style="font-size:14.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${o.c}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${o.ph} · ${o.mt} · ${o.time}</div></div><span class="tg ${o.pay==='Đã thanh toán'?'tg-g':o.pay==='Đã hoàn tiền'?'tg-r':'tg-g'}">${o.pay}</span></div></div>
     ${orderReceiverHtml(o)}
+    ${partnerOrderEtaBoxHtml(o)}
     <div style="font-size:13px;font-weight:900;color:var(--ink-soft);margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em;font-family:'Plus Jakarta Sans'">Sản phẩm</div>
     ${orderLinesHtml(o)}
     ${orderMoneyHtml(o)}
@@ -3504,7 +3573,7 @@ function editStoreAddress(){
   const cur=currentPartnerStoreProfile();
   partnerEditPlace=null;
   modal('Sửa địa chỉ cửa hàng',
-    '<div class="field"><label>Địa chỉ</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inp" id="pe-addr" style="flex:1;min-width:200px" maxlength="300" placeholder="Gõ số nhà, đường, phường rồi bấm Tìm" value="'+escHtml(cur.address||'')+'" onkeydown="if(event.key===\'Enter\'){event.preventDefault();partnerEditPicker&&partnerEditPicker.search();}"><button class="btn btn-sm btn-o" type="button" onclick="partnerEditPicker&&partnerEditPicker.search()"><i class="ti ti-search"></i> Tìm</button><button class="btn btn-sm btn-o" type="button" id="pe-locate" onclick="partnerEditPicker&&partnerEditPicker.locate()"><i class="ti ti-current-location"></i> Vị trí hiện tại</button></div>'+
+    '<div class="field"><label>Địa chỉ</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inp" id="pe-addr" style="flex:1;min-width:200px" maxlength="300" placeholder="Gõ số nhà, đường, phường rồi bấm Tìm" value="'+escHtml(cur.address||'')+'" onkeydown="if(event.key===\'Enter\'){event.preventDefault();partnerEditPicker&&partnerEditPicker.search();}"><button class="btn btn-sm btn-o" type="button" onclick="partnerEditPicker&&partnerEditPicker.search()"><i class="ti ti-search"></i> Tìm</button><button class="btn btn-sm btn-o" type="button" id="pe-locate" onclick="partnerEditPicker&&partnerEditPicker.locate()"><i class="ti ti-current-location"></i> Dùng vị trí hiện tại</button></div>'+
     '<div id="pe-results"></div><div id="pe-map" style="height:240px;border-radius:12px;border:1px solid var(--line);margin-top:10px;overflow:hidden"></div><div id="pe-status" style="font-size:12px;font-weight:700;margin-top:6px;min-height:16px"></div></div>'+
     '<button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="submitStoreAddress()"><i class="ti ti-check"></i> Lưu địa chỉ</button>');
   window.setTimeout(()=>{
@@ -3906,8 +3975,7 @@ function notiReadAll(){
   try{FS.sync.markAllNotifsRead().catch(()=>{});}catch(e){}
   tst('Đã đánh dấu','Tất cả thông báo đã đọc','info');
 }
-setInterval(()=>{if(!document.hidden&&window.FS&&FS.sync&&FS.sync.refreshNotifications)FS.sync.refreshNotifications().catch(()=>{});},20000);
-document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{if(window.FS&&FS.sync&&FS.sync.refreshNotifications)FS.sync.refreshNotifications().catch(()=>{});},2500));
+// Thông báo tải cùng lần tải đầu và theo lịch chung trong foodsave-live-data.js (FS.poll), không có vòng lặp riêng.
 
 function showQR(){modal('Quick Scan · POS','<div class="scanner" style="height:220px;margin-bottom:14px"><div class="sl"></div><div style="z-index:1;text-align:center;color:rgba(255,255,255,.6)"><i class="ti ti-qrcode" style="font-size:46px;color:var(--green-700);margin-bottom:6px;display:block"></i><p style="font-size:11.5px;font-weight:700">Đưa mã vào khung</p></div></div><input class="inp m12" placeholder="Hoặc nhập mã..." style="text-align:center;font-size:15px;font-weight:900;font-family:\'Plus Jakarta Sans\'"><div class="grid-2 g10"><button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="closeM();tst(\'QR OK\',\'Đã xác nhận\',\'order\')"><i class="ti ti-check"></i> Nhận hàng</button><button class="btn btn-o btn-lg" style="width:100%;justify-content:center" onclick="closeM()"><i class="ti ti-search"></i> Tìm SP</button></div>');}
 function showProf(){
@@ -4274,11 +4342,11 @@ async function fetchProductsFromSupabase() {
   }
 }
 
-// Tự tải lại mỗi 60 giây để thấy nhãn/giá/số lượng mới (polling thay cho realtime)
-setInterval(() => { if (!document.hidden) fetchProductsFromSupabase(); }, 60000);
-
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => { fetchProductsFromSupabase(); }, 1200);
+  // Tự tải lại mỗi 60 giây để thấy nhãn/giá/số lượng mới, CHỈ khi đang xem Kho hàng / Marketing
+  // (lịch chung FS.poll: tab hiển thị, còn thao tác). Màn hình khác: tải khi mở màn hình hoặc có thông báo mới.
+  if (window.FS && FS.poll) FS.poll.register('partner-products', 60000, () => (pg === 'inv' || pg === 'marketing') ? fetchProductsFromSupabase() : false);
 });
 </script>
 
@@ -4401,12 +4469,50 @@ window.addEventListener('error',function(e){
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="frontend/foodsave-map.js?v=20261003e"></script>
 
-<script src="frontend/foodsave-live-data.js?v=20261029a"></script>
+<script src="frontend/foodsave-live-data.js?v=20261122d"></script>
 <script>window.FS = window.FS || {}; /* Backend data sync is loaded from frontend/foodsave-live-data.js. */</script>
 
 <script src="frontend/foodsave-auth-client.js?v=20261003e"></script>
 
-<script src="frontend/partner-v2.js?v=20261030a"></script>
-<script src="frontend/mio-demo-mode.js?v=20261117a"></script>
+<script src="frontend/partner-v2.js?v=20261122a"></script>
+<script>
+  // Chế độ demo (dữ liệu mẫu, không gọi API) CHỈ bật khi mở bằng ?demo=1 (nhớ cho tab này; ?demo=0 để tắt).
+  // Mặc định trang dùng API thật: đăng nhập thật, ETA khách, bản đồ TNV trực tiếp.
+  (function(){
+    var key='mio.demo.partner',on=false,q=null;
+    try{q=new URLSearchParams(window.location.search).get('demo');}catch(e){}
+    try{
+      if(q==='1')sessionStorage.setItem(key,'1');
+      else if(q==='0')sessionStorage.removeItem(key);
+      on=sessionStorage.getItem(key)==='1';
+    }catch(e){on=q==='1';}
+    if(on)document.write('<script src="frontend/mio-demo-mode.js?v=20261117a"><\/script>');
+  })();
+</script>
+<script src="frontend/foodsave-location.js?v=20261122c"></script>
+<script>
+  // Hộp xin quyền vị trí dùng chung. Cửa hàng không phát vị trí liên tục; chỉ cần quyền cho nút "Dùng vị trí hiện tại".
+  // Chế độ demo (?demo=1) không có phiên thật nên không gửi header, mọi lỗi đều bị nuốt.
+  (function(){
+    if(!window.FoodSaveLocation)return;
+    try{
+      window.FoodSaveLocation.init({
+        apiBase:partnerApiBaseUrl(),
+        serverSync:false,   // cửa hàng không có bản ghi đồng ý trên máy chủ: chỉ cần quyền trình duyệt
+        promptText:'MIO dùng vị trí hiện tại của bạn một lần, khi bạn bấm "Dùng vị trí hiện tại", để xác nhận tọa độ địa chỉ cửa hàng giúp khách và tình nguyện viên tìm đường chính xác. MIO không theo dõi vị trí cửa hàng liên tục.',
+        getAuthHeader:function(){
+          if(window.MIO_DEMO_MODE)return null;
+          const auth=storedPartnerAuth();
+          return auth&&auth.accessToken&&!auth.demo?'Bearer '+auth.accessToken:null;
+        },
+        getActorKey:function(){
+          if(window.MIO_DEMO_MODE)return null;
+          const auth=storedPartnerAuth();
+          return auth&&auth.profile&&auth.profile.id&&!auth.demo?'partner:'+auth.profile.id:null;
+        }
+      });
+    }catch(error){/* bỏ qua */}
+  })();
+</script>
 </body>
 </html>

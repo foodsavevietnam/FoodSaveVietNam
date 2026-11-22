@@ -8,7 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 export const donationRoutes = Router();
 
-donationRoutes.get("/", validateRequest({ query: donationListQuerySchema }), asyncHandler(donationController.listDonations));
+donationRoutes.get("/", requireRoles("partner", "charity", "admin"), validateRequest({ query: donationListQuerySchema }), asyncHandler(donationController.listDonations));
 donationRoutes.post("/", requireRoles("partner", "admin"), validateRequest({ body: createDonationBodySchema }), asyncHandler(donationController.createDonation));
 donationRoutes.post("/from-product", requireRoles("partner", "admin"), validateRequest({ body: createProductDonationBodySchema }), asyncHandler(donationController.createProductDonation));
 donationRoutes.patch("/:id/store-response", requireRoles("partner", "admin"), validateRequest({ params: uuidParamSchema, body: storeResponseBodySchema }), asyncHandler(donationController.storeRespond));

@@ -159,6 +159,10 @@
   // Token đã bị server trả 401 thì coi như không có: không gọi lại các API cần đăng nhập
   // (tránh lặp lỗi 401 liên tục khi phiên lưu sẵn đã hết hạn). Đăng nhập lại sẽ có token mới.
   let rejectedAuthToken = "";
+  // Token gần nhất lấy được từ phiên Supabase (đã tự làm mới): cho nơi cần header đồng bộ, như client vị trí.
+  let lastResolvedToken = "";
+  // Lần tải đơn gần nhất bị lỗi (mạng/401/500): danh sách rỗng lúc đó KHÔNG có nghĩa là hết đơn.
+  let ordersLoadFailed = false;
 
   async function resolveAuthToken() {
     let token = "";
@@ -173,7 +177,24 @@
     }
     if (!token) token = authToken();
     if (token && token === rejectedAuthToken) return "";
+    lastResolvedToken = token || "";
     return token;
+  }
+
+  // Header Authorization đồng bộ ("Bearer ...") hoặc null khi chưa đăng nhập / token đã bị từ chối.
+  function syncAuthHeader() {
+    if (window.MIO_DEMO_MODE) return null;
+    const token = lastResolvedToken || authToken();
+    if (!token || token === rejectedAuthToken) return null;
+    return "Bearer " + token;
+  }
+
+  // Khóa tài khoản đang đăng nhập ("customer:<id>"), để client vị trí gắn lựa chọn chia sẻ với đúng tài khoản.
+  function syncActorKey() {
+    if (window.MIO_DEMO_MODE) return null;
+    const session = readAuthSession();
+    const id = session && session.profile && session.profile.id;
+    return id ? PAGE_ROLE + ":" + id : null;
   }
 
   async function request(path, options) {
@@ -185,7 +206,8 @@
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      body: options && options.body ? JSON.stringify(options.body) : undefined
+      body: options && options.body ? JSON.stringify(options.body) : undefined,
+      signal: options && options.signal ? options.signal : undefined
     });
 
     if (response.status === 401 && token) rejectedAuthToken = token;
@@ -558,21 +580,32 @@
     };
   }
 
-  async function loadAuthenticatedData() {
-    if (!(await resolveAuthToken())) return;
+  // Các phần dữ liệu cần đăng nhập. Cổng cửa hàng / tổ chức chỉ tải lại phần thay đổi (giữ hạn mức Netlify).
+  const AUTH_PARTS = ["orders", "donations", "notifications", "complaints", "eco"];
+  const partLoadedAt = {};
+  let knownNotificationIds = null;
 
-    const [orders, donations, notifications, complaints, impactMe, impactPartner, impactCharity, impactPlatform, leaderboard] = await Promise.all([
-      request("/orders?limit=100").catch(() => ({ items: [] })),
-      request("/donations?limit=100").catch(() => ({ items: [] })),
-      request("/notifications?limit=100").catch(() => ({ items: [] })),
-      request("/orders/complaints/list").catch(() => []),
+  function fetchAuthPart(part) {
+    if (part === "orders") return request("/orders?limit=100").catch(() => { ordersLoadFailed = true; return { items: [] }; });
+    if (part === "donations") return request("/donations?limit=100").catch(() => ({ items: [] }));
+    if (part === "notifications") return request("/notifications?limit=100").catch(() => ({ items: [] }));
+    if (part === "complaints") return request("/orders/complaints/list").catch(() => []);
+    return Promise.all([
       request("/eco-impact/me?period=all&months=6").catch(() => null),
       request("/eco-impact/partner?period=all&months=6").catch(() => null),
       request("/eco-impact/charity?period=all&months=6").catch(() => null),
       request("/eco-impact/platform?period=all&months=6").catch(() => null),
       request("/eco-impact/leaderboard?period=month&limit=10").catch(() => [])
     ]);
+  }
 
+  let ordersIdleCheck = false;   // true khi lượt tải đơn là kiểm tra lúc rảnh (cửa hàng)
+  function applyOrders(orders) {
+    if (ordersIdleCheck && IS_PORTAL && !pollCanRun()) {
+      // Rảnh: không thay ORD/không vẽ lại (DOM cũ còn tham chiếu theo chỉ số); chỉ để trang đếm đơn mới và báo
+      if (!ordersLoadFailed && typeof window.foodsaveOrdersIdleCheck === "function") window.foodsaveOrdersIdleCheck(orders.items || []);
+      return;
+    }
     const previousOrderStatus = {};
     (getGlobalArray("orders") || []).forEach((order) => {
       if (order && order.backendId) previousOrderStatus[order.backendId] = order.status;
@@ -582,11 +615,30 @@
     const keepSelectedOrder = typeof window.foodsaveBeforeOrdersReplace === "function" ? window.foodsaveBeforeOrdersReplace() : null;
     replaceArray("ORD", (orders.items || []));
     if (typeof window.foodsaveAfterOrdersReplace === "function") window.foodsaveAfterOrdersReplace(keepSelectedOrder);
-    replaceArray("DONATIONS", (donations.items || []).map(mapDonation));
-    if (typeof window.foodsaveAfterDonationsReplace === "function") window.foodsaveAfterDonationsReplace();
-    replaceArray("NOTIFS", (notifications.items || []).map(mapNotification));
-    if (typeof window.foodsaveAfterNotifsReplace === "function") window.foodsaveAfterNotifsReplace();
-    replaceArray("COMPLAINTS", Array.isArray(complaints) ? complaints.map(mapComplaint) : []);
+  }
+
+  function applyAuthPart(part, data) {
+    partLoadedAt[part] = Date.now();
+    if (part === "orders") return applyOrders(data);
+    if (part === "donations") {
+      replaceArray("DONATIONS", (data.items || []).map(mapDonation));
+      if (typeof window.foodsaveAfterDonationsReplace === "function") window.foodsaveAfterDonationsReplace();
+      return;
+    }
+    if (part === "notifications") {
+      replaceArray("NOTIFS", (data.items || []).map(mapNotification));
+      if (typeof window.foodsaveAfterNotifsReplace === "function") window.foodsaveAfterNotifsReplace();
+      const ids = (data.items || []).map((n) => String(n.id));
+      const fresh = knownNotificationIds ? ids.some((id) => !knownNotificationIds.has(id)) : false;
+      knownNotificationIds = new Set(ids);
+      if (fresh && IS_PORTAL) setTimeout(afterNewNotifications, 0);
+      return;
+    }
+    if (part === "complaints") {
+      replaceArray("COMPLAINTS", Array.isArray(data) ? data.map(mapComplaint) : []);
+      return;
+    }
+    const [impactMe, impactPartner, impactCharity, impactPlatform, leaderboard] = data;
     window.ECO_IMPACT = {
       me: impactMe,
       partner: impactPartner,
@@ -596,16 +648,44 @@
     };
   }
 
-  async function hydratePage() {
-    if (window.MIO_DEMO_MODE) return false;
-    await loadCatalogData();
-    await loadAuthenticatedData();
+  // parts: danh sách phần cần tải (mặc định: tất cả). Áp dụng theo đúng thứ tự cũ: đơn, quyên góp, thông báo, khiếu nại, tác động.
+  async function loadAuthenticatedData(parts) {
+    if (!(await resolveAuthToken())) return false;
+    const wanted = AUTH_PARTS.filter((part) => !parts || parts.indexOf(part) !== -1);
+    if (wanted.indexOf("orders") !== -1) ordersLoadFailed = false;
+    const results = await Promise.all(wanted.map(fetchAuthPart));
+    wanted.forEach((part) => { partLoadedAt[part] = Date.now(); });
+    wanted.forEach((part, index) => applyAuthPart(part, results[index]));
+    return true;
+  }
 
+  // Cổng cửa hàng / tổ chức: lần đầu tải đủ; sau đó (sau thao tác, nhịp làm mới) chỉ tải phần hay thay đổi.
+  const IS_PORTAL = PAGE_ROLE === "partner" || PAGE_ROLE === "charity";
+  const PORTAL_LIGHT_PARTS = PAGE_ROLE === "partner" ? ["orders", "donations", "notifications", "complaints"] : ["donations", "notifications"];
+  let fullyHydrated = false;
+
+  function renderAfterLoad() {
     if (typeof window.renderHome === "function" && document.querySelector("#page-home.active")) window.renderHome();
     if (typeof window.renderMarket === "function" && document.querySelector("#page-market.active")) window.renderMarket();
     if (typeof window.renderOrders === "function" && document.querySelector("#page-orders.active")) window.renderOrders("all");
     if (typeof window.updateNotifBadge === "function") window.updateNotifBadge();
     if (typeof window.R === "function") window.R();
+  }
+
+  async function hydratePage(options) {
+    if (window.MIO_DEMO_MODE) return false;
+    const full = !IS_PORTAL || !fullyHydrated || Boolean(options && options.full);
+    if (!full) {
+      await loadAuthenticatedData(PORTAL_LIGHT_PARTS);
+      markPolled(PORTAL_LIGHT_PARTS);
+      renderAfterLoad();
+      return;
+    }
+    await loadCatalogData();
+    const loaded = await loadAuthenticatedData();
+    if (loaded) { fullyHydrated = true; markPolled(AUTH_PARTS); }
+
+    renderAfterLoad();
   }
 
   // ───── Báo cáo từng lô (dùng chung cho Tổ chức, Cửa hàng, Admin)
@@ -659,6 +739,10 @@
   window.FS.printDonationReport = printDonationReport;
   window.FS.sync = {
     source: "backend",
+    apiBaseUrl: API_BASE_URL,
+    authHeader: syncAuthHeader,
+    actorKey: syncActorKey,
+    ordersLoadFailed() { return ordersLoadFailed; },
     request,
     hydratePage,
     getNearbyLocation() {
@@ -821,8 +905,16 @@
     // Tải nhẹ riêng thông báo (chuông và banner khuyến mãi cập nhật mỗi 20 giây)
     async refreshNotifications() {
       const data = await request("/notifications?limit=100");
-      replaceArray("NOTIFS", (data.items || []).map(mapNotification));
-      if (typeof window.foodsaveAfterNotifsReplace === "function") window.foodsaveAfterNotifsReplace();
+      applyAuthPart("notifications", data);
+      markPolled(["notifications"]);
+    },
+    // Tải lại đúng các phần cần (vd ["complaints"]) khi mở màn hình tương ứng
+    refreshParts(parts) {
+      return refreshParts(parts);
+    },
+    // Làm mới toàn bộ (kể cả danh mục và thống kê tác động)
+    refreshAll() {
+      return hydratePage({ full: true });
     },
     getEcoImpactMe(params) {
       return request(`/eco-impact/me${params ? `?${params}` : ""}`);
@@ -861,11 +953,178 @@
     void hydratePage();
   }
 
-  // Tự tải lại sản phẩm, đơn, quyên góp và thông báo mỗi 60 giây (polling thay cho realtime)
-  // Cửa hàng / tổ chức cần thấy đơn mới nhanh hơn người mua
-  const POLL_INTERVAL_MS = /foodsave_(partner|charity)/i.test(window.location.pathname) ? 15000 : 60000;
-  setInterval(() => {
-    if (document.hidden || window.MIO_DEMO_MODE) return;
-    hydratePage().catch((error) => console.warn("[MIO] Không làm mới được dữ liệu:", error));
-  }, POLL_INTERVAL_MS);
+  const POLL_IDLE_MS = 15 * 60 * 1000;
+  let lastInteractionAt = Date.now();
+
+  if (!IS_PORTAL) {
+    // Người mua: tự tải lại sản phẩm, đơn, quyên góp và thông báo mỗi 60 giây (polling thay cho realtime).
+    // Không thao tác 15 phút thì bỏ qua các nhịp (thao tác lại là chạy tiếp ở nhịp sau).
+    const markInteraction = () => { lastInteractionAt = Date.now(); };
+    ["pointerdown", "keydown", "touchstart"].forEach((type) => document.addEventListener(type, markInteraction, { capture: true, passive: true }));
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) markInteraction(); });
+    setInterval(() => {
+      if (document.hidden || window.MIO_DEMO_MODE) return;
+      if (Date.now() - lastInteractionAt >= POLL_IDLE_MS) return;
+      hydratePage().catch((error) => console.warn("[MIO] Không làm mới được dữ liệu:", error));
+    }, 60000);
+  }
+
+  // ───── Lịch làm mới của cổng cửa hàng / tổ chức (giữ hạn mức 125k lượt gọi function/tháng của Netlify)
+  // Mọi vòng lặp gọi API (đơn, quyên góp, thông báo, chat, ETA, sản phẩm) đăng ký ở đây và cùng tuân theo:
+  //  - chỉ chạy khi tab đang hiển thị; hiện lại thì làm mới một lần (cách lần trước tối thiểu POLL_RESUME_GAP_MS);
+  //  - không thao tác 15 phút thì dừng hẳn, hiện thông báo nhỏ; thao tác lại thì làm mới ngay.
+  const POLL_HEARTBEAT_MS = 5000;
+  const POLL_RESUME_GAP_MS = 10000;
+  const POLL_NAV_GAP_MS = 30000;
+  const pollTasks = [];
+
+  function pollVisible() { return document.visibilityState === "visible"; }
+  function pollIdle() { return Date.now() - lastInteractionAt >= POLL_IDLE_MS; }
+  function pollCanRun() { return !window.MIO_DEMO_MODE && pollVisible() && !pollIdle(); }
+
+  // Ghi nhận đã tải (ngoài lịch, vd lần tải đầu, sau thao tác) để nhịp kế tiếp không gọi trùng
+  function markPolled(names) {
+    const now = Date.now();
+    pollTasks.forEach((task) => { if (names.indexOf(task.name) !== -1) task.last = now; });
+  }
+
+  // run() trả về false: không có gì cần tải lúc này (không tính là đã chạy)
+  function runPollTask(task, resume, overrideMs) {
+    if (task.running) return;
+    const now = Date.now();
+    if (now - task.last < (overrideMs || (resume ? task.minGap : task.ms))) return;
+    let result;
+    try { result = task.run(); } catch (error) { console.warn("[MIO] Không làm mới được dữ liệu:", error); return; }
+    if (result === false) return;
+    task.last = now;
+    if (result && typeof result.then === "function") {
+      task.running = true;
+      result.catch((error) => console.warn("[MIO] Không làm mới được dữ liệu:", error)).then(() => { task.running = false; });
+    }
+  }
+
+  function pollTick(resume) {
+    paintPollPaused();
+    if (!pollCanRun()) {
+      // Rảnh nhưng tab vẫn hiện: chỉ các việc có idleMs (cửa hàng: đơn mới) chạy thưa, còn lại dừng hẳn
+      if (IS_PORTAL && !resume && pollIdle() && pollVisible() && !window.MIO_DEMO_MODE && authToken()) {
+        pollTasks.forEach((task) => { if (task.idleMs) runPollTask(task, false, task.idleMs); });
+      }
+      return;
+    }
+    pollTasks.forEach((task) => runPollTask(task, resume));
+  }
+
+  function registerPoll(name, ms, run, options) {
+    const existing = pollTasks.find((task) => task.name === name);
+    if (existing) { existing.ms = ms; existing.run = run; return existing; }
+    const task = {
+      name, ms, run,
+      minGap: options && options.minGap ? options.minGap : POLL_RESUME_GAP_MS,
+      idleMs: options && options.idleMs ? options.idleMs : 0,
+      last: options && options.startNow ? 0 : Date.now(),
+      running: false
+    };
+    pollTasks.push(task);
+    return task;
+  }
+
+  function paintPollPaused() {
+    if (!IS_PORTAL || !document.body) return;
+    const show = pollIdle() && pollVisible() && !window.MIO_DEMO_MODE && Boolean(authToken());
+    let box = document.querySelector("[data-poll-paused]");
+    if (!show) { if (box) box.hidden = true; return; }
+    if (!box) {
+      box = document.createElement("button");
+      box.type = "button";
+      box.setAttribute("data-poll-paused", "");
+      box.setAttribute("role", "status");
+      box.textContent = "Đã tạm dừng cập nhật — chạm để tiếp tục";
+      box.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:9000;max-width:calc(100vw - 32px);padding:8px 14px;border:1px solid #d7e5dc;border-radius:999px;background:#fff;color:#33523f;font:600 12.5px/1.4 inherit;box-shadow:0 4px 14px rgba(0,0,0,.08);cursor:pointer";
+      document.body.appendChild(box);
+    }
+    box.hidden = false;
+  }
+
+  function pollTouch() {
+    const wasIdle = pollIdle();
+    lastInteractionAt = Date.now();
+    if (wasIdle) {
+      pollTasks.forEach((task) => { if (task.idleMs) task.last = 0; });   // lần đầu sau rảnh: tải + vẽ lại đơn ngay, bỏ qua minGap
+      pollTick(true);
+    }
+  }
+
+  // Tải lại vài phần khi cần (mở màn hình tương ứng, có thông báo mới); không gọi lại nếu vừa tải (< POLL_NAV_GAP_MS)
+  function refreshParts(parts) {
+    if (window.MIO_DEMO_MODE) return Promise.resolve(false);
+    const now = Date.now();
+    const due = (parts || []).filter((part) => AUTH_PARTS.indexOf(part) !== -1 && !(now - (partLoadedAt[part] || 0) < POLL_NAV_GAP_MS));
+    if (!due.length) return Promise.resolve(false);
+    due.forEach((part) => { partLoadedAt[part] = now; });
+    return loadAuthenticatedData(due).then(() => { markPolled(due); renderAfterLoad(); return true; });
+  }
+
+  let partnerProductsAt = 0;
+  function refreshPartnerProducts() {
+    if (window.MIO_DEMO_MODE || typeof window.fetchProductsFromSupabase !== "function" || Date.now() - partnerProductsAt < POLL_NAV_GAP_MS) return false;
+    partnerProductsAt = Date.now();
+    return window.fetchProductsFromSupabase();
+  }
+
+  function refreshPortalNotifications() {
+    return loadAuthenticatedData(["notifications"]);
+  }
+
+  // Cửa hàng có thông báo mới (quyên góp, khiếu nại, nhãn đổi màu) → tải lại phần liên quan; chỉ gọi thêm khi thực sự có chuyện mới
+  function afterNewNotifications() {
+    if (PAGE_ROLE !== "partner") return;
+    refreshParts(["donations", "complaints"]).catch(() => {});
+    refreshPartnerProducts();
+  }
+
+  if (IS_PORTAL) {
+    ["pointerdown", "keydown", "touchstart"].forEach((type) => document.addEventListener(type, pollTouch, { capture: true, passive: true }));
+    document.addEventListener("visibilitychange", () => {
+      if (!pollVisible()) return;
+      lastInteractionAt = Date.now();   // quay lại tab = đang dùng
+      pollTick(true);
+    });
+    setInterval(() => pollTick(false), POLL_HEARTBEAT_MS);
+
+    // Dữ liệu thay đổi thường xuyên: cửa hàng cần đơn mới, tổ chức cần lô quyên góp; thông báo cho cả hai.
+    // Cửa hàng còn chat 15 giây + ETA khi mở chi tiết đơn, nên thông báo/ETA giãn 120 giây để cả tab ≤ 6 lượt/phút.
+    if (PAGE_ROLE === "partner") {
+      // Cửa hàng rảnh (tab hiện) vẫn kiểm tra đơn mới 5 phút/lần để chủ quán biết có đơn
+      registerPoll("orders", 60000, () => {
+        ordersIdleCheck = !pollCanRun();
+        return loadAuthenticatedData(["orders"]).then(() => { if (pollCanRun()) renderAfterLoad(); })
+          .finally(() => { ordersIdleCheck = false; });
+      }, { idleMs: 300000 });
+      registerPoll("notifications", 120000, refreshPortalNotifications);
+    } else {
+      registerPoll("donations", 60000, () => loadAuthenticatedData(["donations"]).then(renderAfterLoad));
+      registerPoll("notifications", 60000, refreshPortalNotifications);
+    }
+
+    // Màn hình ít thay đổi (khiếu nại, quyên góp phía cửa hàng, thống kê, sản phẩm): tải khi mở màn hình đó
+    const NAV_PARTS = PAGE_ROLE === "partner"
+      ? { complaints: ["complaints"], dona: ["donations"], ana: ["eco"], rank: ["eco"] }
+      : { impact: ["eco"], reports: ["eco"] };
+    if (typeof window.go === "function") {
+      const originalGo = window.go;
+      window.go = function (page) {
+        const result = originalGo.apply(this, arguments);
+        if (NAV_PARTS[page]) refreshParts(NAV_PARTS[page]).catch(() => {});
+        if (PAGE_ROLE === "partner" && (page === "inv" || page === "marketing")) refreshPartnerProducts();
+        return result;
+      };
+    }
+  }
+
+  window.FS.poll = {
+    register: registerPoll,
+    touch: markPolled,
+    active: pollCanRun
+  };
 })();

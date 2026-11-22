@@ -1,11 +1,11 @@
 import type { PostgrestError } from "@supabase/supabase-js";
-import { supabaseAdmin } from "../config/supabase";
+import { supabaseAdmin, supabaseAuth } from "../config/supabase";
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
 import type { UserRole } from "../types/domain";
 import { AppError } from "../utils/appError";
 
-export { supabaseAdmin };
+export { supabaseAdmin, supabaseAuth };
 
 export interface PaginationInput {
   page: number;

@@ -1,7 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { authMiddleware, requireRoles } from "./authMiddleware";
 import { verifyVolunteerToken } from "../utils/volunteerToken";
-import { env } from "../config/env";
+import { isVolunteerTokenUsable } from "../utils/volunteerTokenPolicy";
+import { assertVolunteerActive } from "./volunteerAuth";
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
 import { AppError } from "../utils/appError";
@@ -15,7 +16,8 @@ export const pushActor: RequestHandler = (req: Request, res: Response, next: Nex
   const [scheme, token] = (req.headers.authorization ?? "").split(" ");
   const volunteer = scheme === "Bearer" && token ? verifyVolunteerToken(token) : null;
   if (volunteer) {
-    if (env.NODE_ENV === "production" || !env.DEMO_MODE) {
+    // Token OTP dùng được mọi nơi; token demo chỉ khi DEMO_MODE ngoài production
+    if (!isVolunteerTokenUsable(volunteer)) {
       next(new AppError(
         "Phiên tình nguyện viên cần xác minh OTP để đăng ký thông báo.",
         HTTP_STATUS.FORBIDDEN,
@@ -23,8 +25,10 @@ export const pushActor: RequestHandler = (req: Request, res: Response, next: Nex
       ));
       return;
     }
-    res.locals.pushOwner = { kind: "volunteer", id: volunteer.vid };
-    next();
+    assertVolunteerActive(volunteer.vid).then(() => {
+      res.locals.pushOwner = { kind: "volunteer", id: volunteer.vid };
+      next();
+    }, (error: unknown) => next(error));
     return;
   }
   void authMiddleware(req, res, (error?: unknown) => {

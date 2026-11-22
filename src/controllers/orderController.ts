@@ -67,7 +67,7 @@ export const orderController = {
 
   async mockMomoWebhook(req: Request, res: Response): Promise<void> {
     // Webhook giả không có chữ ký: chỉ cho phép khi DEMO_MODE (thử nghiệm). Cổng thật dùng POST /payments/webhook/:provider.
-    if (!env.DEMO_MODE) throw new AppError("Not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
+    if (env.NODE_ENV === "production" || !env.DEMO_MODE) throw new AppError("Not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
     const body = req.validated?.body as MomoWebhookMockBody;
     const order = await orderService.applyMomoWebhookMock(body);
     sendSuccess(res, order);

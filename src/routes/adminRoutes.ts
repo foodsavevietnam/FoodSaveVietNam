@@ -47,6 +47,7 @@ export { voucherBodySchema };
 
 adminRoutes.use(requireRoles("admin"));
 
+adminRoutes.get("/live-locations", validateRequest({ query: z.object({ kind: z.enum(["volunteer", "customer"]).optional() }).strict() }), asyncHandler(adminController.listLiveLocations));
 adminRoutes.get("/users", asyncHandler(adminController.systemUsers));
 adminRoutes.get("/pending-partners", asyncHandler(adminController.getPendingPartners));
 

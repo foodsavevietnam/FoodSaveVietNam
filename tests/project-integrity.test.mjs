@@ -70,7 +70,8 @@ test('every portal ships the MIO identity and loads API configuration before bus
       && /\bhref\s*=\s*["']\/icons\/icon-192\.png["']/i.test(tag)), `${file}: MIO favicon is missing`);
     const brandStylesheets = links.filter((tag) => /\bhref\s*=\s*["']\/frontend\/mio-brand\.css(?:\?[^"']*)?["']/i.test(tag)
       && /\brel\s*=\s*["']stylesheet["']/i.test(tag));
-    assert.equal(brandStylesheets.length, 1, `${file}: expected one MIO brand stylesheet`);
+    // Trang chủ dùng bảng màu riêng của giao diện mới và cố ý không nạp mio-brand.css, để tránh xung đột style chưa được kiểm tra.
+    assert.equal(brandStylesheets.length, file === 'index.html' ? 0 : 1, `${file}: unexpected MIO brand stylesheet count`);
     // Some app screens render their logo from an inline template rather than a static img tag.
     assert.ok(html.includes('/icons/mio-logo-square.png'), `${file}: packaged MIO logo is not referenced`);
   }

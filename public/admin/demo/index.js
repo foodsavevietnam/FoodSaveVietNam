@@ -12,6 +12,19 @@ import payouts, { REVEAL_SAMPLE } from './fixtures/payouts.js';
 import verify, { accounts as payoutAccounts } from './fixtures/verify.js';
 import alerts from './fixtures/alerts.js';
 import vouchers from './fixtures/vouchers.js';
+import * as fx_customers from './fixtures/customers.js';
+import * as fx_stores from './fixtures/stores.js';
+import * as fx_charities from './fixtures/charities.js';
+import * as fx_orders from './fixtures/orders.js';
+import * as fx_donations from './fixtures/donations.js';
+import * as fx_tracking from './fixtures/tracking.js';
+import * as fx_inventory from './fixtures/inventory.js';
+import * as fx_ledger from './fixtures/ledger.js';
+import * as fx_marketing from './fixtures/marketing.js';
+import * as fx_settings from './fixtures/settings.js';
+
+// Màn Đợt 2 tạm: mỗi file fixture tự khai báo routes (đường dẫn cố định) và resolve (đường dẫn động).
+const SCREEN_FIXTURES = [fx_customers, fx_stores, fx_charities, fx_orders, fx_donations, fx_tracking, fx_inventory, fx_ledger, fx_marketing, fx_settings];
 
 const ROUTES = {
   'GET /admin/dashboard/work': work,

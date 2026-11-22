@@ -34,7 +34,7 @@ test('tab quản trị viên: thẻ tài khoản, số quản trị viên, hư�
   await expect(root).toContainText('Admin Thử');
   await expect(root).toContainText('admin@mio.vn');
   await expect(root.locator('[data-role="admin-count"]')).toHaveText('3');
-  await expect(root).toContainText('Supabase');
+  await expect(root).toContainText('Authentication');
   await expect(root.locator('[data-role="add-admin"]')).toBeDisabled();
   await expect(root).toContainText('Sắp có');
   expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);

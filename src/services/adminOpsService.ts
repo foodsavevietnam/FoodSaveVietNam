@@ -59,7 +59,7 @@ const verificationQueue = async (): Promise<{ stores: Row[]; charities: Row[]; h
     .limit(200);
   if (error) handleSupabaseError(error, "Failed to load pending charities");
   const charities = ((data ?? []) as Row[]).map((c) => ({ ...c, kind: "charity" }));
-  const history = (await adminAuditService.list(300)).filter((row) => String(row.action).startsWith("verification.")).slice(0, 30);
+  const history = await adminAuditService.list(30, { action: "verification." });
   return { stores, charities, history };
 };
 
@@ -175,14 +175,38 @@ const monthRange = (month: string): { start: Date; end: Date } => {
   return { start: new Date(Date.UTC(year, m - 1, 1) - 7 * 3_600_000), end: new Date(Date.UTC(year, m, 1) - 7 * 3_600_000) };
 };
 
-const sumEvents = (rows: Row[]) => rows.reduce((acc, row) => ({
-  food_saved_kg: acc.food_saved_kg + Number(row.food_saved_kg || 0),
-  co2_avoided_kg: acc.co2_avoided_kg + Number(row.co2_avoided_kg || 0),
-  water_saved_liters: acc.water_saved_liters + Number(row.water_saved_liters || 0),
-  meals_equivalent: acc.meals_equivalent + Number(row.meals_equivalent || 0),
-  money_saved_cents: acc.money_saved_cents + Number(row.money_saved_cents || 0),
-  events: acc.events + 1
-}), { food_saved_kg: 0, co2_avoided_kg: 0, water_saved_liters: 0, meals_equivalent: 0, money_saved_cents: 0, events: 0 });
+type EventSums = {
+  food_saved_kg: number;
+  co2_avoided_kg: number;
+  water_saved_liters: number;
+  meals_equivalent: number;
+  money_saved_cents: number;
+  events: number;
+};
+
+const emptySums = (): EventSums => ({
+  food_saved_kg: 0,
+  co2_avoided_kg: 0,
+  water_saved_liters: 0,
+  meals_equivalent: 0,
+  money_saved_cents: 0,
+  events: 0
+});
+
+const addEvent = (acc: EventSums, row: Row): void => {
+  acc.food_saved_kg += Number(row.food_saved_kg || 0);
+  acc.co2_avoided_kg += Number(row.co2_avoided_kg || 0);
+  acc.water_saved_liters += Number(row.water_saved_liters || 0);
+  acc.meals_equivalent += Number(row.meals_equivalent || 0);
+  acc.money_saved_cents += Number(row.money_saved_cents || 0);
+  acc.events += 1;
+};
+
+const sumEvents = (rows: Row[]): EventSums => {
+  const acc = emptySums();
+  for (const row of rows) addEvent(acc, row);
+  return acc;
+};
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
@@ -199,11 +223,27 @@ const esgReport = async (month: string): Promise<Row> => {
     return (data ?? []) as Row[];
   };
   const [current, prevMonthRows] = await Promise.all([load(start, end), load(prevStart, start)]);
-  const total = sumEvents(current);
-  const bySource: Record<string, ReturnType<typeof sumEvents>> = {};
-  for (const source of ["order", "donation", "manual_adjustment"]) bySource[source] = sumEvents(current.filter((row) => row.source_type === source));
-  const perStore = new Map<string, ReturnType<typeof sumEvents>>();
-  for (const row of current) if (row.store_id) perStore.set(String(row.store_id), sumEvents(current.filter((r) => r.store_id === row.store_id)));
+  const total = emptySums();
+  const bySource: Record<string, EventSums> = {
+    order: emptySums(),
+    donation: emptySums(),
+    manual_adjustment: emptySums()
+  };
+  const perStore = new Map<string, EventSums>();
+  for (const row of current) {
+    addEvent(total, row);
+    const sourceBucket = bySource[String(row.source_type)];
+    if (sourceBucket) addEvent(sourceBucket, row);
+    if (row.store_id) {
+      const storeKey = String(row.store_id);
+      let storeBucket = perStore.get(storeKey);
+      if (!storeBucket) {
+        storeBucket = emptySums();
+        perStore.set(storeKey, storeBucket);
+      }
+      addEvent(storeBucket, row);
+    }
+  }
   const stores = await loadByIds("stores", [...perStore.keys()], "id,name");
   const topStores = [...perStore.entries()].sort((a, b) => b[1].food_saved_kg - a[1].food_saved_kg).slice(0, 5)
     .map(([id, sums]) => ({ store_id: id, store_name: stores.get(id)?.name ?? "—", food_saved_kg: round(sums.food_saved_kg), meals_equivalent: sums.meals_equivalent }));
@@ -242,7 +282,15 @@ const fraudAlerts = async (): Promise<{ alerts: FraudAlert[]; not_detected: stri
   const raw: Array<Omit<FraudAlert, "status" | "handled_at" | "note" | "subject_name"> & { subject_name?: string }> = [];
 
   const byCustomer = new Map<string, Row[]>();
-  for (const order of orders) byCustomer.set(String(order.customer_id), [...(byCustomer.get(String(order.customer_id)) ?? []), order]);
+  for (const order of orders) {
+    const key = String(order.customer_id);
+    let list = byCustomer.get(key);
+    if (!list) {
+      list = [];
+      byCustomer.set(key, list);
+    }
+    list.push(order);
+  }
   for (const [customerId, list] of byCustomer) {
     const last30 = list.filter((o) => new Date(o.created_at).getTime() >= now - 30 * DAY_MS && o.status !== "awaiting_payment");
     const bad30 = last30.filter((o) => o.status === "cancelled" || o.status === "no_show").length;
@@ -304,12 +352,60 @@ const handleFraudAlert = async (key: string, status: "handled" | "dismissed", no
   }
   const { error } = await supabaseAdmin.from("fraud_alert_status").upsert({ alert_key: key, status, note: note ?? null, handled_by: actor.userId, handled_at: new Date().toISOString() }, { onConflict: "alert_key" });
   if (error) handleSupabaseError(error, "Failed to save fraud alert status");
+  clearWorkStripCache();
   await adminAuditService.log(actor, `fraud.${status}`, "fraud_alert", key, { note: note ?? null });
   return { key, status };
 };
 
 /* ───────────── Dải việc cần làm của bảng điều khiển ───────────── */
 const VN_OFFSET_MS = 7 * 3_600_000;
+const WORK_STRIP_HEAVY_TTL_MS = 3 * 60_000;
+
+let workStripHeavyCache: {
+  expiresAt: number;
+  fraudOpen: number;
+  ledgerUnbalanced: number;
+} | null = null;
+
+const clearWorkStripCache = (): void => {
+  workStripHeavyCache = null;
+};
+
+const isFakeDbTestEnv = (): boolean =>
+  process.env.SUPABASE_URL === "http://127.0.0.1:9" || process.env.NODE_ENV === "test";
+
+const loadHeavyWorkStripMetrics = async (useCache: boolean): Promise<{ fraudOpen: number; ledgerUnbalanced: number }> => {
+  const nowMs = Date.now();
+  if (useCache && workStripHeavyCache && workStripHeavyCache.expiresAt > nowMs) {
+    return {
+      fraudOpen: workStripHeavyCache.fraudOpen,
+      ledgerUnbalanced: workStripHeavyCache.ledgerUnbalanced
+    };
+  }
+
+  const [ledgerResult, fraudResult] = await Promise.all([
+    ledgerService
+      .reconcile()
+      .then((r) => ({ ok: true, value: r.ok === false ? 1 : 0 }))
+      .catch(() => ({ ok: false, value: 0 })),
+    fraudAlerts()
+      .then((r) => ({ ok: true, value: r.alerts.filter((a) => a.status === "open").length }))
+      .catch(() => ({ ok: false, value: 0 }))
+  ]);
+
+  if (useCache && ledgerResult.ok && fraudResult.ok) {
+    workStripHeavyCache = {
+      expiresAt: nowMs + WORK_STRIP_HEAVY_TTL_MS,
+      fraudOpen: fraudResult.value,
+      ledgerUnbalanced: ledgerResult.value
+    };
+  }
+
+  return {
+    fraudOpen: fraudResult.value,
+    ledgerUnbalanced: ledgerResult.value
+  };
+};
 
 /** Mốc 00:00 hôm nay theo giờ Việt Nam (+07:00), trả về ISO UTC. */
 export const startOfTodayVn = (now: Date): string => {
@@ -318,10 +414,11 @@ export const startOfTodayVn = (now: Date): string => {
   return new Date(midnightShifted - VN_OFFSET_MS).toISOString();
 };
 
-const workStrip = async (): Promise<Row> => {
+const workStrip = async (options?: { useCache?: boolean }): Promise<Row> => {
   const now = new Date();
   const todayStart = startOfTodayVn(now);
   const trackingSince = new Date(now.getTime() - 30 * 60_000).toISOString();
+  const useCache = options?.useCache ?? !isFakeDbTestEnv();
   const count = async (table: string, apply: (q: any) => any, column = "id"): Promise<number> => {
     try {
       const { count: n, error } = await apply(supabaseAdmin.from(table).select(column, { count: "exact", head: true }));
@@ -331,7 +428,7 @@ const workStrip = async (): Promise<Row> => {
   const safe = async (fn: () => Promise<number>): Promise<number> => { try { return await fn(); } catch { return 0; } };
   const [
     pendingStores, pendingCharities, complaintsReview, withdrawals, payoutAccounts, locked,
-    ordersNew, ordersCompleted, ordersNoShow, donationsOpen, trackingActive, ledgerUnbalanced, automationFailed, fraudOpen
+    ordersNew, ordersCompleted, ordersNoShow, donationsOpen, trackingActive, automationFailed, heavy
   ] = await Promise.all([
     count("stores", (q) => q.eq("status", "pending")),
     count("charity_profiles", (q) => q.eq("status", "pending")),
@@ -344,22 +441,21 @@ const workStrip = async (): Promise<Row> => {
     count("orders", (q) => q.eq("status", "no_show").gte("no_show_at", todayStart)),
     count("donations", (q) => q.eq("status", "open")),
     count("live_locations", (q) => q.gte("updated_at", trackingSince), "actor_id"),
-    safe(async () => ((await ledgerService.reconcile()).ok === false ? 1 : 0)),
     safe(async () => (await automationRunService.overview()).filter((j) => { const r = j.last_run as { ok?: boolean } | null; return !!r && r.ok === false; }).length),
-    safe(async () => (await fraudAlerts()).alerts.filter((a) => a.status === "open").length)
+    loadHeavyWorkStripMetrics(useCache)
   ]);
   return {
     verification_pending: pendingStores + pendingCharities, complaints_waiting_admin: complaintsReview,
     withdrawals_requested: withdrawals, payout_accounts_pending: payoutAccounts, withdrawals_pending: withdrawals + payoutAccounts,
-    fraud_open: fraudOpen, customers_locked: locked,
+    fraud_open: heavy.fraudOpen, customers_locked: locked,
     orders_today: { new: ordersNew, completed: ordersCompleted, no_show: ordersNoShow },
     donations_open: donationsOpen, tracking_active: trackingActive,
-    ledger_unbalanced: ledgerUnbalanced, automation_failed: automationFailed
+    ledger_unbalanced: heavy.ledgerUnbalanced, automation_failed: automationFailed
   };
 };
 
 export const adminOpsService = {
   labelOverview, verificationQueue, decideVerification,
   createVoucher, toggleVoucher, listVouchers,
-  esgReport, fraudAlerts, handleFraudAlert, workStrip
+  esgReport, fraudAlerts, handleFraudAlert, workStrip, clearWorkStripCache
 };

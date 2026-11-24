@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import type {
   CancelOrderBody,
   CreateMomoPaymentBody,
@@ -102,6 +103,15 @@ const assertOrderAccess = async (orderId: string, actorId: string, actorRole: Us
   return order;
 };
 
+const generateQrCode = (): string => `QR-${randomBytes(16).toString("hex").toUpperCase()}`;
+
+const maskOrderForActor = <T extends Record<string, unknown>>(order: T, actorRole: UserRole): T => {
+  if (actorRole === "admin" && order.status !== "completed") {
+    return { ...order, qr_code: null };
+  }
+  return order;
+};
+
 const loadCheckoutProducts = async (body: CreateOrderBody): Promise<ProductForCheckout[]> => {
   const productIds = body.items.map((item) => item.product_id);
   const { data, error } = await supabaseAdmin
@@ -125,6 +135,26 @@ const loadCheckoutProducts = async (body: CreateOrderBody): Promise<ProductForCh
   const storeId = products[0]?.store_id;
   if (!storeId || products.some((product) => product.store_id !== storeId)) {
     throw new AppError("A single order can only contain products from one store", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const { data: storeRows, error: storeError } = await supabaseAdmin
+    .from("stores")
+    .select("id,status")
+    .in("id", [storeId]);
+  if (storeError) handleSupabaseError(storeError, "Failed to load store");
+  const store = ((storeRows ?? []) as Array<{ id: string; status?: string | null }>)[0];
+  if (!store || (store.status !== undefined && store.status !== "active")) {
+    throw new AppError("Cửa hàng hiện không hoạt động nên không thể đặt hàng", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
+  }
+
+  const { data: reputationRows, error: reputationError } = await supabaseAdmin
+    .from("seller_reputation")
+    .select("seller_id,status")
+    .in("seller_id", [storeId]);
+  if (reputationError) handleSupabaseError(reputationError, "Failed to load seller reputation");
+  const reputation = ((reputationRows ?? []) as Array<{ seller_id: string; status?: string | null }>)[0];
+  if (reputation?.status === "Banned") {
+    throw new AppError("Cửa hàng đã bị khóa nên không thể đặt hàng", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
   }
 
   const now = Date.now();
@@ -457,7 +487,7 @@ export const orderService = {
     const platformFeeCents = 2000;
     const totalCents = Math.max(0, subtotalCents - discountCents + platformFeeCents + body.donation_cents);
     const orderNumber = generateCode("FS");
-    const qrCode = generateCode(orderNumber.replace("FS-", "QR-"));
+    const qrCode = generateQrCode();
 
     const baseOrderRow = {
         order_number: orderNumber,
@@ -640,8 +670,9 @@ export const orderService = {
 
     const { data, error, count } = await request;
     if (error) handleSupabaseError(error, "Failed to list orders");
+    const items = ((data ?? []) as Array<Record<string, unknown>>).map((row) => maskOrderForActor(row, actorRole));
     return {
-      items: data ?? [],
+      items,
       pagination: toPagination(query.page, query.limit, count ?? 0)
     };
   },
@@ -658,12 +689,13 @@ export const orderService = {
       .single();
 
     if (error) handleSupabaseError(error, "Failed to load order details");
+    let result = data as Record<string, unknown>;
     // Người mua không thấy ghi chú nội bộ của admin (giống complaintService.list)
-    if (actorRole === "customer" && data && Array.isArray((data as { complaints?: unknown }).complaints)) {
-      const withComplaints = data as { complaints: Array<Record<string, unknown>> };
-      return { ...withComplaints, complaints: withComplaints.complaints.map((c) => ({ ...c, admin_note: null })) };
+    if (actorRole === "customer" && result && Array.isArray(result.complaints)) {
+      const complaints = result.complaints as Array<Record<string, unknown>>;
+      result = { ...result, complaints: complaints.map((c) => ({ ...c, admin_note: null })) };
     }
-    return data;
+    return maskOrderForActor(result, actorRole);
   },
 
   async updateOrderStatus(actorId: string, actorRole: UserRole, orderId: string, body: UpdateOrderStatusBody): Promise<Order> {

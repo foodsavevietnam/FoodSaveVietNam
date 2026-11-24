@@ -21,10 +21,6 @@ interface SellerReputationRow {
   updated_at: Date | string;
 }
 
-interface ExistsRow {
-  exists: boolean;
-}
-
 interface CancellationMutationResult {
   reputationBeforePenalty: SellerReputation;
   trustScoreBefore: number;
@@ -144,19 +140,15 @@ const fetchReputation = async (sellerId: string): Promise<SellerReputation> => {
 const assertSellerReadableByActor = async (sellerId: string, actorId: string, actorRole: UserRole): Promise<void> => {
   if (actorRole === "admin") return;
 
-  const result = await postgresPool.query<ExistsRow>(
-    `
-      select exists (
-        select 1
-        from public.stores
-        where stores.id = $1
-          and stores.owner_id = $2
-      ) as "exists"
-    `,
-    [sellerId, actorId]
-  );
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .select("id")
+    .eq("id", sellerId)
+    .eq("owner_id", actorId)
+    .maybeSingle();
 
-  if (!result.rows[0]?.exists) {
+  if (error || !data) {
+    if (error) logger.error("Không kiểm tra được quyền xem danh tiếng seller", error);
     throw new AppError("Bạn không có quyền xem danh tiếng của seller này", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
   }
 };
@@ -412,15 +404,24 @@ const fallbackReputation = async (sellerId: string): Promise<SellerReputation> =
   return { seller_id: sellerId, trust_score: 100, rating_avg: 5, status: "Active", restricted_until: null, created_at: now, updated_at: now };
 };
 
-// Mọi hàm điểm uy tín đều tự bỏ qua (không báo lỗi, không chờ) khi chưa cấu hình PostgreSQL trực tiếp
+// Mọi hàm điểm uy tín đều tự bỏ qua (không báo lỗi, không chờ) khi chưa cấu hình PostgreSQL trực tiếp.
+// Riêng getSellerReputationForActor LUÔN kiểm tra quyền sở hữu qua supabaseAdmin TRƯỚC nhánh fallback để chống IDOR.
 type ReputationService = typeof baseService;
-export const sellerReputationService = Object.fromEntries(
-  Object.entries(baseService).map(([name, fn]) => [
-    name,
-    async (...args: unknown[]): Promise<unknown> => {
-      if (await isPostgresAvailable()) return (fn as (...input: unknown[]) => Promise<unknown>)(...args);
-      logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): " + name);
-      return fallbackReputation(String(args[0]));
-    }
-  ])
-) as unknown as ReputationService;
+export const sellerReputationService: ReputationService = {
+  ...(Object.fromEntries(
+    Object.entries(baseService)
+      .filter(([name]) => name !== "getSellerReputationForActor")
+      .map(([name, fn]) => [
+        name,
+        async (...args: unknown[]): Promise<unknown> => {
+          if (await isPostgresAvailable()) return (fn as (...input: unknown[]) => Promise<unknown>)(...args);
+          logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): " + name);
+          return fallbackReputation(String(args[0]));
+        }
+      ])
+  ) as unknown as Omit<ReputationService, "getSellerReputationForActor">),
+  async getSellerReputationForActor(sellerId: string, actorId: string, actorRole: UserRole): Promise<SellerReputation> {
+    await assertSellerReadableByActor(sellerId, actorId, actorRole);
+    return sellerReputationService.getSellerReputation(sellerId);
+  }
+};

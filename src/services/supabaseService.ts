@@ -1,3 +1,4 @@
+import { randomInt } from "crypto";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { supabaseAdmin, supabaseAuth } from "../config/supabase";
 import { ERROR_CODES } from "../constants/errors";
@@ -57,8 +58,13 @@ export const assertOwnerOrAdmin = (ownerId: string, actorId: string, actorRole: 
   }
 };
 
-export const generateCode = (prefix: string): string => {
+const CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+export const generateCode = (prefix: string, randomLength = 5): string => {
   const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).slice(2, 7).toUpperCase();
+  let random = "";
+  for (let i = 0; i < randomLength; i += 1) {
+    random += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
+  }
   return `${prefix}-${timestamp}-${random}`;
 };

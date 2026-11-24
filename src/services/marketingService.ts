@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { env } from "../config/env";
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
@@ -286,9 +287,16 @@ const postToFacebookDirect = async (pageId: string, message: string, imageUrl: s
   const token = pageTokens()[pageId];
   if (!token) return { ok: false, error: "Chưa có token Fanpage " + pageId + " trong FACEBOOK_PAGE_TOKENS" };
   const graph = "https://graph.facebook.com/v21.0/" + encodeURIComponent(pageId);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const body = imageUrl ? { url: imageUrl, caption: message, access_token: token } : { message, access_token: token, ...(link.startsWith("https:") ? { link } : {}) };
-    const response = await fetch(graph + (imageUrl ? "/photos" : "/feed"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const response = await fetch(graph + (imageUrl ? "/photos" : "/feed"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
     if (!response.ok) {
       const text = await response.text().catch(() => "");
       return { ok: false, error: "Facebook trả về lỗi " + response.status + (text ? ": " + text.slice(0, 160) : "") };
@@ -296,6 +304,8 @@ const postToFacebookDirect = async (pageId: string, message: string, imageUrl: s
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Không gọi được Facebook" };
+  } finally {
+    clearTimeout(timer);
   }
 };
 
@@ -635,7 +645,14 @@ export const marketingService = {
 
   // ───── Cho n8n (Fanpage trung tâm): bài tổng hợp, đỏ trước, vàng sau, còn ít thời gian nhất lên đầu
   assertSecret(provided: string | undefined): void {
-    if (!env.N8N_SECRET || provided !== env.N8N_SECRET) throw new AppError("Sai mật khẩu n8n", HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.AUTH_INVALID_TOKEN);
+    if (!env.N8N_SECRET || !provided) {
+      throw new AppError("Sai mật khẩu n8n", HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.AUTH_INVALID_TOKEN);
+    }
+    const providedDigest = createHash("sha256").update(provided, "utf8").digest();
+    const expectedDigest = createHash("sha256").update(env.N8N_SECRET, "utf8").digest();
+    if (!timingSafeEqual(providedDigest, expectedDigest)) {
+      throw new AppError("Sai mật khẩu n8n", HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.AUTH_INVALID_TOKEN);
+    }
   },
 
   async centralFeed(): Promise<{ items: unknown[]; ai_enabled: boolean; page_id: string | null }> {

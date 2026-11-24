@@ -151,7 +151,9 @@ export const adminController = {
   // "Chạy đối soát ngay": bù bút toán còn thiếu rồi kiểm tra tổng số dư
   async runReconcile(_req: Request, res: Response): Promise<void> {
     const synced = await ledgerService.syncPendingOrders();
-    sendSuccess(res, { synced_orders: synced, ...(await ledgerService.reconcile()) });
+    const reconciled = await ledgerService.reconcile();
+    adminOpsService.clearWorkStripCache();
+    sendSuccess(res, { synced_orders: synced, ...reconciled });
   },
 
   async listLedger(req: Request, res: Response): Promise<void> {

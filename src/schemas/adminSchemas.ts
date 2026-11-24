@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { paginationQuerySchema } from "./commonSchemas";
+import { paginationQuerySchema, sanitizeSearch } from "./commonSchemas";
 
-/** Làm sạch chuỗi tìm kiếm trước khi ghép vào `.or()` của PostgREST: bỏ `,()%\` để không vỡ cú pháp. */
-export const sanitizeSearch = (q: string): string => q.replace(/[,()%\\]/g, " ").trim().slice(0, 80);
+export { sanitizeSearch };
 
 /** Schema query chuẩn cho mọi danh sách của cổng quản trị: page, limit (≤ 100), q, status, sort + trường riêng. */
 export const adminListQuerySchema = <S extends readonly [string, ...string[]]>(opts: {

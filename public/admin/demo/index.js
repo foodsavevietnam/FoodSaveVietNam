@@ -54,6 +54,19 @@ export function createDemoApi() {
       if (hit !== undefined) return structuredClone(hit);
     }
     if (method === 'GET') {
+      if (path === '/admin/search') {
+        const q = (new URLSearchParams(String(rawPath).split('?')[1] || '').get('q') || '').trim().toLowerCase();
+        const hit = (vals) => q.length >= 2 && vals.some((v) => String(v || '').toLowerCase().includes(q));
+        const mask = (p) => (p && String(p).length >= 7 ? `${String(p).slice(0, 3)}***${String(p).slice(-3)}` : '');
+        return structuredClone({
+          query: q,
+          accounts: (fx_customers.accounts || []).filter((a) => hit([a.full_name, a.email, a.phone])).slice(0, 5).map((a) => ({ id: a.id, full_name: a.full_name, role: a.role, status: a.status, email: a.email, phone: mask(a.phone) })),
+          stores: (fx_stores.stores || []).filter((s) => hit([s.name, s.address])).slice(0, 5).map((s) => ({ id: s.id, name: s.name, district: s.district, city: s.city, status: s.status, is_verified: s.is_verified })),
+          charities: (fx_charities.charities || []).filter((c) => hit([c.name, c.address, c.phone])).slice(0, 5).map((c) => ({ id: c.id, name: c.name, district: c.district, city: c.city, status: c.status, phone: mask(c.phone) })),
+          orders: [],
+          complaints: (Array.isArray(complaints) ? complaints : []).filter((c) => hit([c.issue, c.order_number])).slice(0, 5).map((c) => ({ id: c.id, order_id: c.order_id, status: c.status, priority: c.priority, issue: c.issue })),
+        });
+      }
       if (/^\/orders\/[^/]+\/messages$/.test(path)) return structuredClone({ messages: complaintMessages, can_send: false });
       if (!(key in ROUTES)) throw new ApiError('RESOURCE_NOT_FOUND', `Chưa có dữ liệu mẫu cho ${path}`, 404);
       return structuredClone(ROUTES[key]);

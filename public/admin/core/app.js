@@ -126,6 +126,7 @@ function enter(admin) {
   shell ??= mountShell({
     root: $('app'), screens: SCREENS, groups: GROUPS, state, navigate,
     onLogout: logout, onBell: openBell, onResume: () => poll.touch(),
+    onSearch: (q, signal) => api.get(`/admin/search?q=${encodeURIComponent(q)}`, { signal }),
   });
   shell.setAdmin(admin);
   entered = true;

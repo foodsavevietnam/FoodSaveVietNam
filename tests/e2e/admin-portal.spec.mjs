@@ -12,6 +12,9 @@ import alerts from '../../public/admin/demo/fixtures/alerts.js';
 import policy from '../../public/admin/demo/fixtures/policy.js';
 import vouchers from '../../public/admin/demo/fixtures/vouchers.js';
 import verify, { accounts as payoutAccounts } from '../../public/admin/demo/fixtures/verify.js';
+import * as fxCustomers from '../../public/admin/demo/fixtures/customers.js';
+import * as fxStores from '../../public/admin/demo/fixtures/stores.js';
+import * as fxCharities from '../../public/admin/demo/fixtures/charities.js';
 
 // Cổng quản trị mới (/admin/index.html). Auth Supabase và API đều được stub.
 const PAGE = '/admin/index.html';
@@ -98,6 +101,23 @@ function makeApi(state) {
       if (state.audit === 'xss') return route.fulfill(ok(XSS_AUDIT));
       if (state.audit === 'money') return route.fulfill(ok(MONEY_AUDIT));
       return route.fulfill(ok(audit));
+    }
+    if (bare === '/admin/search') {
+      const q = (new URLSearchParams(path.split('?')[1] || '').get('q') || '').trim().toLowerCase();
+      const hit = (vals) => q.length >= 2 && vals.some((v) => String(v || '').toLowerCase().includes(q));
+      return route.fulfill(ok({
+        query: q,
+        accounts: fxCustomers.accounts.filter((a) => hit([a.full_name, a.email, a.phone])).slice(0, 5),
+        stores: fxStores.stores.filter((s) => hit([s.name, s.address])).slice(0, 5),
+        charities: fxCharities.charities.filter((c) => hit([c.name, c.address])).slice(0, 5),
+        orders: [],
+        complaints: [],
+      }));
+    }
+    const reqBody = method === 'GET' ? undefined : route.request().postDataJSON?.();
+    for (const fx of [fxCustomers, fxStores, fxCharities]) {
+      const hit = fx.resolve(method, bare, reqBody, path);
+      if (hit !== undefined) return route.fulfill(ok(hit));
     }
     return route.fulfill(fail(404, 'RESOURCE_NOT_FOUND', 'Không có'));
   };
@@ -1319,4 +1339,42 @@ test('Đợt 2 tạm: 10 màn từng trống không còn màn chờ "Chưa nối
     await expect(page.locator('#screen')).not.toContainText('Màn này chưa có trên cổng mới');
   }
   expect(errors.filter((e) => !/status of (404|500)/.test(e))).toEqual([]);
+});
+
+test('Wave 4A Đợt 2: tìm kiếm toàn cục, hồ sơ 360° người mua / cửa hàng / tổ chức & hành động trạng thái', async ({ page }) => {
+  const { calls, errors } = await setup(page);
+  await page.goto(`${PAGE}#/today`);
+
+  // 1. Tìm kiếm toàn cục: gõ >= 2 ký tự -> gọi GET /admin/search -> bấm kết quả cửa hàng mở thẳng drawer 360°
+  const searchInput = page.locator('#globalSearch');
+  await searchInput.fill('Tiệm bánh');
+  const storeOpt = page.locator('#globalSearchList [data-search-group="stores"]').first();
+  await expect(storeOpt).toBeVisible();
+  await storeOpt.click();
+  await expect(page).toHaveURL(/#\/stores\?id=/);
+  await expect(page.locator('#drawer [data-role="store"]')).toBeVisible();
+  await expect(page.locator('#drawer')).toContainText('Ví cửa hàng');
+  await expect(page.locator('#drawer')).toContainText('Tạm ngưng bán');
+  await page.click('#drawer [data-role="drawer-close"]');
+
+  // 2. Người mua: danh sách /admin/accounts, mở 360° drawer, bấm Tạm khóa tài khoản yêu cầu lý do >= 3 ký tự
+  await page.goto(`${PAGE}#/customers`);
+  await expect(page.locator('[data-screen="customers"] tbody tr').first()).toBeVisible();
+  await page.locator('[data-screen="customers"] [data-act="open"]').first().click();
+  await expect(page.locator('#drawer [data-role="profile"]')).toBeVisible();
+  await page.locator('#drawer [data-act="account-status"][data-status="suspended"]').click();
+  await expect(page.locator('#modal [data-role="ok"]')).toBeDisabled();
+  await page.locator('#modal [data-role="reason"]').fill('Vi phạm quy định đặt đơn');
+  await expect(page.locator('#modal [data-role="ok"]')).toBeEnabled();
+  await page.locator('#modal [data-role="ok"]').click();
+  await expect(page.locator('#toasts')).toContainText('Đã tạm khóa tài khoản');
+  expect(calls.some((c) => c.method === 'POST' && /^\/admin\/accounts\/[^/]+\/status$/.test(c.path))).toBe(true);
+  await page.click('#drawer [data-role="drawer-close"]');
+
+  // 3. Tổ chức & TNV: tab Tình nguyện viên gọi /admin/volunteers và có link sang Bản đồ theo dõi
+  await page.goto(`${PAGE}#/charities?tab=volunteers`);
+  await expect(page.locator('[data-screen="charities"] [data-role="volunteers-table"]')).toBeVisible();
+  await expect(page.locator('[data-screen="charities"] a[href="#/tracking"]')).toBeVisible();
+  expect(calls.some((c) => c.path.startsWith('/admin/volunteers'))).toBe(true);
+  expect(errors).toEqual([]);
 });

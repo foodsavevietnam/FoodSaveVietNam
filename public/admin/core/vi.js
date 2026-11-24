@@ -15,6 +15,12 @@ export const VI = {
   fraudStatus: { open: ['Chưa xử lý', 'w'], handled: ['Đã xử lý', 'ok'], dismissed: ['Đã bỏ qua', 'm'] },
   voucher: { live: ['Đang bật', 'ok'], off: ['Đã tắt', 'm'], expired: ['Hết hạn', 'm'], scheduled: ['Chưa bắt đầu', 'i'], used_up: ['Hết lượt', 'w'] },
   severity: { high: ['Cao', 'e'], medium: ['Trung bình', 'w'], low: ['Thấp', 'm'] },
+  accountStatus: { active: ['Đang hoạt động', 'ok'], pending: ['Chờ duyệt', 'w'], suspended: ['Tạm khóa', 'e'], rejected: ['Bị từ chối', 'm'] },
+  storeStatus: { active: ['Đang hoạt động', 'ok'], pending: ['Chờ duyệt', 'w'], suspended: ['Tạm ngưng', 'e'], rejected: ['Bị từ chối', 'm'] },
+  charityStatus: { active: ['Đang hoạt động', 'ok'], pending: ['Chờ duyệt', 'w'], suspended: ['Tạm ngưng', 'e'], rejected: ['Bị từ chối', 'm'] },
+  volunteerStatus: { new: ['Mới', 'i'], active: ['Đang hoạt động', 'ok'], inactive: ['Tạm ngưng', 'm'] },
+  donationStatus: { open: ['Đang mở', 'w'], accepted: ['Đã nhận', 'i'], in_route: ['Đang lấy hàng', 'i'], completed: ['Đã bàn giao', 'ok'], rejected: ['Từ chối', 'm'], cancelled: ['Đã hủy', 'm'] },
+  role: { customer: 'Người mua', partner: 'Cửa hàng', charity: 'Tổ chức từ thiện', admin: 'Quản trị viên' },
 };
 
 export function badge(group, code) {
@@ -53,6 +59,13 @@ export const ACTIONS = {
   'finance.reconcile': 'Đối soát sổ cái',
   'order.chat_view': 'Xem chat đơn hàng',
   'marketing.run': 'Chạy đăng bài tự động',
+  'account.suspend': 'Tạm khóa tài khoản',
+  'account.unsuspend': 'Mở khóa tài khoản',
+  'store.suspend': 'Tạm ngưng cửa hàng',
+  'store.unsuspend': 'Mở bán lại cửa hàng',
+  'charity.suspend': 'Tạm ngưng tổ chức',
+  'charity.unsuspend': 'Mở lại tổ chức',
+  'volunteer.status': 'Cập nhật trạng thái tình nguyện viên',
 };
 
 // Action lạ (chưa có trong bảng) hiện nguyên văn; nơi dựng HTML tự escape qua tag `html`.

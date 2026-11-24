@@ -1,12 +1,13 @@
-// Khung giao diện: thanh bên 6 nhóm từ manifest, thanh trên (tiêu đề, tìm màn, chuông, người dùng), thanh tạm dừng poll.
+// Khung giao diện: thanh bên 6 nhóm từ manifest, thanh trên (tiêu đề, tìm kiếm toàn cục, chuông, người dùng), thanh tạm dừng poll.
 // Không chạm document ở cấp module để Node import được (matchScreens có test offline).
 import { html, raw, delegate } from './ui.js';
 
 const BELL_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
 const MAX_SUGGESTIONS = 8;
+const SEARCH_DEBOUNCE_MS = 250;
 
 // Bỏ dấu tiếng Việt, chữ thường, gộp khoảng trắng
-const fold = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+const fold = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/đ/g, 'd').replace(/\s+/g, ' ').trim();
 
 export function matchScreens(query, screens) {
@@ -17,7 +18,15 @@ export function matchScreens(query, screens) {
 
 const isTyping = (el) => Boolean(el && (el.isContentEditable || el.closest?.('input, textarea, select')));
 
-export function mountShell({ root, screens, groups, state, navigate, onLogout, onBell, onResume }) {
+const SEARCH_GROUPS = [
+  { key: 'accounts', label: 'Tài khoản', screen: 'customers', main: (x) => x.full_name || x.email || 'Chưa đặt tên', sub: (x) => [x.email, x.phone].filter(Boolean).join(' · ') },
+  { key: 'stores', label: 'Cửa hàng', screen: 'stores', main: (x) => x.name || 'Chưa đặt tên', sub: (x) => [x.district, x.city].filter(Boolean).join(', ') },
+  { key: 'charities', label: 'Tổ chức', screen: 'charities', main: (x) => x.name || 'Chưa đặt tên', sub: (x) => [x.district, x.city, x.phone].filter(Boolean).join(' · ') },
+  { key: 'orders', label: 'Đơn hàng', screen: 'orders', main: (x) => `#${x.order_number || String(x.id || '').slice(0, 8)}`, sub: () => '' },
+  { key: 'complaints', label: 'Khiếu nại', screen: 'complaints', main: (x) => String(x.issue || 'Khiếu nại').slice(0, 60), sub: () => '' },
+];
+
+export function mountShell({ root, screens, groups, state, navigate, onLogout, onBell, onResume, onSearch }) {
   const doc = root.ownerDocument || root;
   const sidebar = root.querySelector('#sidebar');
   const topbar = root.querySelector('#topbar');
@@ -45,7 +54,7 @@ export function mountShell({ root, screens, groups, state, navigate, onLogout, o
   topbar.innerHTML = html`<h2 id="pt"></h2>
     <div class="T-r">
       <div class="T-s" data-role="search">
-        <input id="globalSearch" type="search" autocomplete="off" placeholder="Tìm màn… (phím /)" aria-label="Tìm màn"
+        <input id="globalSearch" type="search" autocomplete="off" placeholder="Tìm màn, người mua, cửa hàng, đơn… (phím /)" aria-label="Tìm kiếm toàn cục"
           aria-controls="globalSearchList" aria-expanded="false">
         <div id="globalSearchList" class="T-sug" role="listbox" hidden></div>
       </div>
@@ -58,22 +67,94 @@ export function mountShell({ root, screens, groups, state, navigate, onLogout, o
   const list = topbar.querySelector('#globalSearchList');
   const searchBox = topbar.querySelector('[data-role="search"]');
 
-  const hideSuggestions = () => { list.hidden = true; list.innerHTML = ''; search.setAttribute('aria-expanded', 'false'); };
-  const go = (id) => { search.value = ''; hideSuggestions(); search.blur(); navigate(id); };
-  const showSuggestions = () => {
-    const q = search.value;
-    if (!q.trim()) { hideSuggestions(); return; }
-    const found = matchScreens(q, screens).slice(0, MAX_SUGGESTIONS);
-    list.innerHTML = found.length
-      ? found.map((s) => html`<button type="button" role="option" data-p="${s.id}">${s.title}</button>`).join('')
-      : html`<p>Không có màn phù hợp.</p>`;
+  let searchTimer = null;
+  let searchAbort = null;
+  let searchSeq = 0;
+
+  const cancelPendingSearch = () => {
+    if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
+    if (searchAbort) { searchAbort.abort(); searchAbort = null; }
+    searchSeq += 1;
+  };
+
+  const hideSuggestions = () => {
+    cancelPendingSearch();
+    list.hidden = true;
+    list.innerHTML = '';
+    search.setAttribute('aria-expanded', 'false');
+  };
+
+  const go = (id, itemId) => {
+    search.value = '';
+    hideSuggestions();
+    search.blur();
+    if (itemId) navigate(id, { id: itemId });
+    else navigate(id);
+  };
+
+  const renderRemoteGroups = (data) => {
+    if (!data || typeof data !== 'object') return '';
+    return SEARCH_GROUPS.map((g) => {
+      const items = Array.isArray(data[g.key]) ? data[g.key].slice(0, 5) : [];
+      if (!items.length) return '';
+      const rows = items.map((item) => {
+        const sub = g.sub(item);
+        const subHtml = sub ? html`<br><small style="color:var(--t3)">${sub}</small>` : '';
+        return html`<button type="button" role="option" data-p="${g.screen}" data-id="${item.id}" data-search-group="${g.key}">${g.main(item)}${raw(subHtml)}</button>`;
+      }).join('');
+      return html`<div style="padding:6px 12px 2px;font-size:.66rem;font-weight:700;color:var(--t3);border-top:1px solid var(--bg3)">${g.label}</div>${raw(rows)}`;
+    }).join('');
+  };
+
+  const renderList = (foundScreens, remoteHtml, loadingRemote) => {
+    const screenButtons = foundScreens.length
+      ? foundScreens.map((s) => html`<button type="button" role="option" data-p="${s.id}">${s.title}</button>`).join('')
+      : '';
+    const loadingHtml = loadingRemote ? html`<p style="font-size:.72rem">Đang tìm dữ liệu…</p>` : '';
+    const content = screenButtons + remoteHtml + loadingHtml;
+    list.innerHTML = content || html`<p>Không có kết quả phù hợp.</p>`;
     list.hidden = false;
     search.setAttribute('aria-expanded', 'true');
   };
+
+  const showSuggestions = () => {
+    const rawQuery = search.value;
+    const trimmed = rawQuery.trim();
+    cancelPendingSearch();
+    if (!trimmed) { hideSuggestions(); return; }
+
+    const foundScreens = matchScreens(rawQuery, screens).slice(0, MAX_SUGGESTIONS);
+    const shouldFetch = typeof onSearch === 'function' && trimmed.length >= 2;
+    renderList(foundScreens, '', shouldFetch);
+
+    if (!shouldFetch) return;
+    const mine = ++searchSeq;
+    searchTimer = setTimeout(async () => {
+      searchTimer = null;
+      const ac = new AbortController();
+      searchAbort = ac;
+      try {
+        const data = await onSearch(trimmed, ac.signal);
+        if (mine !== searchSeq || ac.signal.aborted || search.value.trim() !== trimmed) return;
+        renderList(foundScreens, renderRemoteGroups(data), false);
+      } catch {
+        if (mine !== searchSeq || ac.signal.aborted) return;
+        renderList(foundScreens, '', false);
+      } finally {
+        if (searchAbort === ac) searchAbort = null;
+      }
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
   search.addEventListener('input', showSuggestions);
   search.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      const firstBtn = list.querySelector('button[data-p]');
+      if (firstBtn) {
+        go(firstBtn.dataset.p, firstBtn.dataset.id || undefined);
+        return;
+      }
       const [first] = matchScreens(search.value, screens);
       if (first) go(first.id);
     } else if (e.key === 'Escape') {
@@ -84,7 +165,7 @@ export function mountShell({ root, screens, groups, state, navigate, onLogout, o
   });
   // Giữ focus ở ô tìm khi bấm gợi ý để sự kiện click vẫn tới
   list.addEventListener('mousedown', (e) => e.preventDefault());
-  delegate(list, 'click', '[data-p]', (_e, el) => go(el.dataset.p));
+  delegate(list, 'click', '[data-p]', (_e, el) => go(el.dataset.p, el.dataset.id || undefined));
   searchBox.addEventListener('focusout', (e) => { if (!searchBox.contains(e.relatedTarget)) hideSuggestions(); });
   doc.addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;

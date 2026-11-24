@@ -341,7 +341,13 @@ export const locationService = {
     let query = supabaseAdmin.from("live_locations").select("*").gte("updated_at", new Date(Date.now() - VISIBLE_WINDOW_MS).toISOString());
     if (filter.kind === "volunteer" || filter.kind === "customer") query = query.eq("actor_kind", filter.kind);
     const { data, error } = await query.order("updated_at", { ascending: false }).limit(LIST_LIMIT);
-    if (error) handleSupabaseError(error, "Không đọc được danh sách vị trí");
+    if (error) {
+      if (error.code === "42P01" || error.code === "PGRST205") {
+        logger.warn("Bảng live_locations chưa tồn tại (chưa áp dụng SQL 039); trả danh sách rỗng", { code: error.code, message: error.message });
+        return [];
+      }
+      handleSupabaseError(error, "Không đọc được danh sách vị trí");
+    }
     return toViews((data ?? []) as LiveRow[]);
   },
 

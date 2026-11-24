@@ -5,6 +5,7 @@ import { HTTP_STATUS } from "../constants/http";
 import type { UserRole } from "../types/domain";
 import { AppError } from "../utils/appError";
 import { logger } from "../utils/logger";
+import { adminAuditService, type AuditActor } from "./adminAuditService";
 import { adminSettingsService } from "./adminSettingsService";
 import { handleSupabaseError, requireRecord, supabaseAdmin } from "./supabaseService";
 import { createNotification } from "./notificationService";
@@ -742,10 +743,10 @@ export const marketingService = {
     };
   },
 
-  async adminSetSettings(patch: { ai_enabled?: boolean | undefined; auto_enabled?: boolean | undefined }): Promise<{ ai_enabled: boolean; auto_enabled: boolean }> {
+  async adminSetSettings(patch: { ai_enabled?: boolean | undefined; auto_enabled?: boolean | undefined }, actor?: AuditActor): Promise<{ ai_enabled: boolean; auto_enabled: boolean }> {
     const current = await adminSettingsService.get<{ enabled?: boolean; auto?: boolean }>("ai_agent", {});
     const next = { enabled: patch.ai_enabled ?? current.enabled !== false, auto: patch.auto_enabled ?? current.auto !== false };
-    await adminSettingsService.set("ai_agent", next);
+    await adminSettingsService.set("ai_agent", next, actor);
     return { ai_enabled: next.enabled, auto_enabled: next.auto };
   },
 
@@ -757,27 +758,38 @@ export const marketingService = {
   },
 
   // "Chạy thử ngay": cùng logic Auto-bot trung tâm. n8n (AI hoặc mẫu), lỗi thì backend tự đăng trực tiếp.
-  async adminRun(productIds?: string[]): Promise<{ status: "sent" | "failed"; via?: string; tier?: string; error?: string; post_log_id: string | null }> {
+  async adminRun(productIds?: string[], actor?: AuditActor): Promise<{ status: "sent" | "failed"; via?: string; tier?: string; error?: string; post_log_id: string | null }> {
     const bundle = await marketingService.adminBuildBundle(productIds);
     const ai = await aiEnabled();
     const page = centralPage();
     const id = await logPost({ store_id: null, product_id: null, channel: "facebook", kind: "central", content: bundle.message, image_url: bundle.hero_image_url, status: "queued", meta: { product_ids: bundle.items.map((item) => item.product_id), items: bundle.items, labels: bundle.labels, source: "admin-run" } });
     const viaN8n = await sendCentralToN8n({ event: "central.bundle", post_log_id: id, ai: { enabled: ai }, page_id: page.id, bundle });
+    let result: { status: "sent" | "failed"; via?: string; tier?: string; error?: string; post_log_id: string | null };
     if (viaN8n.ok) {
       await updatePost(id, { status: "sent" });
-      return { status: "sent", via: "n8n", post_log_id: id };
-    }
-    if (page.id && pageTokens()[page.id]) {
+      result = { status: "sent", via: "n8n", post_log_id: id };
+    } else if (page.id && pageTokens()[page.id]) {
       const direct = await postToFacebookDirect(page.id, bundle.message, bundle.hero_image_url, bundle.link);
       if (direct.ok) {
         await updatePost(id, { status: "sent", tier: "direct", error: null });
-        return { status: "sent", via: "direct", tier: "direct", post_log_id: id };
+        result = { status: "sent", via: "direct", tier: "direct", post_log_id: id };
+      } else {
+        await updatePost(id, { status: "failed", error: `${viaN8n.error ?? "n8n lỗi"}; dự phòng: ${direct.error ?? "lỗi"}` });
+        result = { status: "failed", error: direct.error ?? "Không đăng được", post_log_id: id };
       }
-      await updatePost(id, { status: "failed", error: `${viaN8n.error ?? "n8n lỗi"}; dự phòng: ${direct.error ?? "lỗi"}` });
-      return { status: "failed", error: direct.error ?? "Không đăng được", post_log_id: id };
+    } else {
+      await updatePost(id, { status: "failed", error: viaN8n.error ?? "n8n không phản hồi" });
+      result = { status: "failed", error: viaN8n.error ?? "n8n không phản hồi và chưa có token đăng trực tiếp", post_log_id: id };
     }
-    await updatePost(id, { status: "failed", error: viaN8n.error ?? "n8n không phản hồi" });
-    return { status: "failed", error: viaN8n.error ?? "n8n không phản hồi và chưa có token đăng trực tiếp", post_log_id: id };
+    if (actor) {
+      await adminAuditService.log(actor, "marketing.run", "marketing_post", result.post_log_id, {
+        status: result.status,
+        ...(result.via ? { via: result.via } : {}),
+        ...(result.tier ? { tier: result.tier } : {}),
+        product_ids: bundle.items.map((item) => item.product_id)
+      });
+    }
+    return result;
   }
 };
 

@@ -115,10 +115,17 @@ const ledgerQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30)
 }).strict();
 
+export const withdrawalsQuerySchema = z.object({
+  status: z.enum(["requested", "approved", "processing", "paid", "rejected", "failed"]).optional(),
+  store_id: z.string().uuid().optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional()
+}).strict();
+
 adminRoutes.get("/finance/summary", asyncHandler(adminController.financeSummary));
 adminRoutes.post("/finance/reconcile", asyncHandler(adminController.runReconcile));
 adminRoutes.get("/ledger", validateRequest({ query: ledgerQuerySchema }), asyncHandler(adminController.listLedger));
-adminRoutes.get("/withdrawals", validateRequest({ query: z.object({ status: z.enum(["requested", "approved", "rejected"]).optional() }).strict() }), asyncHandler(adminController.listWithdrawals));
+adminRoutes.get("/withdrawals", validateRequest({ query: withdrawalsQuerySchema }), asyncHandler(adminController.listWithdrawals));
 adminRoutes.patch(
   "/withdrawals/:id",
   validateRequest({

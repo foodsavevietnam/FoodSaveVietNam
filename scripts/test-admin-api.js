@@ -10,14 +10,25 @@ Object.assign(process.env, {
   PAYMENT_PROVIDER: "simulated", PAYOUT_PROVIDER: "manual", PAYOUT_ENCRYPTION_KEY: require("crypto").randomBytes(32).toString("base64")
 });
 const assert = require("assert");
+const http = require("http");
 const { FakeDb, installFakeAuthAdmin } = require("./fake-supabase");
 
 let db = new FakeDb();
+let fakeTokens = new Map();
 const sb = require("../dist/config/supabase");
 sb.supabaseAdmin = {
   from: (name) => db.from(name),
   rpc: (name, args) => db.rpc(name, args),
   auth: { admin: installFakeAuthAdmin(() => db) }
+};
+sb.supabaseAuth = {
+  auth: {
+    getUser: async (token) => {
+      const user = fakeTokens.get(token);
+      if (!user) return { data: { user: null }, error: { message: "Invalid token" } };
+      return { data: { user }, error: null };
+    }
+  }
 };
 require("../dist/config/postgres").isPostgresAvailable = async () => false;
 
@@ -26,7 +37,7 @@ const { paginate, applySearch } = require("../dist/services/adminListing");
 
 const results = [];
 async function run(name, fn) {
-  try { db = new FakeDb(); await fn(); results.push([true, name]); console.log("  ĐẠT   " + name); }
+  try { db = new FakeDb(); fakeTokens = new Map(); await fn(); results.push([true, name]); console.log("  ĐẠT   " + name); }
   catch (error) { results.push([false, name]); console.log("  KHÔNG ĐẠT   " + name + "\n         " + (error && error.message || error)); }
 }
 
@@ -309,6 +320,244 @@ async function run(name, fn) {
       await assert.rejects(() => adminController.decideComplaint(fakeReq({ id: "c1" }, { decision: "reject", note: "x" }), fakeRes()));
     });
     assert.strictEqual(audits().length, 3);
+  });
+
+  // ---- E: Kiểm thử HTTP thực qua authMiddleware + requireRoles("admin") & các bản vá Wave 3C ----
+  const { app } = require("../dist/app");
+  const { locationService } = require("../dist/services/locationService");
+  const withHttpServer = async (fn) => {
+    const server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    const baseUrl = `http://127.0.0.1:${port}/api/v1`;
+    const reqJson = async (method, path, { token, body } = {}) => {
+      const headers = {};
+      if (token) headers.Authorization = "Bearer " + token;
+      if (body !== undefined) headers["Content-Type"] = "application/json";
+      const res = await fetch(baseUrl + path, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+      const json = await res.json().catch(() => null);
+      return { status: res.status, body: json };
+    };
+    try { await fn(reqJson); } finally { await new Promise((resolve) => server.close(resolve)); }
+  };
+
+  const seedUser = (token, { id, role, status = "active", full_name = "User" }) => {
+    fakeTokens.set(token, { id, email: id + "@mio.vn" });
+    db.seed("profiles", [{ id, role, status, full_name }]);
+  };
+
+  const ADM_ID = "11111111-1111-4111-8111-111111111111";
+  const ADM_SUSP_ID = "11111111-1111-4111-8111-111111111112";
+  const CUST_ID = "22222222-2222-4222-8222-222222222221";
+  const PARTNER_ID = "33333333-3333-4333-8333-333333333331";
+  const CHARITY_ID = "44444444-4444-4444-8444-444444444441";
+  const STORE_A = "55555555-5555-4555-8555-555555555551";
+  const STORE_B = "55555555-5555-4555-8555-555555555552";
+
+  await run("E1 HTTP authMiddleware + requireRoles('admin'): không token 401, role khác/suspended 403, admin active 200 + marketing_queue", async () => {
+    seedUser("tok-admin", { id: ADM_ID, role: "admin", status: "active", full_name: "Admin Chính" });
+    seedUser("tok-admin-susp", { id: ADM_SUSP_ID, role: "admin", status: "suspended", full_name: "Admin Khóa" });
+    seedUser("tok-customer", { id: CUST_ID, role: "customer", status: "active", full_name: "Khách" });
+    seedUser("tok-partner", { id: PARTNER_ID, role: "partner", status: "active", full_name: "Đối tác" });
+    seedUser("tok-charity", { id: CHARITY_ID, role: "charity", status: "active", full_name: "Từ thiện" });
+    db.seed("marketing_posts", [
+      { id: "mp1", status: "queued" },
+      { id: "mp2", status: "ready" },
+      { id: "mp3", status: "sent" },
+      { id: "mp4", status: "failed" }
+    ]);
+
+    await withHttpServer(async (reqJson) => {
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work")).status, 401, "không token -> 401");
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work", { token: "tok-bad" })).status, 401, "token sai -> 401");
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work", { token: "tok-customer" })).status, 403, "customer -> 403");
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work", { token: "tok-partner" })).status, 403, "partner -> 403");
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work", { token: "tok-charity" })).status, 403, "charity -> 403");
+      assert.strictEqual((await reqJson("GET", "/admin/dashboard/work", { token: "tok-admin-susp" })).status, 403, "admin suspended -> 403");
+
+      const ok = await reqJson("GET", "/admin/dashboard/work", { token: "tok-admin" });
+      assert.strictEqual(ok.status, 200, "admin active -> 200");
+      assert.strictEqual(ok.body.success, true);
+      assert.strictEqual(ok.body.data.marketing_queue, 2, "marketing_queue đếm queued + ready");
+    });
+  });
+
+  await run("E2 HTTP GET /admin/withdrawals: hỗ trợ đủ 6 trạng thái, store_id và phân trang tùy chọn", async () => {
+    seedUser("tok-admin", { id: ADM_ID, role: "admin", status: "active", full_name: "Admin" });
+    db.seed("stores", [
+      { id: STORE_A, owner_id: PARTNER_ID, name: "Tiệm A" },
+      { id: STORE_B, owner_id: PARTNER_ID, name: "Tiệm B" }
+    ]);
+    const statuses = ["requested", "approved", "processing", "paid", "rejected", "failed"];
+    db.seed("withdrawals", statuses.map((st, idx) => ({
+      id: `66666666-6666-4666-8666-66666666660${idx + 1}`,
+      store_id: idx % 2 === 0 ? STORE_A : STORE_B,
+      status: st,
+      amount_cents: 100000 * (idx + 1),
+      requested_at: `2026-11-2${idx}T01:00:00.000Z`
+    })));
+
+    await withHttpServer(async (reqJson) => {
+      for (const st of statuses) {
+        const res = await reqJson("GET", `/admin/withdrawals?status=${st}`, { token: "tok-admin" });
+        assert.strictEqual(res.status, 200, `status=${st} -> 200`);
+        assert.ok(Array.isArray(res.body.data), "không truyền page -> trả mảng tương thích ngược");
+        assert.strictEqual(res.body.data.length, 1);
+        assert.strictEqual(res.body.data[0].status, st);
+      }
+      const byStore = await reqJson("GET", `/admin/withdrawals?status=paid&store_id=${STORE_B}`, { token: "tok-admin" });
+      assert.strictEqual(byStore.status, 200);
+      assert.strictEqual(byStore.body.data.length, 1);
+      assert.strictEqual(byStore.body.data[0].store_id, STORE_B);
+
+      const paged = await reqJson("GET", "/admin/withdrawals?page=2&limit=2", { token: "tok-admin" });
+      assert.strictEqual(paged.status, 200);
+      assert.strictEqual(paged.body.data.total, 6);
+      assert.strictEqual(paged.body.data.page, 2);
+      assert.strictEqual(paged.body.data.limit, 2);
+      assert.strictEqual(paged.body.data.items.length, 2);
+
+      const bad = await reqJson("GET", "/admin/withdrawals?status=la", { token: "tok-admin" });
+      assert.strictEqual(bad.status, 422, "status không hợp lệ -> 422");
+    });
+  });
+
+  await run("E3 HTTP PATCH /admin/withdrawals/:id: bấm lặp idempotent không ghi trùng admin_audit_log và giữ nguyên shape JSON", async () => {
+    seedUser("tok-admin", { id: ADM_ID, role: "admin", status: "active", full_name: "Admin" });
+    db.seedSystemWallets();
+    db.seed("stores", [{ id: STORE_A, owner_id: PARTNER_ID, name: "Tiệm A" }]);
+    const wdId = "77777777-7777-4777-8777-777777777771";
+    const paId = "77777777-7777-4777-8777-777777777772";
+    db.seed("store_payout_accounts", [{ id: paId, store_id: STORE_A, status: "verified" }]);
+    db.seed("withdrawals", [{ id: wdId, store_id: STORE_A, payout_account_id: paId, amount_cents: 100000, status: "requested", requested_at: new Date().toISOString() }]);
+
+    await withHttpServer(async (reqJson) => {
+      const first = await reqJson("PATCH", `/admin/withdrawals/${wdId}`, { token: "tok-admin", body: { decision: "approve", note: "OK" } });
+      assert.strictEqual(first.status, 200);
+      assert.strictEqual(first.body.data.status, "approved");
+      assert.strictEqual(Object.prototype.hasOwnProperty.call(first.body.data, "changed"), false, "không lộ khóa changed ra JSON client");
+      assert.strictEqual(audits("withdrawal.approve").length, 1);
+
+      const second = await reqJson("PATCH", `/admin/withdrawals/${wdId}`, { token: "tok-admin", body: { decision: "approve", note: "OK" } });
+      assert.strictEqual(second.status, 200);
+      assert.strictEqual(second.body.data.status, "approved");
+      assert.strictEqual(audits("withdrawal.approve").length, 1, "bấm lặp idempotent không ghi trùng audit log");
+    });
+  });
+
+  await run("E4 HTTP audit log cho 5 lỗ hổng: approvePartner, rejectPartner, runReconcile, order.chat_view, marketing settings/run", async () => {
+    seedUser("tok-admin", { id: ADM_ID, role: "admin", status: "active", full_name: "Admin Kiểm Toán" });
+    seedUser("tok-customer", { id: CUST_ID, role: "customer", status: "active", full_name: "Khách" });
+    db.seed("profiles", [{ id: PARTNER_ID, role: "partner", status: "pending", full_name: "Chủ Quán" }]);
+    db.seedSystemWallets();
+    db.seed("stores", [{ id: STORE_A, owner_id: PARTNER_ID, name: "Tiệm Kiểm Toán", status: "pending" }]);
+    const orderId = "88888888-8888-4888-8888-888888888881";
+    const productId = "88888888-8888-4888-8888-888888888882";
+    db.seed("orders", [{ id: orderId, order_number: "MIO-999", customer_id: CUST_ID, store_id: STORE_A, status: "completed", payment_status: "paid" }]);
+    db.seed("complaints", [{ id: "88888888-8888-4888-8888-888888888883", order_id: orderId, status: "in_review" }]);
+    db.seed("order_messages", [{ id: "m1", order_id: orderId, sender_id: CUST_ID, sender_role: "customer", body: "Xin chào", read_at: null, created_at: new Date().toISOString() }]);
+    db.seed("products", [{
+      id: productId, store_id: STORE_A, name: "Bánh mì", description: null, image_url: null, image_urls: null, emoji: "🥖",
+      category: "bakery", food_group: "cooked", price_cents: 10000, original_price_cents: 50000, label: "red",
+      stock_quantity: 5, is_active: true, expires_at: new Date(Date.now() + 3 * 3600_000).toISOString(), effective_deadline_at: null
+    }]);
+
+    await withHttpServer(async (reqJson) => {
+      assert.strictEqual((await reqJson("POST", `/admin/approve/${PARTNER_ID}`, { token: "tok-admin" })).status, 200);
+      assert.strictEqual(audits("partner.approve").length, 1);
+      assert.strictEqual(audits("partner.approve")[0].target_id, PARTNER_ID);
+
+      assert.strictEqual((await reqJson("POST", `/admin/reject/${PARTNER_ID}`, { token: "tok-admin", body: { reason: "Thiếu hồ sơ" } })).status, 200);
+      assert.strictEqual(audits("partner.reject").length, 1);
+      assert.strictEqual(audits("partner.reject")[0].detail.reason, "Thiếu hồ sơ");
+
+      assert.strictEqual((await reqJson("POST", "/admin/finance/reconcile", { token: "tok-admin" })).status, 200);
+      assert.strictEqual(audits("finance.reconcile").length, 1);
+
+      assert.strictEqual((await reqJson("GET", `/orders/${orderId}/messages`, { token: "tok-customer" })).status, 200);
+      assert.strictEqual(audits("order.chat_view").length, 0, "khách xem chat không ghi audit admin");
+      assert.strictEqual((await reqJson("GET", `/orders/${orderId}/messages`, { token: "tok-admin" })).status, 200);
+      assert.strictEqual(audits("order.chat_view").length, 1);
+      assert.strictEqual(audits("order.chat_view")[0].target_type, "order");
+      assert.strictEqual(audits("order.chat_view")[0].target_id, orderId);
+
+      assert.strictEqual((await reqJson("PATCH", "/marketing/admin/settings", { token: "tok-admin", body: { ai_enabled: false } })).status, 200);
+      assert.strictEqual(audits("settings.update").length, 1);
+      assert.strictEqual(audits("settings.update")[0].target_id, "ai_agent");
+
+      assert.strictEqual((await reqJson("POST", "/marketing/admin/run", { token: "tok-admin", body: { product_ids: [productId] } })).status, 200);
+      assert.strictEqual(audits("marketing.run").length, 1);
+    });
+  });
+
+  await run("E5 locationService.listForAdmin: thiếu bảng live_locations (42P01 / PGRST205) trả mảng rỗng thay vì ném 500", async () => {
+    const realFrom = sb.supabaseAdmin.from;
+    for (const code of ["42P01", "PGRST205"]) {
+      sb.supabaseAdmin.from = (name) => {
+        if (name === "live_locations") {
+          const chain = {
+            select: () => chain,
+            gte: () => chain,
+            eq: () => chain,
+            order: () => chain,
+            limit: async () => ({ data: null, error: { code, message: "relation live_locations does not exist" } })
+          };
+          return chain;
+        }
+        return realFrom(name);
+      };
+      try {
+        const rows = await locationService.listForAdmin({});
+        assert.deepStrictEqual(rows, [], `mã lỗi ${code} phải trả []`);
+      } finally {
+        sb.supabaseAdmin.from = realFrom;
+      }
+    }
+  });
+
+  await run("E6 poll.js: giãn backoff và tạm dừng job sau 3 lỗi liên tiếp, reset về 0 khi resume/chuyển tab hoặc chạy thành công", async () => {
+    const { createPoll } = await import("../public/admin/core/poll.js");
+    const st = { t: 0, vis: true };
+    let failMode = true;
+    let calls = 0;
+    const poll = createPoll({ now: () => st.t, visible: () => st.vis, minGapMs: 10000 });
+    poll.add("job5xx", () => {
+      calls += 1;
+      if (failMode) throw new Error("HTTP 500");
+    }, { everyMs: 60000, immediate: true });
+    const realWarn = console.warn;
+    console.warn = () => {};
+    try {
+      // Lỗi lần 1 ở t=0 -> backoff 2x (120s)
+      poll.tick();
+      assert.strictEqual(calls, 1);
+      st.t = 60000; poll.tick();
+      assert.strictEqual(calls, 1, "đang backoff 2x, 60s chưa chạy lại");
+      // Lỗi lần 2 ở t=120000 -> backoff 4x (240s)
+      st.t = 120000; poll.tick();
+      assert.strictEqual(calls, 2);
+      st.t = 240000; poll.tick();
+      assert.strictEqual(calls, 2, "đang backoff 4x, 120s sau chưa chạy lại");
+      // Lỗi lần 3 ở t=360000 -> tạm dừng job (vẫn đang active, chưa chạm idleMs 900000)
+      st.t = 360000; poll.tick();
+      assert.strictEqual(calls, 3);
+      st.t = 840000; poll.tick();
+      assert.strictEqual(poll.isPaused(), false, "vẫn đang trong cửa sổ hoạt động");
+      assert.strictEqual(calls, 3, "sau 3 lỗi liên tiếp job bị tạm dừng hẳn dù không idle");
+      // Người dùng bấm tiếp tục (resume) -> reset bộ đếm lỗi, chạy lại và thành công
+      failMode = false;
+      poll.resume();
+      st.t = 840000 + 60000; poll.tick();
+      assert.strictEqual(calls, 4, "sau resume job chạy lại");
+      st.t += 60000; poll.tick();
+      assert.strictEqual(calls, 5, "chạy thành công -> trở lại nhịp bình thường 60s");
+    } finally {
+      console.warn = realWarn;
+    }
   });
 
   const failed = results.filter((r) => !r[0]).length;

@@ -274,10 +274,27 @@ export const ledgerService = {
     return data ?? [];
   },
 
-  async listAllWithdrawals(status?: string): Promise<unknown[]> {
-    let query = supabaseAdmin.from("withdrawals").select("*, stores(name)").order("requested_at", { ascending: false }).limit(100);
-    if (status) query = query.eq("status", status);
-    const { data, error } = await query;
+  async listAllWithdrawals(
+    filter?: string | { status?: string | undefined; store_id?: string | undefined; page?: number | undefined; limit?: number | undefined }
+  ): Promise<unknown[] | { items: unknown[]; total: number; page: number; limit: number }> {
+    const opts = typeof filter === "string" ? { status: filter } : (filter ?? {});
+    const hasPage = opts.page !== undefined;
+    const perPage = Math.min(Math.max(Number(opts.limit) || (hasPage ? 20 : 100), 1), 100);
+    let query = supabaseAdmin
+      .from("withdrawals")
+      .select("*, stores(name)", hasPage ? { count: "exact" } : undefined)
+      .order("requested_at", { ascending: false });
+    if (opts.status) query = query.eq("status", opts.status);
+    if (opts.store_id) query = query.eq("store_id", opts.store_id);
+    if (hasPage) {
+      const page = Math.max(1, Math.floor(Number(opts.page) || 1));
+      query = query.range((page - 1) * perPage, page * perPage - 1);
+      const { data, error, count } = await query;
+      if (error) handleSupabaseError(error, "Failed to list withdrawals");
+      const items = data ?? [];
+      return { items, total: count ?? items.length, page, limit: perPage };
+    }
+    const { data, error } = await query.limit(perPage);
     if (error) handleSupabaseError(error, "Failed to list withdrawals");
     return data ?? [];
   },
@@ -287,7 +304,7 @@ export const ledgerService = {
    * (hàm SQL fs_withdrawal_transition). Chỉ `pay` mới trừ ví thật (bút toán rút) và bắt buộc có mã giao dịch ngân hàng.
    * `start` gọi PayoutProvider.createPayout (thủ công: chỉ đánh dấu đang chi).
    */
-  async transitionWithdrawal(id: string, action: "approve" | "reject" | "start" | "pay" | "fail", adminId: string, options: { note?: string | undefined; bank_txn_ref?: string | undefined } = {}): Promise<Record<string, unknown>> {
+  async transitionWithdrawal(id: string, action: "approve" | "reject" | "start" | "pay" | "fail", adminId: string, options: { note?: string | undefined; bank_txn_ref?: string | undefined } = {}): Promise<Record<string, unknown> & { readonly changed?: boolean }> {
     const { data: before } = await supabaseAdmin.from("withdrawals").select("status,store_id,amount_cents").eq("id", id).maybeSingle();
     const prior = before as { status: string; store_id: string; amount_cents: number } | null;
     if (!prior) throw new AppError("Không tìm thấy lệnh rút", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
@@ -320,7 +337,8 @@ export const ledgerService = {
 
     // Thông báo cho chủ cửa hàng khi trạng thái thật sự thay đổi (gọi lặp lại không thông báo lại)
     const target: Record<string, string> = { approve: "approved", reject: "rejected", start: "processing", pay: "paid", fail: "failed" };
-    if (prior.status !== target[action] && after.status === target[action]) {
+    const changed = prior.status !== target[action] && after.status === target[action];
+    if (changed) {
       const { data: store } = await supabaseAdmin.from("stores").select("owner_id").eq("id", prior.store_id).maybeSingle();
       const owner = (store as { owner_id: string } | null)?.owner_id;
       const amount = Number(prior.amount_cents).toLocaleString("vi-VN") + "đ";
@@ -333,7 +351,10 @@ export const ledgerService = {
       };
       if (owner) await createNotification({ recipientId: owner, roleTarget: "partner", type: "withdrawal-update", title: text[action]![0], body: text[action]![1] });
     }
-    return after;
+    // Gắn cờ `changed` không liệt kê (non-enumerable) để controller tránh ghi trùng audit log mà giữ nguyên JSON trả client
+    const out: Record<string, unknown> & { readonly changed?: boolean } = { ...after };
+    Object.defineProperty(out, "changed", { value: changed, enumerable: false, configurable: true });
+    return out;
   },
 
   async financeSummary(): Promise<Record<string, unknown>> {

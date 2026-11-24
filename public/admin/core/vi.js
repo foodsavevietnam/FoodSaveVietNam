@@ -48,6 +48,11 @@ export const ACTIONS = {
   'payout_account.verify': 'Xác minh tài khoản nhận tiền',
   'payout_account.reject': 'Từ chối tài khoản nhận tiền',
   'payout_account.reveal': 'Xem số tài khoản đầy đủ',
+  'partner.approve': 'Duyệt cửa hàng',
+  'partner.reject': 'Từ chối cửa hàng',
+  'finance.reconcile': 'Đối soát sổ cái',
+  'order.chat_view': 'Xem chat đơn hàng',
+  'marketing.run': 'Chạy đăng bài tự động',
 };
 
 // Action lạ (chưa có trong bảng) hiện nguyên văn; nơi dựng HTML tự escape qua tag `html`.

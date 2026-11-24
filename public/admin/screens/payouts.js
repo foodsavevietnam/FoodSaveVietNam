@@ -1,8 +1,8 @@
 // Màn "Rút tiền & chi trả": lệnh rút của cửa hàng theo 6 tab trạng thái (#/payouts?tab=...), xử lý trong ngăn kéo.
-// API lọc được requested/approved/rejected → 3 tab này gọi ?status=<tab>; processing/paid/failed tải 100 lệnh mới nhất
-// (mọi trạng thái) rồi lọc phía client. Số lượng chỉ hiện ở tab đang mở (lấy từ kết quả vừa tải), không đoán số tab khác.
+// Cả 6 tab gọi API lọc phía server (?status=<tab>); vẫn lọc lại phía client để tương thích chế độ xem thử (?demo=1).
 // Số tài khoản đầy đủ chỉ hiện sau khi xác nhận + ghi nhật ký, tự che sau REVEAL_MS và bị xóa khi đóng ngăn kéo / rời màn.
 import { stamp, vnd } from '../core/format.js';
+import { isPollFailure } from '../core/poll.js';
 import { badge } from '../core/vi.js';
 
 const REFRESH_MS = 60000;
@@ -11,7 +11,6 @@ const NOTE_MAX = 300;
 const REF_MIN = 3;
 const REF_MAX = 80;
 const LIST_LIMIT = 100; // backend trả tối đa 100 lệnh mới nhất
-const SERVER_STATUSES = new Set(['requested', 'approved', 'rejected']);
 const TABS = [
   { key: 'requested', title: 'Chờ duyệt' },
   { key: 'approved', title: 'Đã duyệt, chờ chi' },
@@ -87,13 +86,11 @@ export default {
       const current = TABS.find((t) => t.key === tab);
       // Lọc lại phía client cả khi server đã lọc (chế độ xem thử trả mọi trạng thái)
       const shown = rows.filter((w) => w.status === tab);
-      // Tab lọc ở server: đủ 100 dòng nghĩa là có thể còn nữa; tab lọc phía client: chỉ đếm trong 100 lệnh đã tải
-      const count = serverSide && rows.length >= LIST_LIMIT ? `${LIST_LIMIT}+` : String(shown.length);
+      // Đủ 100 dòng ở trạng thái này nghĩa là có thể còn lệnh cũ hơn
+      const count = rows.length >= LIST_LIMIT ? `${LIST_LIMIT}+` : String(shown.length);
       const tabs = TABS.map((t) => html`<button type="button" class="bt${raw(tab === t.key ? ' bt-p' : '')}" data-act="tab" data-tab="${t.key}"${raw(tab === t.key ? ' aria-current="page"' : '')}>${t.title}${tab === t.key ? ` (${count})` : ''}</button>`).join('');
       const head = ['Gửi lúc', 'Cửa hàng', 'Tài khoản', 'Số tiền', 'Trạng thái', ''].map((h) => html`<th>${h}</th>`).join('');
-      const scope = serverSide
-        ? `Hiện tối đa ${LIST_LIMIT} lệnh mới nhất ở trạng thái này.`
-        : `Chỉ tính trong ${LIST_LIMIT} lệnh rút mới nhất (mọi trạng thái); lệnh cũ hơn không hiện ở tab này.`;
+      const scope = `Hiện tối đa ${LIST_LIMIT} lệnh mới nhất ở trạng thái này.`;
       body.innerHTML = html`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" role="tablist">${raw(tabs)}</div>
         <section class="P"><div class="P-h"><span class="P-t">${current.title} (${count})</span></div>
           <div class="W"><table class="tbl" data-role="withdrawals-table"><thead><tr>${raw(head)}</tr></thead>
@@ -101,8 +98,7 @@ export default {
         <p style="font-size:.72rem;color:var(--t3);padding:8px 4px">${scope} Chỉ hiện 4 số cuối tài khoản; số đầy đủ phải xem trong từng lệnh và được ghi nhật ký.</p>`;
     }
 
-    const serverSide = SERVER_STATUSES.has(tab);
-    const listPath = serverSide ? `/admin/withdrawals?status=${encodeURIComponent(tab)}` : '/admin/withdrawals';
+    const listPath = `/admin/withdrawals?status=${encodeURIComponent(tab)}`;
     let seq = 0;
     async function draw({ quiet = false } = {}) {
       const mine = ++seq;
@@ -114,7 +110,12 @@ export default {
         drawBody();
       } catch (err) {
         if (!alive() || mine !== seq || err?.name === 'AbortError') return;
-        if (quiet && rows) { console.warn('[MIO] Không làm mới được danh sách lệnh rút:', err); return; }
+        if (quiet) {
+          if (rows) console.warn('[MIO] Không làm mới được danh sách lệnh rút:', err);
+          else error(body, err, () => draw());
+          if (isPollFailure(err)) throw err;
+          return;
+        }
         error(body, err, () => draw());
       }
     }
@@ -176,7 +177,7 @@ export default {
         ctx.ui.toast(okText);
         clearReveal();
         ctx.ui.drawer.close();
-        draw({ quiet: true });
+        draw({ quiet: true }).catch(() => {});
         ctx.refreshWork();
       } catch (err) {
         if (err?.name === 'AbortError') return;
@@ -207,8 +208,11 @@ export default {
         if (res.ok && alive()) await perform(w, { decision: 'approve' }, 'Đã duyệt lệnh rút', panel);
       });
       on('reject', async () => {
-        const note = await reasonOf({ title: `Từ chối lệnh rút ${label}?`, body: 'Số tiền được trả lại vào số dư khả dụng của cửa hàng; lý do được gửi cho cửa hàng.', reasonLabel: 'Lý do từ chối', confirmText: 'Từ chối' });
-        if (note && alive()) await perform(w, { decision: 'reject', note }, 'Đã từ chối lệnh rút', panel);
+        const isCancel = w.status === 'approved';
+        const note = await reasonOf(isCancel
+          ? { title: `Hủy lệnh rút ${label}?`, body: 'Số tiền được trả lại vào số dư khả dụng của cửa hàng; lý do được gửi cho cửa hàng.', reasonLabel: 'Lý do hủy lệnh', confirmText: 'Hủy lệnh' }
+          : { title: `Từ chối lệnh rút ${label}?`, body: 'Số tiền được trả lại vào số dư khả dụng của cửa hàng; lý do được gửi cho cửa hàng.', reasonLabel: 'Lý do từ chối', confirmText: 'Từ chối' });
+        if (note && alive()) await perform(w, { decision: 'reject', note }, isCancel ? 'Đã hủy lệnh rút' : 'Đã từ chối lệnh rút', panel);
       });
       on('start', async () => {
         const res = await ctx.ui.confirm({ title: `Bắt đầu chi ${label}?`, body: 'Lệnh rút chuyển sang "Đang chi". Sau đó xem số tài khoản, chuyển khoản rồi nhập mã giao dịch.', confirmText: 'Bắt đầu chi' });

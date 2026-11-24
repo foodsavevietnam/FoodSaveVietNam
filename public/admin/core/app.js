@@ -3,7 +3,7 @@ import { API_BASE, API_TIMEOUT_MS, POLL_IDLE_MS, POLL_MIN_GAP_MS, WORK_REFRESH_M
 import { createApi } from './api.js';
 import { createAuth } from './auth.js';
 import { createRouter, buildHash } from './router.js';
-import { createPoll } from './poll.js';
+import { createPoll, isPollFailure } from './poll.js';
 import { createState } from './state.js';
 import { mountShell } from './shell.js';
 import { stamp } from './format.js';
@@ -39,20 +39,24 @@ let loginBusy = false;
 
 // Gộp các lần gọi chồng nhau (app + màn Hôm nay) thành một request
 let workInflight = null;
-function refreshWork() {
+function refreshWork({ rethrow = false } = {}) {
   if (!entered) return Promise.resolve();
   workInflight ??= (async () => {
     try {
       const data = await api.get('/admin/dashboard/work');
       state.set('work', data);
       shell?.setBadges(data);
+      return null;
     } catch (error) {
       console.warn('[MIO] Không tải được số việc cần làm:', error);
+      return error;
     } finally {
       workInflight = null;
     }
   })();
-  return workInflight;
+  return workInflight.then((error) => {
+    if (rethrow && isPollFailure(error)) throw error;
+  });
 }
 
 function teardownScreen() {
@@ -129,7 +133,7 @@ function enter(admin) {
   $('loginError').textContent = '';
   if (!detachPoll) detachPoll = poll.attach(document);
   poll.touch(); // hết trạng thái tạm dừng cũ (nếu có) trước khi thêm job
-  poll.add('work', refreshWork, { everyMs: WORK_REFRESH_MS, immediate: false });
+  poll.add('work', () => refreshWork({ rethrow: true }), { everyMs: WORK_REFRESH_MS, immediate: false });
   refreshWork();
   if (routerStarted) showScreen(router.current());
   else { routerStarted = true; router.start(); }

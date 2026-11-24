@@ -1,6 +1,7 @@
 // Màn "Hôm nay": việc cần làm theo mức khẩn (Đỏ/Vàng/Xám) và 4 ô số.
 // Số việc lấy từ state.work do app tự làm mới (không gọi lại /admin/dashboard/work ở đây).
 import { vnd, stamp, monthVn } from '../core/format.js';
+import { isPollFailure } from '../core/poll.js';
 import { VI } from '../core/vi.js';
 
 const REFRESH_MS = 120000;
@@ -105,7 +106,12 @@ export default {
         box.innerHTML = block.draw(data);
       } catch (err) {
         if (!alive() || err?.name === 'AbortError') return;
-        if (quiet && loaded[name]) { console.warn(`[MIO] Không làm mới được khối ${name}:`, err); return; }
+        if (quiet) {
+          if (loaded[name]) console.warn(`[MIO] Không làm mới được khối ${name}:`, err);
+          else error(box, err, () => loadBlock(name));
+          if (isPollFailure(err)) throw err;
+          return;
+        }
         error(box, err, () => loadBlock(name));
       }
     }
@@ -154,7 +160,11 @@ export default {
     if (state.work) drawAll();
     else loadWork();
 
-    const refreshOthers = () => Promise.all(Object.keys(blocks).map((name) => loadBlock(name, { quiet: true })));
+    const refreshOthers = async () => {
+      const settled = await Promise.allSettled(Object.keys(blocks).map((name) => loadBlock(name, { quiet: true })));
+      const failed = settled.find((r) => r.status === 'rejected');
+      if (failed) throw failed.reason;
+    };
     ctx.poll.add('screen:today', refreshOthers, { everyMs: REFRESH_MS });
     await Promise.all(Object.keys(blocks).map((name) => loadBlock(name)));
   },

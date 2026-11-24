@@ -17,11 +17,12 @@ import type {
   UpdateComplaintBody,
   UpdateOrderStatusBody
 } from "../schemas/orderSchemas";
+import { adminAuditService } from "../services/adminAuditService";
 import { complaintService } from "../services/complaintService";
 import { orderChatService } from "../services/orderChatService";
 import { orderService } from "../services/orderService";
 import { recordActivityBestEffort } from "../neon/activityService";
-import { getActor } from "../utils/requestContext";
+import { auditActor, getActor } from "../utils/requestContext";
 import { sendSuccess } from "../utils/response";
 
 type UuidParams = { id: string };
@@ -111,7 +112,15 @@ export const orderController = {
   async listMessages(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
     const params = req.validated?.params as UuidParams;
-    sendSuccess(res, await orderChatService.list(params.id, actor.userId, actor.role));
+    const result = await orderChatService.list(params.id, actor.userId, actor.role);
+    if (actor.role === "admin") {
+      try {
+        await adminAuditService.log(auditActor(req), "order.chat_view", "order", params.id, {});
+      } catch {
+        // Best-effort: không làm lỗi trả tin nhắn
+      }
+    }
+    sendSuccess(res, result);
   },
 
   async sendMessage(req: Request, res: Response): Promise<void> {

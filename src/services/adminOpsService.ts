@@ -428,7 +428,7 @@ const workStrip = async (options?: { useCache?: boolean }): Promise<Row> => {
   const safe = async (fn: () => Promise<number>): Promise<number> => { try { return await fn(); } catch { return 0; } };
   const [
     pendingStores, pendingCharities, complaintsReview, withdrawals, payoutAccounts, locked,
-    ordersNew, ordersCompleted, ordersNoShow, donationsOpen, trackingActive, automationFailed, heavy
+    ordersNew, ordersCompleted, ordersNoShow, donationsOpen, trackingActive, marketingQueue, automationFailed, heavy
   ] = await Promise.all([
     count("stores", (q) => q.eq("status", "pending")),
     count("charity_profiles", (q) => q.eq("status", "pending")),
@@ -441,6 +441,7 @@ const workStrip = async (options?: { useCache?: boolean }): Promise<Row> => {
     count("orders", (q) => q.eq("status", "no_show").gte("no_show_at", todayStart)),
     count("donations", (q) => q.eq("status", "open")),
     count("live_locations", (q) => q.gte("updated_at", trackingSince), "actor_id"),
+    count("marketing_posts", (q) => q.in("status", ["queued", "ready"])),
     safe(async () => (await automationRunService.overview()).filter((j) => { const r = j.last_run as { ok?: boolean } | null; return !!r && r.ok === false; }).length),
     loadHeavyWorkStripMetrics(useCache)
   ]);
@@ -449,7 +450,7 @@ const workStrip = async (options?: { useCache?: boolean }): Promise<Row> => {
     withdrawals_requested: withdrawals, payout_accounts_pending: payoutAccounts, withdrawals_pending: withdrawals + payoutAccounts,
     fraud_open: heavy.fraudOpen, customers_locked: locked,
     orders_today: { new: ordersNew, completed: ordersCompleted, no_show: ordersNoShow },
-    donations_open: donationsOpen, tracking_active: trackingActive,
+    donations_open: donationsOpen, tracking_active: trackingActive, marketing_queue: marketingQueue,
     ledger_unbalanced: heavy.ledgerUnbalanced, automation_failed: automationFailed
   };
 };

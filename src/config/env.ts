@@ -18,6 +18,11 @@ const optionalSecret32 = z.preprocess(
   z.string().trim().min(32).optional()
 );
 
+const optionalLogFormat = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.enum(["json", "text"]).optional()
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
@@ -42,6 +47,10 @@ const envSchema = z.object({
     .default("true")
     .transform((value) => value === "true"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  // Định dạng log: "json" (1 dòng chuẩn cho log aggregator) hoặc "text" (dễ đọc ở dev/test). Mặc định json khi production.
+  LOG_FORMAT: optionalLogFormat,
+  // Sentry DSN tùy chọn để gửi cảnh báo lỗi 5xx bất đồng bộ (best-effort, không chặn response)
+  SENTRY_DSN: optionalUrlString,
   // Chu kỳ chạy tác vụ đổi nhãn khi chạy backend ở máy (npm run dev). 0 = tắt. Trên Netlify dùng Scheduled Function.
   LABEL_AUTOMATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300000),
   AUTOMATION_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
@@ -58,6 +67,8 @@ const envSchema = z.object({
   // Khóa mã hóa số tài khoản nhận tiền (AES-256-GCM): 32 byte dạng base64 hoặc hex 64 ký tự. KHÔNG ghi vào repo.
   // Sinh khóa: node scripts/generate-payout-key.js
   PAYOUT_ENCRYPTION_KEY: optionalNonEmptyString,
+  // Danh sách đa khóa xoay vòng dạng "v2:<64hex>,v1:<64hex>". Khóa đầu dùng để mã hóa mới; các khóa sau dùng để giải mã dữ liệu cũ.
+  PAYOUT_ENCRYPTION_KEYS: optionalNonEmptyString,
   // Web Push (người mua + tình nguyện viên). Sinh khóa: npm run gen:vapid. Thiếu thì thông báo đẩy tự tắt (thông báo trong app vẫn chạy).
   VAPID_PUBLIC_KEY: optionalNonEmptyString,
   VAPID_PRIVATE_KEY: optionalNonEmptyString,

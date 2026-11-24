@@ -6,14 +6,75 @@
     ? { email: "demo@partner.mio", password: "mio2026" }
     : { email: "demo@charity.mio", password: "mio2026" };
   const today = new Date().toLocaleDateString("vi-VN");
+  const sessionKey = `foodsave.mio.demo.session.${role}`;
+  const originalClearSession = typeof window.FoodSaveAuth?.clearSession === "function"
+    ? window.FoodSaveAuth.clearSession.bind(window.FoodSaveAuth)
+    : null;
   window.MIO_DEMO_MODE = true;
+
+  function clearDemoStorage() {
+    const fixedSessionKeys = ["mio.demo", "mio.demo.partner", "mio.demo.charity"];
+    for (const key of fixedSessionKeys) {
+      try { sessionStorage.removeItem(key); } catch (error) {}
+    }
+    try {
+      const dynamicSessionKeys = [];
+      for (let i = 0; i < sessionStorage.length; i += 1) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith("foodsave.mio.demo.") || key.startsWith("mio.demo."))) {
+          dynamicSessionKeys.push(key);
+        }
+      }
+      for (const key of dynamicSessionKeys) sessionStorage.removeItem(key);
+    } catch (error) {}
+    try { localStorage.removeItem(sessionKey); } catch (error) {}
+    try {
+      const dynamicLocalKeys = [];
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("foodsave.mio.demo.")) dynamicLocalKeys.push(key);
+      }
+      for (const key of dynamicLocalKeys) localStorage.removeItem(key);
+    } catch (error) {}
+  }
+
+  function exitDemoMode() {
+    clearDemoStorage();
+    const currentClear = window.FoodSaveAuth?.clearSession;
+    try { window.FoodSaveAuth?.clearSession?.(); } catch (error) {}
+    if (originalClearSession && currentClear !== originalClearSession) {
+      try { originalClearSession(); } catch (error) {}
+    }
+    try {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("demo");
+      const target = cleanUrl.toString();
+      if (target !== window.location.href) {
+        window.location.assign(target);
+      } else {
+        window.location.reload();
+      }
+    } catch (error) {
+      window.location.reload();
+    }
+  }
 
   const badge = document.createElement("div");
   badge.className = "mio-demo-badge";
-  badge.textContent = "MIO · CHẾ ĐỘ DEMO · DỮ LIỆU MẪU";
+  const badgeLabel = document.createElement("span");
+  badgeLabel.className = "mio-demo-label";
+  badgeLabel.textContent = "MIO · CHẾ ĐỘ DEMO";
+  const exitButton = document.createElement("button");
+  exitButton.type = "button";
+  exitButton.className = "mio-demo-exit";
+  exitButton.setAttribute("data-act", "exit-demo");
+  exitButton.textContent = "Thoát Demo";
+  exitButton.addEventListener("click", exitDemoMode);
+  badge.appendChild(badgeLabel);
+  badge.appendChild(exitButton);
   document.body.appendChild(badge);
   const style = document.createElement("style");
-  style.textContent = ".mio-demo-badge{position:fixed;right:12px;bottom:12px;z-index:5000;padding:9px 13px;border-radius:999px;background:#064e32;color:#fff;font:800 11px/1.2 Inter,system-ui,sans-serif;letter-spacing:.04em;box-shadow:0 4px 18px #0002}.mio-demo-help{padding:13px 15px;margin:0 0 16px;background:#fff7ed;border:1px solid #fdba74;border-radius:12px;color:#7c2d12;font:600 12px/1.6 Inter,system-ui,sans-serif}.mio-demo-help strong{color:#14532d}.mio-demo-help button{margin-top:8px;padding:7px 11px;border:0;border-radius:8px;background:#15803d;color:#fff;font-weight:800;cursor:pointer}";
+  style.textContent = ".mio-demo-badge{position:fixed;right:12px;bottom:12px;z-index:5000;display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 13px;border-radius:999px;background:#064e32;color:#fff;font:800 11px/1.2 Inter,system-ui,sans-serif;letter-spacing:.04em;box-shadow:0 4px 18px #0002}.mio-demo-exit{padding:5px 10px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font:800 11px/1.2 Inter,system-ui,sans-serif;cursor:pointer;transition:background .15s ease}.mio-demo-exit:hover{background:rgba(255,255,255,.28)}.mio-demo-help{padding:13px 15px;margin:0 0 16px;background:#fff7ed;border:1px solid #fdba74;border-radius:12px;color:#7c2d12;font:600 12px/1.6 Inter,system-ui,sans-serif}.mio-demo-help strong{color:#14532d}.mio-demo-help button{margin-top:8px;padding:7px 11px;border:0;border-radius:8px;background:#15803d;color:#fff;font-weight:800;cursor:pointer}";
   document.head.appendChild(style);
 
   const charity = {
@@ -88,7 +149,6 @@
     window.ECO_IMPACT = { partner: { totals: { co2_avoided_kg: 142, food_saved_kg: 328, completed_donations: 24 } } };
   }
 
-  const sessionKey = `foodsave.mio.demo.session.${role}`;
   let demoSession = null;
   try { demoSession = JSON.parse(localStorage.getItem(sessionKey) || "null"); } catch (error) {}
   if (window.FoodSaveAuth) {

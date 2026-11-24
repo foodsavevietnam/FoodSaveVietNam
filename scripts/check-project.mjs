@@ -15,9 +15,6 @@ export const HTML_FILES = Object.freeze([
   'chinh-sach.html',
   'dieu-khoan.html',
   'offline.html',
-  'FOODSAVE_APP_demo.html',
-  'FOODSAVE_PARTNER_v2.html',
-  'ADMIN_FOODSAVE_v2.html',
   'admin/index.html',
 ]);
 

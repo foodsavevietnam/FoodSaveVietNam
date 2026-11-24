@@ -4,12 +4,24 @@
         <loc>https://makeitorganized.netlify.app/</loc>
     </url>
     <url>
-        <loc>https://makeitorganized.netlify.app/foodsave_partner</loc>
+        <loc>https://makeitorganized.netlify.app/FOODSAVE_USER.html</loc>
     </url>
     <url>
-        <loc>https://makeitorganized.netlify.app/foodsave_charity</loc>
+        <loc>https://makeitorganized.netlify.app/FOODSAVE_APP.html</loc>
     </url>
     <url>
-        <loc>https://makeitorganized.netlify.app/foodsave_user</loc>
+        <loc>https://makeitorganized.netlify.app/FOODSAVE_PARTNER.html</loc>
+    </url>
+    <url>
+        <loc>https://makeitorganized.netlify.app/FOODSAVE_CHARITY.html</loc>
+    </url>
+    <url>
+        <loc>https://makeitorganized.netlify.app/FOODSAVE_VOLUNTEER.html</loc>
+    </url>
+    <url>
+        <loc>https://makeitorganized.netlify.app/dieu-khoan.html</loc>
+    </url>
+    <url>
+        <loc>https://makeitorganized.netlify.app/chinh-sach.html</loc>
     </url>
 </urlset>

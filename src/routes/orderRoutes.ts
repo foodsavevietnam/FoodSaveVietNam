@@ -28,7 +28,7 @@ orderRoutes.post("/", requireRoles("customer", "admin"), validateRequest({ body:
 orderRoutes.post("/payments/momo", requireRoles("customer", "admin"), validateRequest({ body: createMomoPaymentBodySchema }), asyncHandler(orderController.createMomoPayment));
 orderRoutes.post("/payments/momo/webhook/mock", requireRoles("admin"), validateRequest({ body: momoWebhookMockBodySchema }), asyncHandler(orderController.mockMomoWebhook));
 orderRoutes.get("/complaints/list", requireRoles("customer", "partner", "admin"), validateRequest({ query: complaintListQuerySchema }), asyncHandler(orderController.listComplaints));
-orderRoutes.post("/complaints/upload-url", requireRoles("customer", "partner"), validateRequest({ body: complaintUploadBodySchema }), asyncHandler(orderController.complaintUploadUrl));
+orderRoutes.post("/complaints/upload-url", requireRoles("customer", "partner", "admin"), validateRequest({ body: complaintUploadBodySchema }), asyncHandler(orderController.complaintUploadUrl));
 orderRoutes.post("/complaints/:id/respond", requireRoles("partner"), validateRequest({ params: uuidParamSchema, body: respondComplaintBodySchema }), asyncHandler(orderController.respondComplaint));
 orderRoutes.post("/complaints", requireRoles("customer", "admin"), validateRequest({ body: createComplaintBodySchema }), asyncHandler(orderController.createComplaint));
 orderRoutes.patch("/complaints/:id", requireRoles("partner", "admin"), validateRequest({ params: uuidParamSchema, body: updateComplaintBodySchema }), asyncHandler(orderController.updateComplaint));

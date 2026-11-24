@@ -78,7 +78,8 @@ export const complaintDecisionBodySchema = z.object({
 }).strict();
 
 export const complaintUploadBodySchema = z.object({
-  content_type: z.enum(["image/jpeg", "image/png", "image/webp"])
+  content_type: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  order_id: z.string().uuid().optional()
 }).strict();
 
 export const complaintListQuerySchema = z.object({
@@ -114,6 +115,7 @@ export type CancelOrderBody = z.infer<typeof cancelOrderBodySchema>;
 export type CreateComplaintBody = z.infer<typeof createComplaintBodySchema>;
 export type RespondComplaintBody = z.infer<typeof respondComplaintBodySchema>;
 export type ComplaintDecisionBody = z.infer<typeof complaintDecisionBodySchema>;
+export type ComplaintUploadBody = z.infer<typeof complaintUploadBodySchema>;
 export type UpdateComplaintBody = z.infer<typeof updateComplaintBodySchema>;
 export type CreateMomoPaymentBody = z.infer<typeof createMomoPaymentBodySchema>;
 export type MomoWebhookMockBody = z.infer<typeof momoWebhookMockBodySchema>;

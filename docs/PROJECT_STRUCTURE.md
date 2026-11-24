@@ -10,18 +10,18 @@ Tên hiển thị của dự án là **MIO**. Logo mới lấy từ `logo mới.
 
 `foodsave-config.js` được nạp trước các script nghiệp vụ. Nó chọn API trên cùng origin hoặc sử dụng cấu hình API đã được chủ dự án cung cấp. Không gắn địa chỉ deployment cũ cố định trong từng trang.
 
-| Vai trò | Bản chính | Bản tham khảo được giữ lại |
+| Vai trò | Bản chính | Ghi chú |
 | --- | --- | --- |
 | Trang giới thiệu | `index.html` | — |
 | Người mua web | `FOODSAVE_USER.html` | — |
-| Ứng dụng PWA | `FOODSAVE_APP.html` | `FOODSAVE_APP_demo.html` |
-| Cửa hàng | `FOODSAVE_PARTNER.html` | `FOODSAVE_PARTNER_v2.html` |
-| Tổ chức từ thiện | `FOODSAVE_CHARITY.html` | — |
+| Ứng dụng PWA | `FOODSAVE_APP.html` | — |
+| Cửa hàng | `FOODSAVE_PARTNER.html` | Đã tích hợp module `partner-v2` và chế độ `?demo=1` |
+| Tổ chức từ thiện | `FOODSAVE_CHARITY.html` | Hỗ trợ chế độ `?demo=1` |
 | Tình nguyện viên | `FOODSAVE_VOLUNTEER.html` | — |
-| Quản trị | `ADMIN_FOODSAVE.html` | `ADMIN_FOODSAVE_v2.html` |
+| Quản trị | `ADMIN_FOODSAVE.html` | Đã tích hợp module `admin-v2` |
 | Quản trị (cổng mới) | `public/admin/` (`/admin/`) | chạy song song `ADMIN_FOODSAVE.html`, thay dần từng màn; ES modules, không bundler |
 
-Các bản có hậu tố `_v2` là bản tham khảo, chưa thay thế bản chính: bản chính hiện đã nạp các module `partner-v2` hoặc `admin-v2`. Không chọn phiên bản chỉ dựa vào tên file.
+Các trang tham khảo cũ (`_v2` và `_demo`) đã được gỡ bỏ khỏi `public/` và chuyển hướng về các trang chính tương ứng (xem `netlify.toml`).
 
 Cấu trúc `public/admin/`: `core/` chứa lõi dùng chung (đăng nhập, gọi API, router, poll, bảng, định dạng, nhãn tiếng Việt); `screens/` mỗi màn một file cùng `manifest.js` khai báo menu; `demo/` là dữ liệu mẫu cho `?demo=1`; `styles/` là CSS của cổng. Chỉ `core/auth.js` được nhắc tới Supabase; mọi vòng lặp gọi API phải qua `core/poll.js`.
 

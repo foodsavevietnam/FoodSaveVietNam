@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /ADMIN_FOODSAVE.html
+Disallow: /offline.html
+Disallow: /api/
 
 Sitemap: https://makeitorganized.netlify.app/sitemap.xml

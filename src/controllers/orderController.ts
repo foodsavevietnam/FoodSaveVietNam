@@ -8,6 +8,7 @@ import type {
   ChatMessageBody,
   ConfirmPaymentBody,
   CreateComplaintBody,
+  ComplaintUploadBody,
   CreateMomoPaymentBody,
   CreateOrderBody,
   CreateReviewBody,
@@ -175,7 +176,7 @@ export const orderController = {
 
   async complaintUploadUrl(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
-    const body = req.validated?.body as { content_type: string };
-    sendSuccess(res, await complaintService.createUploadUrl(actor.userId, actor.role, body.content_type), HTTP_STATUS.CREATED);
+    const body = req.validated?.body as ComplaintUploadBody;
+    sendSuccess(res, await complaintService.createUploadUrl(actor.userId, actor.role, body.content_type, body.order_id), HTTP_STATUS.CREATED);
   }
 };

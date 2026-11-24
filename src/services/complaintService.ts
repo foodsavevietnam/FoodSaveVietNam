@@ -24,7 +24,15 @@ import { handleSupabaseError, requireRecord, supabaseAdmin } from "./supabaseSer
 import { randomUUID } from "crypto";
 
 export const EVIDENCE_BUCKET = "partner-assets";
+export const PRIVATE_EVIDENCE_BUCKET = "complaint-evidence";
+export const EVIDENCE_SIGNED_URL_TTL_SECONDS = 600;
 const EVIDENCE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const getComplaintStorageBucket = (): string => {
+  const configured = (process.env.COMPLAINT_STORAGE_BUCKET || "").trim();
+  return configured || EVIDENCE_BUCKET;
+};
 
 export type ReasonCode = "wrong_item" | "spoiled_expired" | "missing_items" | "other";
 export type Decision = "refund_full" | "refund_partial" | "reject";
@@ -65,14 +73,86 @@ const notFound = (message = "Không tìm thấy khiếu nại"): AppError => new
 const forbidden = (message: string): AppError => new AppError(message, HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
 const money = (value: number): string => `${Math.round(value).toLocaleString("vi-VN")}đ`;
 
-/** Chỉ nhận ảnh đã tải lên kho của FoodSave (qua link tải ảnh của backend), không nhận đường dẫn ngoài */
-const assertEvidenceUrls = (urls: string[] | undefined): string[] => {
-  const prefix = `${env.SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/${EVIDENCE_BUCKET}/complaints/`;
+const parseEvidenceUrl = (url: string): { bucket: string; objectPath: string; relativePath: string } | null => {
+  const baseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+  const allowedBuckets = new Set([EVIDENCE_BUCKET, PRIVATE_EVIDENCE_BUCKET, getComplaintStorageBucket()]);
+  for (const bucket of allowedBuckets) {
+    const prefixes = [
+      `${baseUrl}/storage/v1/object/public/${bucket}/complaints/`,
+      `${baseUrl}/storage/v1/object/authenticated/${bucket}/complaints/`,
+      `${baseUrl}/storage/v1/object/${bucket}/complaints/`
+    ];
+    for (const prefix of prefixes) {
+      if (url.startsWith(prefix)) {
+        const rawRest = url.slice(prefix.length);
+        const withoutQuery = rawRest.split(/[?#]/)[0] ?? "";
+        if (!withoutQuery || withoutQuery.includes("\\") || withoutQuery.includes("..") || /%2e/i.test(withoutQuery)) {
+          return null;
+        }
+        const segments = withoutQuery.split("/");
+        if (segments.some((seg) => !seg)) return null;
+        return { bucket, objectPath: `complaints/${withoutQuery}`, relativePath: withoutQuery };
+      }
+    }
+  }
+  return null;
+};
+
+/** Chỉ nhận ảnh đã tải lên kho của FoodSave (qua link tải ảnh của backend), không nhận đường dẫn ngoài hoặc ảnh thuộc đơn khác */
+export const assertEvidenceUrls = (
+  urls: string[] | undefined,
+  expectedOrderId?: string,
+  expectedActorId?: string
+): string[] => {
   const list = urls ?? [];
-  if (list.some((url) => !url.startsWith(prefix))) {
-    throw new AppError("Ảnh minh chứng phải được tải lên qua FoodSave", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  for (const url of list) {
+    const parsed = parseEvidenceUrl(url);
+    if (!parsed) {
+      throw new AppError("Ảnh minh chứng phải được tải lên qua FoodSave", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+    const segments = parsed.relativePath.split("/");
+    const firstSegment = segments[0] ?? "";
+    if (UUID_PATTERN.test(firstSegment)) {
+      if (expectedOrderId && firstSegment.toLowerCase() !== expectedOrderId.toLowerCase()) {
+        throw new AppError("Ảnh minh chứng không thuộc đơn hàng này", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+      if (expectedActorId && segments.length >= 3 && (segments[1] ?? "").toLowerCase() !== expectedActorId.toLowerCase()) {
+        throw new AppError("Ảnh minh chứng không thuộc người gửi này", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+    }
   }
   return list;
+};
+
+/** Sinh link có chữ ký ngắn hạn (10 phút) cho ảnh nằm trong bucket riêng tư complaint-evidence; giữ nguyên URL công khai cũ */
+export const signEvidenceUrls = async (
+  urls: string[] | undefined,
+  expiresInSeconds = EVIDENCE_SIGNED_URL_TTL_SECONDS
+): Promise<string[]> => {
+  const list = urls ?? [];
+  if (list.length === 0) return [];
+  const baseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+  const privatePrefixes = [
+    `${baseUrl}/storage/v1/object/public/${PRIVATE_EVIDENCE_BUCKET}/`,
+    `${baseUrl}/storage/v1/object/authenticated/${PRIVATE_EVIDENCE_BUCKET}/`,
+    `${baseUrl}/storage/v1/object/${PRIVATE_EVIDENCE_BUCKET}/`
+  ];
+  return Promise.all(list.map(async (url) => {
+    const matchedPrefix = privatePrefixes.find((prefix) => url.startsWith(prefix));
+    if (!matchedPrefix) return url;
+    const objectPath = (url.slice(matchedPrefix.length).split(/[?#]/)[0] ?? "").trim();
+    if (!objectPath || objectPath.includes("..") || objectPath.includes("\\") || /%2e/i.test(objectPath)) return url;
+    try {
+      const storageBucket = supabaseAdmin.storage.from(PRIVATE_EVIDENCE_BUCKET);
+      if (typeof storageBucket.createSignedUrl !== "function") return url;
+      const { data, error } = await storageBucket.createSignedUrl(objectPath, expiresInSeconds);
+      if (!error && data?.signedUrl) return data.signedUrl;
+      logger.warn("Không tạo được link ký tạm cho ảnh minh chứng khiếu nại", { objectPath, error });
+    } catch (error) {
+      logger.warn("Không tạo được link ký tạm cho ảnh minh chứng khiếu nại", { objectPath, error });
+    }
+    return url;
+  }));
 };
 
 const loadComplaint = async (id: string): Promise<ComplaintRow> => {
@@ -184,22 +264,50 @@ const enrich = async (rows: ComplaintRow[]): Promise<Array<ComplaintRow & { orde
   const orderById = new Map(((orders ?? []) as Array<{ id: string; order_number: string; total_cents: number }>).map((o) => [o.id, o]));
   const nameById = new Map(((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [p.id, p.full_name]));
   const storeById = new Map(((stores ?? []) as Array<{ id: string; name: string }>).map((s) => [s.id, s.name]));
-  return rows.map((row) => ({
+  return Promise.all(rows.map(async (row) => ({
     ...row,
+    image_urls: await signEvidenceUrls(row.image_urls),
+    store_response_images: await signEvidenceUrls(row.store_response_images),
     order_number: orderById.get(row.order_id)?.order_number ?? null,
     order_total: orderById.has(row.order_id) ? Number(orderById.get(row.order_id)?.total_cents) : null,
     customer_name: nameById.get(row.customer_id) ?? null,
     store_name: storeById.get(row.store_id) ?? null
-  }));
+  })));
 };
 
 export const complaintService = {
-  /** Link tạm để trình duyệt tự tải ảnh minh chứng lên (người mua và cửa hàng). Ảnh nằm dưới complaints/ trong kho partner-assets. */
-  async createUploadUrl(actorId: string, role: UserRole, contentType: string): Promise<{ path: string; token: string; signed_url: string; public_url: string }> {
+  assertEvidenceUrls,
+  signEvidenceUrls,
+
+  /** Link tạm để trình duyệt tự tải ảnh minh chứng lên (người mua, cửa hàng hoặc admin). Khi có orderId sẽ kiểm tra quyền sở hữu đơn và gắn đường dẫn complaints/<orderId>/<actorId>/<uuid>.<ext>. */
+  async createUploadUrl(
+    actorId: string,
+    role: UserRole,
+    contentType: string,
+    orderId?: string
+  ): Promise<{ path: string; token: string; signed_url: string; public_url: string }> {
     const extension = EVIDENCE_TYPES[contentType];
     if (!extension) throw new AppError("Chỉ nhận ảnh JPG, PNG hoặc WEBP", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
-    const path = `complaints/${role}-${actorId}/${randomUUID()}.${extension}`;
-    const bucket = supabaseAdmin.storage.from(EVIDENCE_BUCKET);
+
+    let path: string;
+    if (orderId !== undefined) {
+      if (typeof orderId !== "string" || !UUID_PATTERN.test(orderId)) {
+        throw new AppError("Mã đơn hàng không hợp lệ", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+      const order = await loadOrder(orderId);
+      const isOrderCustomer = order.customer_id === actorId;
+      const isStoreOwner = order.stores?.owner_id === actorId;
+      const isAdmin = role === "admin";
+      if (!isOrderCustomer && !isStoreOwner && !isAdmin) {
+        throw forbidden("Bạn không có quyền tải ảnh minh chứng cho đơn hàng này");
+      }
+      path = `complaints/${orderId}/${actorId}/${randomUUID()}.${extension}`;
+    } else {
+      path = `complaints/${role}-${actorId}/${randomUUID()}.${extension}`;
+    }
+
+    const bucketName = getComplaintStorageBucket();
+    const bucket = supabaseAdmin.storage.from(bucketName);
     const { data, error } = await bucket.createSignedUploadUrl(path);
     if (error || !data) throw new AppError("Không tạo được link tải ảnh", HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
     return { path, token: data.token, signed_url: data.signedUrl, public_url: bucket.getPublicUrl(path).data.publicUrl };
@@ -220,7 +328,7 @@ export const complaintService = {
     const { data: existing } = await supabaseAdmin.from("complaints").select("id").eq("order_id", order.id).limit(1);
     if (existing && existing.length > 0) throw conflict("Đơn này đã có khiếu nại", ERROR_CODES.COMPLAINT_ALREADY_EXISTS);
 
-    const images = assertEvidenceUrls(body.image_urls);
+    const images = assertEvidenceUrls(body.image_urls, order.id, customerId);
     if (images.length === 0) throw new AppError("Cần ít nhất 1 ảnh minh chứng", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
 
     let names = body.product_names ?? [];
@@ -293,7 +401,7 @@ export const complaintService = {
       await complaintService.escalateOverdue();
       throw conflict("Đã quá thời hạn phản hồi 12 giờ, khiếu nại đã chuyển cho Admin quyết định");
     }
-    const images = assertEvidenceUrls(body.image_urls);
+    const images = assertEvidenceUrls(body.image_urls, complaint.order_id, ownerId);
     if (body.action === "dispute" && !(body.note && body.note.trim().length >= 5)) {
       throw new AppError("Cần nhập lý do không đồng ý (tối thiểu 5 ký tự)", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }

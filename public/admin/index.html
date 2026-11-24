@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIO — Quản trị</title>
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/frontend/mio-brand.css">
+<link rel="stylesheet" href="./styles/admin.css?v=20261123b">
+<script src="/frontend/foodsave-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js"></script>
+</head>
+<body class="admin-locked">
+<form id="login" method="post" autocomplete="on">
+  <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
+  <h1>MIO — Quản trị</h1>
+  <label>Email<input type="email" name="email" autocomplete="username" required></label>
+  <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required></label>
+  <button type="submit" class="bt bt-p" disabled>Đăng nhập</button>
+  <p id="loginError" role="alert"></p>
+</form>
+<div id="app">
+  <aside id="sidebar" class="S">
+    <div class="S-b">
+      <img class="mio-logo" src="/icons/mio-logo-square.png" alt="MIO" width="64" height="64">
+      <h1>MIO</h1>
+      <p>Quản trị hệ thống</p>
+    </div>
+  </aside>
+  <div class="M">
+    <header id="topbar" class="T"></header>
+    <main id="screen" class="C"></main>
+  </div>
+  <div id="drawer" class="drawer"></div>
+  <div id="modal" class="modal"></div>
+  <div id="toasts"></div>
+</div>
+<script type="module" src="./core/app.js?v=20261123b"></script>
+</body>
+</html>

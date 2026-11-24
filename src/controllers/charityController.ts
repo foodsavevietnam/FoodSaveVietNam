@@ -13,12 +13,17 @@ import type {
   UpdateVolunteerBody
 } from "../schemas/charitySchemas";
 import { charityService } from "../services/charityService";
+import { locationService } from "../services/locationService";
 import { getActor } from "../utils/requestContext";
 import { sendSuccess } from "../utils/response";
 
 type UuidParams = { id: string };
 
 export const charityController = {
+  async listLiveVolunteers(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, await locationService.listForCharity(getActor(req).userId));
+  },
+
   async listMyCharities(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
     const charities = await charityService.listMyCharities(actor.userId);

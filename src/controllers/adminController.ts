@@ -3,7 +3,7 @@ import { complaintService } from "../services/complaintService";
 import { ledgerService } from "../services/ledgerService";
 import { payoutAccountService } from "../services/payoutAccountService";
 import { orderAutomationService } from "../services/orderAutomationService";
-import { getActor } from "../utils/requestContext";
+import { auditActor, getActor } from "../utils/requestContext";
 import { customerReputationService } from "../services/customerReputationService";
 import { CUSTOMER_REPUTATION, GRACE_CANCEL_MINUTES, LABEL_POLICY, MIN_PICKUP_WINDOW_MINUTES, NO_SHOW_BAN_COUNT, NO_SHOW_WINDOW_DAYS, RED_BAN_DAYS, timeScale } from "../constants/orderPolicy";
 import { HTTP_STATUS } from "../constants/http";
@@ -12,20 +12,20 @@ import { AppError } from "../utils/appError";
 import { adminService } from "../services/adminService";
 import { labelAutomationService } from "../services/labelAutomationService";
 import { sendSuccess } from "../utils/response";
-import { adminAuditService } from "../services/adminAuditService";
+import { adminAuditService, type AuditFilter } from "../services/adminAuditService";
 import { adminOpsService, type VoucherInput } from "../services/adminOpsService";
 import { AUTOMATION_JOBS, automationRunService, type AutomationJob } from "../services/automationRunService";
 import { policyConfigService } from "../services/policyConfigService";
 import { volunteerReminderService } from "../services/volunteerReminderService";
+import { locationService } from "../services/locationService";
 import type { PolicyConfig } from "../constants/orderPolicy";
-
-const auditActor = (req: Request): { userId: string; name: string | null } => {
-  const actor = getActor(req);
-  return { userId: actor.userId, name: actor.profile.full_name ?? null };
-};
 
 type AdminUserParams = { userId: string };
 type RejectPartnerBody = { reason: string };
+
+/** Chỉ giữ các trường có giá trị để chi tiết nhật ký gọn */
+const definedOnly = (detail: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(detail).filter(([, value]) => value !== undefined && value !== null && value !== ""));
 
 export const adminController = {
   async getPendingPartners(_req: Request, res: Response): Promise<void> {
@@ -48,6 +48,11 @@ export const adminController = {
 
   async systemUsers(_req: Request, res: Response): Promise<void> {
     sendSuccess(res, await adminService.systemUsers());
+  },
+
+  async listLiveLocations(req: Request, res: Response): Promise<void> {
+    const { kind } = (req.validated?.query ?? {}) as { kind?: "volunteer" | "customer" };
+    sendSuccess(res, await locationService.listForAdmin(kind ? { kind } : {}));
   },
 
   // Chạy ngay tác vụ đơn hàng (hủy quá hạn thanh toán, vắng mặt, nhắc lấy hàng)
@@ -86,8 +91,8 @@ export const adminController = {
   },
 
   async auditLog(req: Request, res: Response): Promise<void> {
-    const limit = Number((req.validated?.query as { limit?: number } | undefined)?.limit ?? 100);
-    sendSuccess(res, await adminAuditService.list(limit));
+    const { limit = 100, ...filter } = (req.validated?.query ?? {}) as { limit?: number } & AuditFilter;
+    sendSuccess(res, await adminAuditService.list(Number(limit), filter));
   },
 
   async labels(_req: Request, res: Response): Promise<void> { sendSuccess(res, await adminOpsService.labelOverview()); },
@@ -163,14 +168,19 @@ export const adminController = {
     const actor = getActor(req);
     const params = req.validated?.params as { id: string };
     const body = req.validated?.body as { decision: "approve" | "reject" | "start" | "pay" | "fail"; note?: string | undefined; bank_txn_ref?: string | undefined };
-    sendSuccess(res, await ledgerService.transitionWithdrawal(params.id, body.decision, actor.userId, { note: body.note, bank_txn_ref: body.bank_txn_ref }));
+    const result = await ledgerService.transitionWithdrawal(params.id, body.decision, actor.userId, { note: body.note, bank_txn_ref: body.bank_txn_ref });
+    await adminAuditService.log(auditActor(req), `withdrawal.${body.decision}`, "withdrawal", params.id, definedOnly({ note: body.note, bank_txn_ref: body.bank_txn_ref }));
+    sendSuccess(res, result);
   },
 
   // Xem số tài khoản đầy đủ để chi trả: có ghi nhật ký truy cập
   async revealWithdrawalAccount(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
     const params = req.validated?.params as { id: string };
-    sendSuccess(res, await payoutAccountService.revealForWithdrawal(params.id, actor.userId, "admin_manual_payout"));
+    const result = await payoutAccountService.revealForWithdrawal(params.id, actor.userId, "admin_manual_payout");
+    // Nhật ký Admin KHÔNG chứa số tài khoản (số chỉ nằm trong response cho admin đang chi trả)
+    await adminAuditService.log(auditActor(req), "payout_account.reveal", "withdrawal", params.id, {});
+    sendSuccess(res, result);
   },
 
   async listPayoutAccounts(req: Request, res: Response): Promise<void> {
@@ -182,7 +192,9 @@ export const adminController = {
     const actor = getActor(req);
     const params = req.validated?.params as { id: string };
     const body = req.validated?.body as { decision: "verify" | "reject"; note?: string | undefined };
-    sendSuccess(res, await payoutAccountService.decide(params.id, body.decision === "verify", actor.userId, body.note));
+    const result = await payoutAccountService.decide(params.id, body.decision === "verify", actor.userId, body.note);
+    await adminAuditService.log(auditActor(req), `payout_account.${body.decision}`, "payout_account", params.id, definedOnly({ note: body.note }));
+    sendSuccess(res, result);
   },
 
   async listComplaints(req: Request, res: Response): Promise<void> {
@@ -195,7 +207,9 @@ export const adminController = {
     const actor = getActor(req);
     const params = req.validated?.params as { id: string };
     const body = req.validated?.body as { decision: "refund_full" | "refund_partial" | "reject"; refund_cents?: number | undefined; is_false_claim?: boolean | undefined; note: string };
-    sendSuccess(res, await complaintService.decide(actor.userId, params.id, body));
+    const result = await complaintService.decide(actor.userId, params.id, body);
+    await adminAuditService.log(auditActor(req), `complaint.${body.decision}`, "complaint", params.id, definedOnly({ refund_cents: body.refund_cents, is_false_claim: body.is_false_claim, note: body.note }));
+    sendSuccess(res, result);
   },
 
   async unlockCustomer(req: Request, res: Response): Promise<void> {

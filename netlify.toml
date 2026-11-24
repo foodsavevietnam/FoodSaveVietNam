@@ -96,3 +96,9 @@
   for = "/*.webmanifest"
   [headers.values]
     Content-Type = "application/manifest+json"
+
+# Cổng quản trị mới: luôn lấy bản mới
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Cache-Control = "no-cache"

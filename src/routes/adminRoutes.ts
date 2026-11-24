@@ -5,6 +5,7 @@ import { uuidParamSchema } from "../schemas/commonSchemas";
 import { requireRoles } from "../middlewares/authMiddleware";
 import { validateRequest } from "../middlewares/validateRequest";
 import { asyncHandler } from "../utils/asyncHandler";
+import { adminPortalRoutes } from "./admin";
 
 const adminUserParamSchema = z.object({
   userId: z.string().uuid()
@@ -47,6 +48,7 @@ export { voucherBodySchema };
 
 adminRoutes.use(requireRoles("admin"));
 
+adminRoutes.get("/live-locations", validateRequest({ query: z.object({ kind: z.enum(["volunteer", "customer"]).optional() }).strict() }), asyncHandler(adminController.listLiveLocations));
 adminRoutes.get("/users", asyncHandler(adminController.systemUsers));
 adminRoutes.get("/pending-partners", asyncHandler(adminController.getPendingPartners));
 
@@ -70,7 +72,17 @@ adminRoutes.put("/order-policy", validateRequest({ body: policyBodySchema }), as
 adminRoutes.post("/order-policy/reset", asyncHandler(adminController.resetPolicy));
 adminRoutes.get("/automation", asyncHandler(adminController.automationOverview));
 adminRoutes.post("/automation/:job/run", validateRequest({ params: z.object({ job: z.enum(["label-automation", "order-automation", "complaint-escalation", "push-reminders"]) }).strict() }), asyncHandler(adminController.runAutomationJob));
-adminRoutes.get("/audit-log", validateRequest({ query: z.object({ limit: z.coerce.number().int().min(1).max(300).default(100) }).strict() }), asyncHandler(adminController.auditLog));
+export const auditLogQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(300).default(100),
+  action: z.string().trim().min(1).max(80).optional(),
+  actor_id: z.string().uuid().optional(),
+  target_type: z.string().trim().min(1).max(40).optional(),
+  target_id: z.string().trim().min(1).max(80).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional()
+}).strict();
+
+adminRoutes.get("/audit-log", validateRequest({ query: auditLogQuerySchema }), asyncHandler(adminController.auditLog));
 adminRoutes.get("/labels", asyncHandler(adminController.labels));
 adminRoutes.get("/verification", asyncHandler(adminController.verificationQueue));
 adminRoutes.post(
@@ -141,3 +153,5 @@ adminRoutes.post(
   }),
   asyncHandler(adminController.decideComplaint)
 );
+
+adminRoutes.use(adminPortalRoutes);

@@ -19,8 +19,11 @@ Tên hiển thị của dự án là **MIO**. Logo mới lấy từ `logo mới.
 | Tổ chức từ thiện | `FOODSAVE_CHARITY.html` | — |
 | Tình nguyện viên | `FOODSAVE_VOLUNTEER.html` | — |
 | Quản trị | `ADMIN_FOODSAVE.html` | `ADMIN_FOODSAVE_v2.html` |
+| Quản trị (cổng mới) | `public/admin/` (`/admin/`) | chạy song song `ADMIN_FOODSAVE.html`, thay dần từng màn; ES modules, không bundler |
 
 Các bản có hậu tố `_v2` là bản tham khảo, chưa thay thế bản chính: bản chính hiện đã nạp các module `partner-v2` hoặc `admin-v2`. Không chọn phiên bản chỉ dựa vào tên file.
+
+Cấu trúc `public/admin/`: `core/` chứa lõi dùng chung (đăng nhập, gọi API, router, poll, bảng, định dạng, nhãn tiếng Việt); `screens/` mỗi màn một file cùng `manifest.js` khai báo menu; `demo/` là dữ liệu mẫu cho `?demo=1`; `styles/` là CSS của cổng. Chỉ `core/auth.js` được nhắc tới Supabase; mọi vòng lặp gọi API phải qua `core/poll.js`.
 
 Service worker và các manifest ở gốc `public/` để giữ scope `/`. Khi thay đổi tài nguyên shell, cập nhật danh sách cache và phiên bản trong `sw.js`.
 

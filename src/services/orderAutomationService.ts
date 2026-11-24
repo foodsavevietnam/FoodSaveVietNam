@@ -14,6 +14,7 @@ import { volunteerReminderService } from "./volunteerReminderService";
 import { ledgerService } from "./ledgerService";
 import { markOrderNoShow, cancelOrderForPaymentTimeout } from "./orderService";
 import { supabaseAdmin } from "./supabaseService";
+import { locationService } from "./locationService";
 
 const BATCH = 200;
 
@@ -28,6 +29,7 @@ export interface OrderAutomationResult {
   complaints_escalated: number;
   complaints_completed: number;
   volunteer_reminders: number;
+  locations_pruned: number;
   errors: string[];
 }
 
@@ -148,6 +150,7 @@ export const orderAutomationService = {
       complaints_escalated: 0,
       complaints_completed: 0,
       volunteer_reminders: 0,
+      locations_pruned: 0,
       errors: []
     };
     await policyConfigService.ensureFresh();
@@ -186,6 +189,8 @@ export const orderAutomationService = {
     // Nhắc tình nguyện viên khi nhiệm vụ lấy hàng sắp hết hạn (push)
     await sub("push-reminders", async () => ({ volunteer_reminders: await volunteerReminderService.run() }));
     await step("chat_purge", async () => { result.chat_purged = await orderChatService.purgeOldMessages(); });
+    // Xóa vị trí cũ hơn 2 giờ và vị trí của nhiệm vụ không còn hoạt động
+    await step("location_prune", async () => { result.locations_pruned = await locationService.pruneInactive(); });
 
     logger.info("Order automation finished", result);
     return result;

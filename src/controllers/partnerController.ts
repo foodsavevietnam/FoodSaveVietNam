@@ -3,6 +3,7 @@ import { ledgerService } from "../services/ledgerService";
 import { payoutAccountService } from "../services/payoutAccountService";
 import { partnerService, type PartnerProfileUpdate } from "../services/partnerService";
 import { partnerOpsService } from "../services/partnerOpsService";
+import { locationService } from "../services/locationService";
 import type { VoucherInput } from "../services/adminOpsService";
 import { supabaseAdmin } from "../services/supabaseService";
 import { AppError } from "../utils/appError";
@@ -21,6 +22,10 @@ const ownStoreId = async (ownerId: string): Promise<string> => {
 };
 
 export const partnerController = {
+  async customerEta(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, await locationService.customerEta(getActor(req).userId, (req.validated?.params as { id: string }).id));
+  },
+
   async listCustomers(req: Request, res: Response): Promise<void> {
     sendSuccess(res, await partnerOpsService.customers(getActor(req).userId));
   },

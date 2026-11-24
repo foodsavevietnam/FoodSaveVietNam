@@ -51,10 +51,12 @@ before(async () => {
   publicDirectory = join(fixtureDirectory, 'public');
   await mkdir(join(publicDirectory, 'frontend'), { recursive: true });
   await mkdir(join(publicDirectory, 'reference'));
+  await mkdir(join(publicDirectory, 'admin'));
   await Promise.all([
     writeFile(join(publicDirectory, 'index.html'), '<!doctype html><title>MIO</title>'),
     writeFile(join(publicDirectory, 'FOODSAVE_USER.html'), '<title>Người mua</title>'),
     writeFile(join(publicDirectory, 'frontend', 'style.css'), 'body { color: green; }'),
+    writeFile(join(publicDirectory, 'admin', 'index.html'), '<title>MIO — Quản trị</title>'),
     writeFile(join(publicDirectory, 'sw.js'), '// Service worker fixture'),
     writeFile(join(publicDirectory, 'manifest-app.webmanifest'), '{}'),
     writeFile(join(publicDirectory, 'reference', 'sample.html'), '<title>Reference</title>'),
@@ -98,6 +100,11 @@ test('keeps service worker uncached and sends manifest MIME type', async () => {
   assert.equal(worker.headers['service-worker-allowed'], '/');
   const manifest = await get('/manifest-app.webmanifest');
   assert.match(manifest.headers['content-type'], /^application\/manifest\+json/u);
+});
+
+test('alias /admin mở cổng quản trị mới', async () => {
+  const r = await get('/admin'); assert.equal(r.status, 302); assert.equal(r.headers.location, '/admin/index.html');
+  const page = await get('/admin/index.html'); assert.equal(page.status, 200); assert.match(page.body, /Quản trị/u);
 });
 
 test('redirects portal aliases to the original URLs for role detection', async () => {

@@ -5,8 +5,8 @@
 <meta charset="UTF-8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  const supabaseUrl = 'https://uqyqayrwhcicuctfnwix.supabase.co';
-  const supabaseKey = 'sb_publishable_tUk1J3EpJfW4h9SkPDg_hg_FAJPOUuX';
+  const supabaseUrl = 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
+  const supabaseKey = 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
 
   // Phiên Admin lưu riêng (storageKey) để không dùng chung với phiên của trang người mua/cửa hàng trên cùng trình duyệt.
   const foodsaveAdminSupabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
@@ -358,8 +358,28 @@ tr.ag-on{background:var(--ac-l)}
 @media(max-width:1100px){.ag-stats{grid-template-columns:1fr}}
 @media(max-width:1100px){.ag-split{grid-template-columns:1fr}.ag-prev{position:static}.ag-plats{grid-template-columns:1fr 1fr}}
 @media(max-width:820px){.ag-flow{grid-template-columns:1fr}.ag-arrow{transform:rotate(90deg);padding:4px}}
+/* Bản đồ theo dõi */
+.trk-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}
+.trk-map{height:560px;border:1px solid var(--bd);border-radius:var(--rs);background:var(--bg2);overflow:hidden}
+.trk-side{border:1px solid var(--bd);border-radius:var(--rs);background:var(--card);max-height:560px;overflow:auto}
+.trk-row{padding:10px 12px;border-bottom:1px solid var(--bd);font-size:.78rem;display:flex;gap:8px;align-items:flex-start}
+.trk-row:last-child{border-bottom:0}
+.trk-row[data-stale="1"]{opacity:.5}
+.trk-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex:none}
+.trk-dot.volunteer,.trk-pin.volunteer{background:#1C7C45}
+.trk-dot.customer,.trk-pin.customer{background:#D97706}
+.trk-name{font-weight:700;color:var(--text)}
+.trk-meta{color:var(--t3);font-size:.7rem;margin-top:2px}
+.trk-pin{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.trk-pin.stale{opacity:.45}
+.trk-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.trk-bar .bt.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.trk-empty{padding:16px 12px;color:var(--t3);font-size:.76rem}
+@media(max-width:1100px){.trk-wrap{grid-template-columns:1fr}.trk-map{height:380px}.trk-side{max-height:none}}
 </style>
-<link rel="stylesheet" href="frontend/admin-v2.css?v=20261029a">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="frontend/foodsave-map.css?v=20261003e">
+<link rel="stylesheet" href="frontend/admin-v2.css?v=20261123a">
 <link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 </head>
@@ -401,6 +421,7 @@ tr.ag-on{background:var(--ac-l)}
 <div class="S-s">Xử lý vi phạm</div>
 <div class="S-i" data-p="disputes">Tranh chấp <em>7</em></div>
 <div class="S-i" data-p="risks">Cảnh báo gian lận <em>40</em></div>
+<div class="S-i" data-p="tracking">Bản đồ theo dõi</div>
 <div class="S-s">Marketing</div>
 <div class="S-i" data-p="agent">AI Agent đăng bài <em id="agBadge"></em></div>
 <div class="S-s">Hệ thống</div>
@@ -411,7 +432,7 @@ tr.ag-on{background:var(--ac-l)}
 </aside>
 
 <div class="M">
-<div class="T"><h2 id="pt">Bảng điều khiển</h2><div class="T-r"><div class="T-s"><input placeholder="Tìm kiếm..."></div><div class="NB"><button type="button" class="NB-b" id="nbBtn" onclick="nbToggle(event)" aria-label="Hoạt động hệ thống" title="Hoạt động hệ thống"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i id="nbDot"></i></button><div class="NB-p" id="nbPanel"></div></div></div></div>
+<div class="T"><h2 id="pt">Bảng điều khiển</h2><div class="npb" id="newPortalBanner" hidden><span>Cổng quản trị mới đang thay dần trang này.</span> <a href="/admin/">Mở cổng mới</a><button type="button" id="newPortalBannerClose" aria-label="Đóng thông báo" title="Đóng">&times;</button></div><div class="T-r"><div class="T-s"><input placeholder="Tìm kiếm..."></div><div class="NB"><button type="button" class="NB-b" id="nbBtn" onclick="nbToggle(event)" aria-label="Hoạt động hệ thống" title="Hoạt động hệ thống"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i id="nbDot"></i></button><div class="NB-p" id="nbPanel"></div></div></div></div>
 <div class="C" id="ct"></div>
 </div>
 
@@ -1421,15 +1442,142 @@ function rejectCharity(charityId) {
 }
 
 // ===== NAV =====
-const titles={sysusers:'Người dùng hệ thống',agent:'AI Agent đăng bài',dashboard:'Bảng điều khiển',admins:'Quản trị viên',users:'Người dùng',reputation:'Uy tín',merchants:'Cửa hàng',charities:'Tổ chức từ thiện',inventory:'Lô hàng tồn kho',donations:'Lô tặng từ thiện',orders:'Đơn hàng',payments:'Thanh toán',payouts:'Chi trả đối tác',disputes:'Tranh chấp',risks:'Cảnh báo gian lận',audits:'Nhật ký hoạt động',config:'Cấu hình'};
+const titles={sysusers:'Người dùng hệ thống',agent:'AI Agent đăng bài',dashboard:'Bảng điều khiển',admins:'Quản trị viên',users:'Người dùng',reputation:'Uy tín',merchants:'Cửa hàng',charities:'Tổ chức từ thiện',inventory:'Lô hàng tồn kho',donations:'Lô tặng từ thiện',orders:'Đơn hàng',payments:'Thanh toán',payouts:'Chi trả đối tác',disputes:'Tranh chấp',risks:'Cảnh báo gian lận',audits:'Nhật ký hoạt động',config:'Cấu hình',tracking:'Bản đồ theo dõi'};
 let currentPage='dashboard';
 function go(p){
+if(currentPage==='tracking'&&p!=='tracking')trkLeave();
 currentPage=p;
 document.querySelectorAll('.S-i').forEach(el=>el.classList.toggle('on',el.dataset.p===p));
 document.getElementById('pt').textContent=titles[p]||p;
 document.getElementById('ct').innerHTML=`<div class="page">${(pg[p]||pg.dashboard)()}</div>`;
+if(p==='tracking')trkEnter();
 }
 document.querySelectorAll('.S-i').forEach(el=>el.addEventListener('click',()=>{go(el.dataset.p);if(el.dataset.p==='merchants'&&typeof syncPartnersFromSupabase==='function')syncPartnersFromSupabase();}));
+// ═══════════ BẢN ĐỒ THEO DÕI (Admin) — GET /admin/live-locations ═══════════
+// Poll 20 giây CHỈ khi tab hiển thị và đang ở trang này; rời trang thì xóa hẹn giờ và gỡ bản đồ.
+// Giữ hạn mức gói miễn phí: không thao tác 15 phút thì ngừng poll (bấm nút để tiếp tục); mỗi lần tải tối đa 15 giây.
+const TRK_POLL_MS=20000,TRK_STALE_MS=5*60000,TRK_MIN_GAP_MS=5000,TRK_IDLE_MS=15*60000,TRK_TIMEOUT_MS=15000;
+const TRK={rows:[],filter:'all',map:null,layer:null,timer:null,busy:false,failed:false,fetchedAt:0,attemptAt:0,lastInput:Date.now(),paused:false,fitted:false};
+const TRK_GROUP={volunteer:'TNV',customer:'Người mua'};
+function trkVisible(){return document.visibilityState==='visible';}
+function trkActive(){return currentPage==='tracking'&&!!currentAdmin&&!!document.getElementById('trk-map');}
+function trkSafeUrl(u){return typeof u==='string'&&/^https:\/\//.test(u)?u:'';}
+function trkAgo(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));return m<1?'vừa xong':m<60?m+' phút trước':Math.round(m/60)+' giờ trước';}
+function trkStale(r){return TRK.failed||Date.now()-new Date(r.updated_at).getTime()>TRK_STALE_MS;}
+function trkCode(r){return (r.context_kind==='order'?'Đơn ':'Lô ')+esc(r.context_code);}
+function trkStatus(t){const el=document.getElementById('trk-status');if(el)el.textContent=t;}
+function trkTouch(){TRK.lastInput=Date.now();}
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,trkTouch,{capture:true,passive:true}));
+function trkShowResume(){const b=document.getElementById('trk-resume');if(b)b.hidden=!TRK.paused;}
+pg.tracking=()=>{
+const f=(k,t)=>`<button type="button" class="bt${TRK.filter===k?' on':''}" data-trk-filter="${k}" onclick="trkSetFilter('${k}')">${t}</button>`;
+return`<div class="trk-bar">${f('all','Tất cả')}${f('volunteer','TNV')}${f('customer','Người mua')}<span id="trk-status" style="font-size:.72rem;color:var(--t3);margin-left:6px" role="status"></span><button type="button" class="bt" id="trk-resume" data-trk-resume onclick="trkResume()"${TRK.paused?'':' hidden'}>Bấm để tiếp tục cập nhật</button></div>
+<div class="trk-wrap"><div id="trk-map" class="trk-map"></div><div id="trk-list" class="trk-side"></div></div>`;
+};
+function trkSetFilter(k){
+TRK.filter=k;TRK.fitted=false;
+document.querySelectorAll('[data-trk-filter]').forEach(b=>b.classList.toggle('on',b.dataset.trkFilter===k));
+trkDraw();
+}
+function trkDraw(){
+if(!trkActive())return;
+const all=Array.isArray(TRK.rows)?TRK.rows:[];
+const rows=all.filter(r=>TRK.filter==='all'||r.actor_kind===TRK.filter);
+// Giữ popup đang mở qua các lần làm mới (mở lại trên marker mới của cùng người)
+let openKey=null;
+if(TRK.layer){TRK.layer.eachLayer(m=>{if(m.isPopupOpen&&m.isPopupOpen())openKey=m.trkKey;});TRK.layer.clearLayers();}
+const points=[];
+rows.forEach(r=>{
+if(!isFinite(r.lat)||!isFinite(r.lng))return;
+points.push([r.lat,r.lng]);
+if(!TRK.layer||!window.L)return;
+const stale=trkStale(r),url=trkSafeUrl(r.directions_url);
+const popup=`<b>${esc(r.name)}</b><br>${esc(TRK_GROUP[r.actor_kind]||'')} · ${trkCode(r)}<br>Cập nhật ${esc(trkAgo(r.updated_at))}`+(r.destination?`<br>Đang tới: ${esc(r.destination.label||'')}`:'')+(url?`<br><a href="${esc(url)}" target="_blank" rel="noopener">Chỉ đường</a>`:'');
+const key=r.actor_kind+':'+r.actor_id,reopen=key===openKey;
+const marker=window.L.marker([r.lat,r.lng],{icon:window.L.divIcon({className:'',html:`<div class="trk-pin ${r.actor_kind==='customer'?'customer':'volunteer'}${stale?' stale':''}">${esc(String(r.name||'?').trim().slice(0,1).toUpperCase())}</div>`,iconSize:[30,30],iconAnchor:[15,15]}),opacity:stale?.45:1}).bindPopup(popup,{autoPan:!reopen}).addTo(TRK.layer);
+marker.trkKey=key;
+if(reopen)marker.openPopup();
+});
+// Chỉ canh khung lần vẽ đầu hoặc khi đổi bộ lọc: làm mới 20 giây không được đổi zoom người dùng đang xem
+if(TRK.map&&points.length&&!TRK.fitted){TRK.map.fitBounds(points,{padding:[40,40],maxZoom:15,animate:false});TRK.fitted=true;}
+const list=document.getElementById('trk-list');
+if(list)list.innerHTML=rows.length?rows.map(r=>{
+const stale=trkStale(r),url=trkSafeUrl(r.directions_url),g=r.actor_kind==='customer'?'customer':'volunteer';
+return`<div class="trk-row" data-actor="${esc(r.actor_id)}" data-kind="${g}" data-stale="${stale?1:0}"><span class="trk-dot ${g}"></span><div style="min-width:0;flex:1"><div class="trk-name">${esc(r.name)}</div><div class="trk-meta">${esc(TRK_GROUP[g])} · ${trkCode(r)} · cập nhật ${esc(trkAgo(r.updated_at))}</div>`+(r.destination?`<div class="trk-meta">Đang tới: ${esc(r.destination.label||'')}</div>`:'')+(url?`<div class="trk-meta"><a href="${esc(url)}" target="_blank" rel="noopener">Chỉ đường</a></div>`:'')+`</div></div>`;
+}).join(''):'<div class="trk-empty">Chưa có ai chia sẻ vị trí. Vị trí chỉ hiện khi tình nguyện viên đang làm nhiệm vụ hoặc người mua có đơn đã thanh toán và đã cho phép.</div>';
+if(TRK.paused)trkStatus('Đã tạm dừng cập nhật vì 15 phút không thao tác.');
+else if(TRK.failed)trkStatus('Không tải được vị trí mới. Dữ liệu có thể đã cũ, sẽ thử lại sau ít giây.');
+else trkStatus(`${rows.length} đang hiển thị${TRK.filter==='all'?'':' (đã lọc)'} · tự làm mới mỗi 20 giây`);
+trkShowResume();
+}
+// Hết 15 giây thì hủy request và báo lỗi, để busy không kẹt và lần poll sau vẫn chạy
+function trkWithTimeout(run){
+const ctrl=typeof AbortController==='function'?new AbortController():null;
+let timer=null;
+const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{if(ctrl)ctrl.abort();reject(new Error('Máy chủ phản hồi quá lâu.'));},TRK_TIMEOUT_MS);});
+return Promise.race([run(ctrl?ctrl.signal:undefined),timeout]).finally(()=>clearTimeout(timer));
+}
+async function trkFetch(){
+if(!trkActive()||TRK.busy||TRK.paused)return;
+TRK.busy=true;
+TRK.attemptAt=Date.now();
+try{
+const payload=await trkWithTimeout(async signal=>{
+const {data}=await foodsaveAdminSupabase.auth.getSession();
+const token=data?.session?.access_token;
+if(!token)throw new Error('Phiên đăng nhập đã hết hạn.');
+const res=await fetch(`${adminApiBaseUrl()}/admin/live-locations`,{headers:{Authorization:`Bearer ${token}`},signal});
+const body=await res.json().catch(()=>null);
+if(!res.ok||!body?.success)throw new Error(body?.error?.message||`Máy chủ báo lỗi (${res.status}).`);
+return body;
+});
+TRK.fetchedAt=Date.now();
+if(!trkActive())return; // đã rời trang trong lúc chờ
+TRK.rows=Array.isArray(payload.data)?payload.data:[];
+TRK.failed=false;
+trkDraw();
+}catch(err){
+TRK.failed=true;
+if(trkActive())trkDraw(); // vẽ lại ở dạng mờ + cảnh báo, không im lặng giữ dữ liệu cũ
+}finally{TRK.busy=false;}
+}
+function trkClearTimer(){if(TRK.timer!==null){clearInterval(TRK.timer);TRK.timer=null;}}
+// Mỗi nhịp: quá 15 phút không thao tác thì ngừng hẳn (không gọi API) cho tới khi bấm "Bấm để tiếp tục cập nhật"
+function trkTick(){
+if(Date.now()-TRK.lastInput>=TRK_IDLE_MS){TRK.paused=true;trkClearTimer();if(trkActive())trkDraw();return;}
+trkFetch();
+}
+function trkSchedule(){trkClearTimer();if(trkActive()&&trkVisible()&&!TRK.paused)TRK.timer=setInterval(trkTick,TRK_POLL_MS);}
+function trkResume(){TRK.paused=false;trkTouch();trkShowResume();trkFetch();trkSchedule();}
+function trkDrop(){
+if(TRK.map){try{const box=TRK.map.getContainer();TRK.map.remove();if(box&&box.__foodsaveMap===TRK.map)box.__foodsaveMap=null;}catch(e){}}
+TRK.map=null;TRK.layer=null;
+}
+function trkEnter(){
+trkDrop();
+trkTouch();TRK.paused=false;TRK.fitted=false;
+const el=document.getElementById('trk-map');
+if(!el)return;
+if(window.FoodSaveMap&&window.L){
+const first=(TRK.rows||[]).find(r=>isFinite(r.lat)&&isFinite(r.lng));
+TRK.map=window.FoodSaveMap.createMap(el,{center:first?{lat:first.lat,lng:first.lng}:undefined,zoom:12});
+TRK.layer=TRK.map?window.L.layerGroup().addTo(TRK.map):null;
+}else el.innerHTML='<div class="trk-empty">Không tải được thư viện bản đồ. Danh sách bên cạnh vẫn cập nhật.</div>';
+if(TRK.rows.length)trkDraw();
+trkSchedule();
+if(trkVisible()&&Date.now()-TRK.attemptAt>TRK_MIN_GAP_MS)trkFetch();
+}
+function trkLeave(){trkClearTimer();trkDrop();}
+document.addEventListener('visibilitychange',()=>{
+if(!trkActive())return;
+if(trkVisible()){
+trkTouch();
+if(TRK.paused)return; // đã tạm dừng vì rảnh: chỉ nút "Bấm để tiếp tục cập nhật" mới chạy lại
+if(Date.now()-TRK.attemptAt>TRK_MIN_GAP_MS)trkFetch();
+trkSchedule();
+}else trkClearTimer();
+});
+
 // ═══════════ AI AGENT ĐĂNG BÀI (Admin) ═══════════
 // Chỉ đăng bài TỔNG HỢP của MIO (Fanpage trung tâm). Không đăng thay từng cửa hàng:
 // mỗi cửa hàng tự quản lý Fanpage / Auto-bot ở trang Đối tác. Dữ liệu lấy từ API /marketing/admin/*.
@@ -1725,6 +1873,8 @@ document.getElementById('adminLoginError').textContent=message||'';
 }
 
 function lockAdmin(message){
+if(typeof trkLeave==='function')trkLeave();
+try{TRK.rows=[];TRK.fetchedAt=0;TRK.attemptAt=0;TRK.failed=false;TRK.paused=false;}catch(e){}
 try{localStorage.removeItem('fs_ag_ov_v2');}catch(e){}
 currentAdmin=null;
 adminDataLoaded=false;
@@ -2149,6 +2299,17 @@ const cplMockDisputes=pg.disputes;
 pg.disputes=()=>{if(!CPL.loaded&&!CPL.loading)cplLoad();return cplBlock()+cplMockDisputes();};
 
 </script>
-<script src="frontend/admin-v2.js?v=20261030a"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="frontend/foodsave-map.js?v=20261122a"></script>
+<script src="frontend/admin-v2.js?v=20261123a"></script>
+<script>
+(function(){
+var b=document.getElementById('newPortalBanner'),c=document.getElementById('newPortalBannerClose');
+if(!b)return;
+var hidden=false;try{hidden=sessionStorage.getItem('mio.admin.newPortalBanner')==='hidden'}catch(e){}
+b.hidden=hidden;
+if(c)c.addEventListener('click',function(){b.hidden=true;try{sessionStorage.setItem('mio.admin.newPortalBanner','hidden')}catch(e){}});
+})();
+</script>
 </body>
 </html>

@@ -130,6 +130,10 @@ const proofPublicPrefix = (donationId: string): string => env.SUPABASE_URL.repla
 
 export const donationService = {
   async listDonations(actorId: string, actorRole: UserRole, query: DonationListQuery): Promise<PaginatedResponse<Donation>> {
+    // Mặc định từ chối: role không được lọc bên dưới (người mua) sẽ thấy pickup_code và SĐT tình nguyện viên.
+    if (actorRole !== "partner" && actorRole !== "charity" && actorRole !== "admin") {
+      throw new AppError("You do not have permission to perform this action", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
+    }
     const { from, to } = getRange(query);
     await teamService.autoApprovePending();
     let request = supabaseAdmin

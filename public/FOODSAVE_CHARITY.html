@@ -629,6 +629,14 @@ textarea.inp{resize:none;font-family:inherit}
 
 .map-canvas{width:100%;aspect-ratio:1.7;border-radius:18px;background:linear-gradient(135deg,#d1fae5,#dbeafe,#fef3c7);position:relative;overflow:hidden;border:1.5px solid var(--line)}
 .map-pin{position:absolute;width:36px;height:36px;border-radius:50%;background:var(--rose);color:#fff;display:flex;align-items:center;justify-content:center;font-family:"Plus Jakarta Sans";font-weight:900;font-size:13px;box-shadow:0 6px 14px rgba(244,63,94,.4);cursor:pointer;transform:translate(-50%,-50%);transition:.2s}
+.charity-live-map{width:100%;height:340px;background:#e5efe9}
+.charity-live-status{padding:10px 22px;font-size:12px;font-weight:700;color:var(--muted)}
+.charity-live-list{padding:0 22px 14px}
+.charity-live-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line-2)}
+.charity-live-name{font-size:13px;font-weight:900;color:var(--green-950);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.charity-live-meta{font-size:11px;font-weight:600;color:var(--muted)}
+.charity-live-pin span{display:flex;width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;background:var(--green-700);color:#fff;font:900 13px/1 'Plus Jakarta Sans',sans-serif;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.charity-live-pin.stale span{background:#9ca3af}
 .map-pin:hover{transform:translate(-50%,-50%) scale(1.15)}
 .map-pin.partner{background:var(--green-700);box-shadow:0 6px 14px rgba(34,197,94,.4)}
 .map-pin.charity{background:var(--rose)}
@@ -667,6 +675,7 @@ textarea.inp{resize:none;font-family:inherit}
 <link rel="stylesheet" href="frontend/foodsave-cookie-consent.css?v=20261003">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="frontend/foodsave-map.css?v=20261003e">
+<link rel="stylesheet" href="frontend/foodsave-location.css?v=20261122a">
 <link rel="stylesheet" href="/frontend/mio-brand.css?v=20261121">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 </head>
@@ -2123,6 +2132,7 @@ function R(){
   C.scrollTop=0;
   renderCharityProfile(profile);
   scheduleCharityProfileFetch();
+  charityLiveSync();
 }
 
 // ════════════════════════════════════════════════════
@@ -2553,21 +2563,11 @@ function pPickup(){
 function pRoutes(){return`
   <div class="grid-2 m14" style="grid-template-columns:1.4fr 1fr">
   <div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between"><div class="st" style="margin:0"><i class="ti ti-map-2"></i> Bản đồ điều phối</div><div class="f g6"><button class="btn btn-sm btn-o"><i class="ti ti-zoom-in"></i></button><button class="btn btn-sm btn-o"><i class="ti ti-zoom-out"></i></button><button class="btn btn-sm btn-primary"><i class="ti ti-route"></i> Tự động tuyến</button></div></div>
-    <div class="map-canvas" style="aspect-ratio:1.5;border-radius:0;border-left:0;border-right:0">
-      <div class="map-pin charity" style="left:50%;top:50%" title="Tổ chức của bạn">HD</div>
-      <div class="map-pin partner route" style="left:30%;top:35%" title="Cửa hàng thực phẩm">MB</div>
-      <div class="map-pin partner" style="left:68%;top:30%" title="Cửa hàng thực phẩm Q.7">BX</div>
-      <div class="map-pin partner" style="left:25%;top:60%" title="GreenMart">GM</div>
-      <div class="map-pin partner" style="left:75%;top:65%" title="Sora Market">SR</div>
-      <div class="map-pin partner" style="left:55%;top:25%" title="Cửa hàng thực phẩm">TJ</div>
-      <div class="map-pin partner" style="left:42%;top:75%" title="Cửa hàng thực phẩm">VM</div>
-      <svg style="position:absolute;inset:0;pointer-events:none;width:100%;height:100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <line x1="30" y1="35" x2="50" y2="50" stroke="rgba(244,63,94,.5)" stroke-width=".4" stroke-dasharray="1.5,1"/>
-        <line x1="68" y1="30" x2="50" y2="50" stroke="rgba(34,197,94,.3)" stroke-width=".3" stroke-dasharray="1,1"/>
-      </svg>
-      <div style="position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);padding:10px 14px;border-radius:12px;font-size:11px;font-weight:800;color:var(--green-950);display:flex;gap:14px;align-items:center"><span style="display:inline-flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:50%;background:var(--rose)"></div>Tổ chức</span><span style="display:inline-flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:50%;background:var(--green-700)"></div>Đối tác</span></div>
-    </div>
+    <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div class="st" style="margin:0"><i class="ti ti-map-2"></i> Bản đồ tình nguyện viên đang làm nhiệm vụ</div><div class="f g6"><button class="btn btn-sm btn-o" type="button" onclick="charityUseCurrentLocation()" id="charity-locate-btn"><i class="ti ti-current-location"></i> Dùng vị trí hiện tại làm tọa độ tổ chức</button></div></div>
+    <div id="charity-live-map" class="charity-live-map" role="region" aria-label="Bản đồ vị trí tình nguyện viên"></div>
+    <div id="charity-live-status" class="charity-live-status" aria-live="polite">Đang tải vị trí tình nguyện viên…</div>
+    <div style="padding:0 22px"><button type="button" class="btn btn-sm btn-o" id="charity-live-resume" data-charity-live-resume onclick="charityLiveResume()" style="display:none"><i class="ti ti-refresh"></i> Bấm để tiếp tục cập nhật</button></div>
+    <div id="charity-live-list" class="charity-live-list"></div>
   </div>
   <div class="card"><div class="st"><i class="ti ti-route"></i> Tuyến hôm nay</div>
   <div class="route-timeline">
@@ -2583,6 +2583,167 @@ function pRoutes(){return`
   {t:"Thời gian dự kiến",v:"2.5 giờ",i:"ti-clock",c:"var(--blue)"},
   {t:"Tiết kiệm xăng",v:"0.8 lít",i:"ti-gas-station",c:"var(--green-700)"}
   ].map(m=>`<div class="metric"><div class="f ac jb"><span class="metric-l">${m.t}</span><i class="ti ${m.i}" style="color:${m.c};font-size:20px"></i></div><div class="metric-v" style="color:${m.c}">${m.v}</div></div>`).join('')}</div>`;
+}
+
+// ═══════════════════════════════════════
+// BẢN ĐỒ TNV ĐANG LÀM NHIỆM VỤ — GET /charity/volunteers/live
+// Poll 20 giây CHỈ khi tab hiện và đang mở trang "Bản đồ & Tuyến"; rời trang hoặc ẩn tab thì xóa hẹn giờ.
+// Giữ hạn mức gói miễn phí: không thao tác 15 phút thì ngừng poll (bấm nút để tiếp tục); mỗi lần tải tối đa 15 giây.
+// ═══════════════════════════════════════
+const CHARITY_LIVE_POLL_MS=20000, CHARITY_LIVE_STALE_MS=5*60000, CHARITY_LIVE_MIN_GAP_MS=5000, CHARITY_LIVE_IDLE_MS=15*60000, CHARITY_LIVE_TIMEOUT_MS=15000;
+let charityLiveMap=null, charityLiveLayer=null, charityLiveBusy=false, charityLiveRows=[], charityLiveFetchedAt=0, charityLiveFailed=false;
+let charityLiveAttemptAt=0, charityLiveLastInput=Date.now(), charityLivePaused=false, charityLiveFitted=false;
+window.charityLiveTimer=null;
+function charityLiveTouch(){charityLiveLastInput=Date.now();}
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,charityLiveTouch,{capture:true,passive:true}));
+function charityLiveShowResume(){const b=document.getElementById('charity-live-resume');if(b)b.style.display=charityLivePaused?'':'none';}
+let charityLiveKeepPopup=null;   // popup đang mở lúc R() dựng lại khung bản đồ
+function charityLiveVisible(){return document.visibilityState==='visible';}
+function charityLiveActive(){return pg==='routes'&&!!document.getElementById('charity-live-map');}
+function charityLiveAgo(iso){
+  const m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));
+  return m<1?'vừa xong':m<60?m+' phút trước':Math.round(m/60)+' giờ trước';
+}
+function charityLiveStale(row){return Date.now()-new Date(row.updated_at).getTime()>CHARITY_LIVE_STALE_MS;}
+function charityLiveStatus(text){const el=document.getElementById('charity-live-status');if(el)el.textContent=text;}
+function charityLiveSafeUrl(u){return typeof u==='string'&&/^https:\/\//.test(u)?u:'';}
+function charityLiveDraw(){
+  const rows=Array.isArray(charityLiveRows)?charityLiveRows:[];
+  const list=document.getElementById('charity-live-list');
+  // Giữ popup đang mở qua các lần làm mới (mở lại trên marker mới của cùng TNV)
+  let openKey=null;
+  if(charityLiveLayer){charityLiveLayer.eachLayer(m=>{if(m.isPopupOpen&&m.isPopupOpen())openKey=m.liveKey;});charityLiveLayer.clearLayers();}
+  if(!openKey&&charityLiveKeepPopup)openKey=charityLiveKeepPopup;
+  charityLiveKeepPopup=null;
+  const points=[];
+  rows.forEach(r=>{
+    if(!isFinite(r.lat)||!isFinite(r.lng))return;
+    points.push([r.lat,r.lng]);
+    if(!charityLiveLayer||!window.L)return;
+    const stale=charityLiveFailed||charityLiveStale(r);
+    const url=charityLiveSafeUrl(r.directions_url);
+    const popup=`<b>${esc(r.name)}</b><br>Lô ${esc(r.context_code)}<br>Cập nhật ${esc(charityLiveAgo(r.updated_at))}`+(r.destination?`<br>Đang tới: ${esc(r.destination.label||'')}`:'')+(url?`<br><a href="${esc(url)}" target="_blank" rel="noopener">Chỉ đường</a>`:'');
+    const key=String(r.actor_id),reopen=key===openKey;
+    const marker=window.L.marker([r.lat,r.lng],{icon:window.L.divIcon({className:'charity-live-pin'+(stale?' stale':''),html:'<span>'+esc(String(r.name||'?').trim().slice(0,1).toUpperCase())+'</span>',iconSize:[34,34],iconAnchor:[17,17]}),opacity:stale?.45:1}).bindPopup(popup,{autoPan:!reopen}).addTo(charityLiveLayer);
+    marker.liveKey=key;
+    if(reopen)marker.openPopup();
+  });
+  // Chỉ canh khung lần vẽ đầu trên bản đồ này: làm mới 20 giây không được đổi zoom người dùng đang xem
+  if(charityLiveMap&&points.length&&!charityLiveFitted){charityLiveMap.fitBounds(points,{padding:[40,40],maxZoom:15,animate:false});charityLiveFitted=true;}
+  if(list)list.innerHTML=rows.length?rows.map(r=>{
+    const stale=charityLiveFailed||charityLiveStale(r),url=charityLiveSafeUrl(r.directions_url);
+    return `<div class="charity-live-row" data-stale="${stale?1:0}" style="${stale?'opacity:.5':''}"><div class="f1" style="min-width:0"><div class="charity-live-name">${esc(r.name)}</div><div class="charity-live-meta">Lô ${esc(r.context_code)} · cập nhật ${esc(charityLiveAgo(r.updated_at))}${r.destination?' · đang tới '+esc(r.destination.label||''):''}</div></div>${url?`<a class="btn btn-sm btn-o" href="${esc(url)}" target="_blank" rel="noopener"><i class="ti ti-route"></i> Chỉ đường</a>`:''}</div>`;
+  }).join(''):'';
+  if(charityLivePaused)charityLiveStatus('Đã tạm dừng cập nhật vì 15 phút không thao tác.');
+  else if(charityLiveFailed)charityLiveStatus('Không tải được vị trí mới. Dữ liệu có thể đã cũ, sẽ thử lại sau ít giây.');
+  else charityLiveStatus(rows.length?`${rows.length} tình nguyện viên đang làm nhiệm vụ`:'Chưa có tình nguyện viên nào chia sẻ vị trí. Vị trí chỉ hiện khi họ đang làm nhiệm vụ và đã cho phép.');
+  charityLiveShowResume();
+}
+// Hết 15 giây thì hủy request và báo lỗi, để busy không kẹt và lần poll sau vẫn chạy
+function charityLiveWithTimeout(run){
+  const ctrl=typeof AbortController==='function'?new AbortController():null;
+  let timer=null;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{if(ctrl)ctrl.abort();reject(new Error('Máy chủ phản hồi quá lâu.'));},CHARITY_LIVE_TIMEOUT_MS);});
+  return Promise.race([run(ctrl?ctrl.signal:undefined),timeout]).finally(()=>clearTimeout(timer));
+}
+async function charityLiveFetch(){
+  if(!charityLiveActive()||charityLiveBusy||charityLivePaused)return;
+  const sync=window.FS&&window.FS.sync;
+  if(!sync||typeof sync.request!=='function'||window.MIO_DEMO_MODE){charityLiveStatus('Chế độ demo: bản đồ trực tiếp không có dữ liệu thật.');return;}
+  charityLiveBusy=true;
+  charityLiveAttemptAt=Date.now();
+  try{
+    const rows=await charityLiveWithTimeout(signal=>sync.request('/charity/volunteers/live',{signal}));
+    charityLiveFetchedAt=Date.now();
+    if(!charityLiveActive())return;   // đã rời trang trong lúc chờ
+    charityLiveRows=Array.isArray(rows)?rows:[];
+    charityLiveFailed=false;
+    charityLiveDraw();
+  }catch(err){
+    charityLiveFailed=true;
+    if(charityLiveActive())charityLiveDraw();   // vẽ lại ở dạng mờ + cảnh báo, không im lặng giữ dữ liệu cũ
+  }finally{charityLiveBusy=false;}
+}
+function charityLiveDrop(){
+  if(charityLiveMap){
+    try{const box=charityLiveMap.getContainer();charityLiveMap.remove();if(box&&box.__foodsaveMap===charityLiveMap)box.__foodsaveMap=null;}catch(e){}
+  }
+  charityLiveMap=null;charityLiveLayer=null;
+}
+function charityLiveClearTimer(){
+  if(window.charityLiveTimer!==null){clearInterval(window.charityLiveTimer);window.charityLiveTimer=null;}
+}
+// Mỗi nhịp: quá 15 phút không thao tác thì ngừng hẳn (không gọi API) cho tới khi bấm "Bấm để tiếp tục cập nhật"
+function charityLiveTick(){
+  if(Date.now()-charityLiveLastInput>=CHARITY_LIVE_IDLE_MS){charityLivePaused=true;charityLiveClearTimer();if(charityLiveActive())charityLiveDraw();return;}
+  charityLiveFetch();
+}
+function charityLiveSchedule(){
+  charityLiveClearTimer();
+  if(charityLiveActive()&&charityLiveVisible()&&!charityLivePaused)window.charityLiveTimer=setInterval(charityLiveTick,CHARITY_LIVE_POLL_MS);
+}
+function charityLiveResume(){charityLivePaused=false;charityLiveTouch();charityLiveShowResume();charityLiveFetch();charityLiveSchedule();}
+// Gọi cuối mỗi lần R(): đang ở trang bản đồ thì dựng lại bản đồ trên khung mới, ngược lại dọn sạch.
+function charityLiveSync(){
+  if(!charityLiveActive()){
+    charityLiveClearTimer();
+    if(charityLiveMap){charityLiveDrop();}
+    return;
+  }
+  const el=document.getElementById('charity-live-map');
+  // R() dựng lại khung trong lúc vẫn ở trang bản đồ (vd. dữ liệu tự làm mới): giữ nguyên vùng xem và popup đang mở
+  let keepView=null;
+  if(charityLiveMap){
+    try{keepView={center:charityLiveMap.getCenter(),zoom:charityLiveMap.getZoom()};}catch(e){keepView=null;}
+    if(charityLiveLayer)charityLiveLayer.eachLayer(m=>{if(m.isPopupOpen&&m.isPopupOpen())charityLiveKeepPopup=m.liveKey;});
+    charityLiveDrop();
+  }
+  charityLiveFitted=Boolean(keepView);   // bản đồ mới vào trang: canh khung một lần
+  charityLiveShowResume();
+  if(window.FoodSaveMap&&window.L){
+    const first=(charityLiveRows||[]).find(r=>isFinite(r.lat)&&isFinite(r.lng));
+    charityLiveMap=window.FoodSaveMap.createMap(el,{center:first?{lat:first.lat,lng:first.lng}:undefined,zoom:13});
+    if(charityLiveMap&&keepView)charityLiveMap.setView(keepView.center,keepView.zoom,{animate:false});
+    charityLiveLayer=charityLiveMap?window.L.layerGroup().addTo(charityLiveMap):null;
+  }else{
+    el.innerHTML='<div class="charity-live-status">Không tải được thư viện bản đồ. Danh sách bên dưới vẫn cập nhật.</div>';
+  }
+  if(charityLiveRows.length)charityLiveDraw();
+  charityLiveSchedule();
+  // Qua cùng cổng rảnh 15 phút như nhịp poll (R() do dữ liệu tự làm mới không được vượt giới hạn)
+  if(charityLiveVisible()&&!charityLivePaused&&Date.now()-charityLiveAttemptAt>CHARITY_LIVE_MIN_GAP_MS)charityLiveTick();
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!charityLiveActive())return;
+  if(charityLiveVisible()){
+    charityLiveTouch();
+    if(charityLivePaused)return;   // đã tạm dừng vì rảnh: chỉ nút "Bấm để tiếp tục cập nhật" mới chạy lại
+    if(Date.now()-charityLiveAttemptAt>CHARITY_LIVE_MIN_GAP_MS)charityLiveFetch();
+    charityLiveSchedule();
+  }
+  else charityLiveClearTimer();
+});
+
+// "Dùng vị trí hiện tại" làm tọa độ tổ chức (một lần): ghi latitude/longitude vào charity_profiles như cách onboarding đang ghi.
+async function charitySaveLocation(lat,lng){
+  const id=window.charityProfile&&window.charityProfile.id;
+  const client=window.getFoodSaveSupabaseClient?window.getFoodSaveSupabaseClient():window.foodsaveSupabase;
+  if(!id||!client||typeof client.from!=='function')throw new Error('Chưa đăng nhập tổ chức nên chưa lưu được tọa độ.');
+  const {error}=await client.from('charity_profiles').update({latitude:lat,longitude:lng}).eq('id',id);
+  if(error)throw new Error(error.message||'Không lưu được tọa độ tổ chức.');
+}
+async function charityUseCurrentLocation(){
+  const btn=document.getElementById('charity-locate-btn');
+  if(btn)btn.disabled=true;
+  try{
+    if(!window.FoodSaveMap)throw new Error('Không tải được thư viện định vị.');
+    const c=await window.FoodSaveMap.currentPosition();
+    if(!window.FoodSaveMap.validCoordinate(c.latitude,c.longitude))throw new Error('Không xác định được vị trí hiện tại.');
+    await charitySaveLocation(c.latitude,c.longitude);
+    tst('Đã lưu tọa độ tổ chức','Tọa độ mới được dùng để tính tuyến đường cho tình nguyện viên.','accept');
+  }catch(err){
+    tst('Chưa lưu được tọa độ',esc(err&&err.message||'Vui lòng thử lại.'),'urgent');
+  }finally{if(btn)btn.disabled=false;}
 }
 
 // ════════════════════════════════════════════════════
@@ -3632,7 +3793,7 @@ window.addEventListener('error',function(e){
 });
 </script>
 
-<script src="frontend/foodsave-live-data.js?v=20261022a"></script>
+<script src="frontend/foodsave-live-data.js?v=20261122d"></script>
 
 
 <script>window.FS = window.FS || {}; /* Backend data sync is loaded from frontend/foodsave-live-data.js. */</script>
@@ -3640,9 +3801,38 @@ window.addEventListener('error',function(e){
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Bản đồ OpenStreetMap dùng chung (miễn phí, không cần API key) -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="frontend/foodsave-map.js?v=20261003e"></script>
+<script src="frontend/foodsave-map.js?v=20261122a"></script>
+<script src="frontend/foodsave-location.js?v=20261122c"></script>
 <script src="frontend/foodsave-matching.js?v=20261027"></script>
 <script src="frontend/foodsave-auth-client.js?v=20261003e"></script>
-<script src="frontend/mio-demo-mode.js?v=20261117a"></script>
+<script>
+  // Chế độ demo (dữ liệu mẫu, không gọi API) CHỈ bật khi mở bằng ?demo=1 (nhớ cho tab này; ?demo=0 để tắt).
+  // Mặc định trang dùng API thật: đăng nhập thật, ETA khách, bản đồ TNV trực tiếp.
+  (function(){
+    var key='mio.demo.charity',on=false,q=null;
+    try{q=new URLSearchParams(window.location.search).get('demo');}catch(e){}
+    try{
+      if(q==='1')sessionStorage.setItem(key,'1');
+      else if(q==='0')sessionStorage.removeItem(key);
+      on=sessionStorage.getItem(key)==='1';
+    }catch(e){on=q==='1';}
+    if(on)document.write('<script src="frontend/mio-demo-mode.js?v=20261117a"><\/script>');
+  })();
+</script>
+<script>
+  // Hộp xin quyền vị trí (spec 5.5). Tổ chức không phát vị trí; mọi lỗi bị nuốt để trang chạy bình thường.
+  (function () {
+    try {
+      const FL = window.FoodSaveLocation, sync = window.FS && window.FS.sync;
+      if (FL) FL.init({
+        apiBase: sync && sync.apiBaseUrl,
+        serverSync: false,   // tổ chức không có bản ghi đồng ý trên máy chủ: chỉ cần quyền trình duyệt
+        promptText: 'MIO dùng vị trí hiện tại của bạn một lần, khi bạn bấm "Dùng vị trí hiện tại", để xác nhận tọa độ địa chỉ tổ chức giúp tình nguyện viên tìm đường chính xác. MIO không theo dõi vị trí tổ chức liên tục.',
+        getAuthHeader: function () { return sync && typeof sync.authHeader === 'function' ? sync.authHeader() : null; },
+        getActorKey: function () { return sync && typeof sync.actorKey === 'function' ? sync.actorKey() : null; }
+      });
+    } catch (error) { /* bỏ qua */ }
+  })();
+</script>
 </body>
 </html>

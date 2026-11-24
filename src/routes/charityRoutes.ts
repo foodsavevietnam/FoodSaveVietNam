@@ -23,6 +23,7 @@ charityRoutes.get("/gallery", validateRequest({ query: publicGalleryQuerySchema 
 
 charityRoutes.use(authMiddleware);
 charityRoutes.use(requireRoles("charity", "admin"));
+charityRoutes.get("/volunteers/live", requireRoles("charity"), asyncHandler(charityController.listLiveVolunteers));
 charityRoutes.get("/profiles", asyncHandler(charityController.listMyCharities));
 charityRoutes.post("/profiles", validateRequest({ body: createCharityProfileBodySchema }), asyncHandler(charityController.createCharityProfile));
 charityRoutes.patch("/profiles/:id", validateRequest({ params: uuidParamSchema, body: updateCharityProfileBodySchema }), asyncHandler(charityController.updateCharityProfile));

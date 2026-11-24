@@ -7,7 +7,10 @@ import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
 import { AppError } from "../utils/appError";
 import { adminAuditService, type AuditActor } from "./adminAuditService";
+import { loadByIds } from "./adminListing";
 import { adminService } from "./adminService";
+import { automationRunService } from "./automationRunService";
+import { ledgerService } from "./ledgerService";
 import { createNotification } from "./notificationService";
 import { voucherAnnounceService } from "./voucherAnnounceService";
 import { handleSupabaseError, supabaseAdmin } from "./supabaseService";
@@ -15,13 +18,6 @@ import { handleSupabaseError, supabaseAdmin } from "./supabaseService";
 type Row = Record<string, any>;
 
 const DAY_MS = 86_400_000;
-const loadNames = async (table: string, ids: string[], columns: string): Promise<Map<string, Row>> => {
-  const unique = [...new Set(ids.filter(Boolean))];
-  if (unique.length === 0) return new Map();
-  const { data, error } = await supabaseAdmin.from(table).select(columns).in("id", unique);
-  if (error) handleSupabaseError(error, `Failed to load ${table}`);
-  return new Map(((data ?? []) as unknown as Row[]).map((row) => [String(row.id), row]));
-};
 
 /* ───────────── Quản lý nhãn ───────────── */
 const labelOverview = async (): Promise<{ counts: Record<string, number>; total: number; lots: Row[] }> => {
@@ -34,7 +30,7 @@ const labelOverview = async (): Promise<{ counts: Record<string, number>; total:
     .limit(500);
   if (error) handleSupabaseError(error, "Failed to load products for labels");
   const products = (data ?? []) as Row[];
-  const stores = await loadNames("stores", products.map((p) => p.store_id), "id,name");
+  const stores = await loadByIds("stores", products.map((p) => p.store_id), "id,name");
   const counts: Record<string, number> = { green: 0, yellow: 0, red: 0 };
   for (const product of products) { const key = String(product.label); if (key in counts) counts[key] = (counts[key] ?? 0) + 1; }
   const rank: Record<string, number> = { red: 0, yellow: 1, green: 2 };
@@ -161,7 +157,7 @@ const listVouchers = async (storeIds: string[] | null): Promise<Row[]> => {
   const { data, error } = await query;
   if (error) handleSupabaseError(error, "Failed to load vouchers");
   const rows = (data ?? []) as Row[];
-  const stores = await loadNames("stores", rows.map((v) => v.store_id), "id,name");
+  const stores = await loadByIds("stores", rows.map((v) => v.store_id), "id,name");
   const now = Date.now();
   return rows.map((v) => ({
     ...v,
@@ -208,7 +204,7 @@ const esgReport = async (month: string): Promise<Row> => {
   for (const source of ["order", "donation", "manual_adjustment"]) bySource[source] = sumEvents(current.filter((row) => row.source_type === source));
   const perStore = new Map<string, ReturnType<typeof sumEvents>>();
   for (const row of current) if (row.store_id) perStore.set(String(row.store_id), sumEvents(current.filter((r) => r.store_id === row.store_id)));
-  const stores = await loadNames("stores", [...perStore.keys()], "id,name");
+  const stores = await loadByIds("stores", [...perStore.keys()], "id,name");
   const topStores = [...perStore.entries()].sort((a, b) => b[1].food_saved_kg - a[1].food_saved_kg).slice(0, 5)
     .map(([id, sums]) => ({ store_id: id, store_name: stores.get(id)?.name ?? "—", food_saved_kg: round(sums.food_saved_kg), meals_equivalent: sums.meals_equivalent }));
 
@@ -283,7 +279,7 @@ const fraudAlerts = async (): Promise<{ alerts: FraudAlert[]; not_detected: stri
     }
   }
 
-  const customerNames = await loadNames("profiles", raw.filter((a) => a.subject_type === "customer").map((a) => a.subject_id), "id,full_name");
+  const customerNames = await loadByIds("profiles", raw.filter((a) => a.subject_type === "customer").map((a) => a.subject_id), "id,full_name");
   const { data: statusData } = await supabaseAdmin.from("fraud_alert_status").select("alert_key,status,note,handled_at").limit(5000);
   const statuses = new Map(((statusData ?? []) as Row[]).map((row) => [String(row.alert_key), row]));
   const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -313,26 +309,52 @@ const handleFraudAlert = async (key: string, status: "handled" | "dismissed", no
 };
 
 /* ───────────── Dải việc cần làm của bảng điều khiển ───────────── */
+const VN_OFFSET_MS = 7 * 3_600_000;
+
+/** Mốc 00:00 hôm nay theo giờ Việt Nam (+07:00), trả về ISO UTC. */
+export const startOfTodayVn = (now: Date): string => {
+  const shifted = new Date(now.getTime() + VN_OFFSET_MS);
+  const midnightShifted = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  return new Date(midnightShifted - VN_OFFSET_MS).toISOString();
+};
+
 const workStrip = async (): Promise<Row> => {
-  const count = async (table: string, apply: (q: any) => any): Promise<number> => {
+  const now = new Date();
+  const todayStart = startOfTodayVn(now);
+  const trackingSince = new Date(now.getTime() - 30 * 60_000).toISOString();
+  const count = async (table: string, apply: (q: any) => any, column = "id"): Promise<number> => {
     try {
-      const { count: n, error } = await apply(supabaseAdmin.from(table).select("id", { count: "exact", head: true }));
+      const { count: n, error } = await apply(supabaseAdmin.from(table).select(column, { count: "exact", head: true }));
       return error ? 0 : (n ?? 0);
     } catch { return 0; }
   };
-  const [pendingStores, pendingCharities, complaintsReview, withdrawals, payoutAccounts, locked] = await Promise.all([
+  const safe = async (fn: () => Promise<number>): Promise<number> => { try { return await fn(); } catch { return 0; } };
+  const [
+    pendingStores, pendingCharities, complaintsReview, withdrawals, payoutAccounts, locked,
+    ordersNew, ordersCompleted, ordersNoShow, donationsOpen, trackingActive, ledgerUnbalanced, automationFailed, fraudOpen
+  ] = await Promise.all([
     count("stores", (q) => q.eq("status", "pending")),
     count("charity_profiles", (q) => q.eq("status", "pending")),
     count("complaints", (q) => q.eq("status", "in_review")),
     count("withdrawals", (q) => q.eq("status", "requested")),
-    count("payout_accounts", (q) => q.eq("status", "pending_verification")),
-    count("profiles", (q) => q.eq("role", "customer").gt("red_ban_until", new Date().toISOString()))
+    count("store_payout_accounts", (q) => q.eq("status", "pending_verification")),
+    count("profiles", (q) => q.eq("role", "customer").gt("red_ban_until", now.toISOString())),
+    count("orders", (q) => q.gte("created_at", todayStart)),
+    count("orders", (q) => q.eq("status", "completed").gte("completed_at", todayStart)),
+    count("orders", (q) => q.eq("status", "no_show").gte("no_show_at", todayStart)),
+    count("donations", (q) => q.eq("status", "open")),
+    count("live_locations", (q) => q.gte("updated_at", trackingSince), "actor_id"),
+    safe(async () => ((await ledgerService.reconcile()).ok === false ? 1 : 0)),
+    safe(async () => (await automationRunService.overview()).filter((j) => { const r = j.last_run as { ok?: boolean } | null; return !!r && r.ok === false; }).length),
+    safe(async () => (await fraudAlerts()).alerts.filter((a) => a.status === "open").length)
   ]);
-  let fraudOpen = 0;
-  try { fraudOpen = (await fraudAlerts()).alerts.filter((a) => a.status === "open").length; } catch { fraudOpen = 0; }
   return {
     verification_pending: pendingStores + pendingCharities, complaints_waiting_admin: complaintsReview,
-    withdrawals_pending: withdrawals + payoutAccounts, fraud_open: fraudOpen, customers_locked: locked
+    withdrawals_requested: withdrawals, payout_accounts_pending: payoutAccounts, withdrawals_pending: withdrawals + payoutAccounts,
+    fraud_open: fraudOpen, customers_locked: locked,
+    orders_today: { new: ordersNew, completed: ordersCompleted, no_show: ordersNoShow },
+    donations_open: donationsOpen, tracking_active: trackingActive,
+    ledger_unbalanced: ledgerUnbalanced, automation_failed: automationFailed
   };
 };
 

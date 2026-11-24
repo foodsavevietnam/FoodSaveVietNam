@@ -389,11 +389,19 @@ export const catalogService = {
   },
 
   async updateProduct(actorId: string, actorRole: UserRole, productId: string, body: UpdateProductBody): Promise<Product> {
-    const { data: product, error: loadError } = await supabaseAdmin
+    let { data: product, error: loadError } = await supabaseAdmin
       .from("products")
-      .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,stores!inner(owner_id,opening_schedule)")
+      .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,blocked_reason,admin_hidden_at,stores!inner(owner_id,opening_schedule)")
       .eq("id", productId)
       .single();
+
+    if (loadError && (loadError.code === "42703" || loadError.code === "PGRST204")) {
+      ({ data: product, error: loadError } = await supabaseAdmin
+        .from("products")
+        .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,blocked_reason,stores!inner(owner_id,opening_schedule)")
+        .eq("id", productId)
+        .single());
+    }
 
     if (loadError) handleSupabaseError(loadError, "Failed to load product");
     const loaded = requireRecord(
@@ -403,11 +411,25 @@ export const catalogService = {
         food_group: FoodGroup | null;
         original_price_cents: number;
         is_donation: boolean;
+        blocked_reason?: string | null;
+        admin_hidden_at?: string | null;
         stores: { owner_id: string; opening_schedule: unknown };
       } | null,
       "Product was not found"
     );
     assertOwnerOrAdmin(loaded.stores.owner_id, actorId, actorRole);
+
+    if (
+      actorRole !== "admin" &&
+      body.is_active === true &&
+      (Boolean(loaded.admin_hidden_at) || String(loaded.blocked_reason || "").startsWith("[Admin]"))
+    ) {
+      throw new AppError(
+        "Sản phẩm đã bị Quản trị viên ẩn, không thể tự bật bán lại.",
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODES.RESOURCE_CONFLICT
+      );
+    }
 
     const { price_cents: _ignoredPrice, label: _ignoredLabel, ...productFields } = body;
     const update: Record<string, unknown> = { ...productFields };

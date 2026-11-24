@@ -5,6 +5,8 @@ import { validateRequest } from "../../middlewares/validateRequest";
 import { adminListQuerySchema } from "../../schemas/adminSchemas";
 import { queryBooleanSchema, uuidParamSchema } from "../../schemas/commonSchemas";
 import { asyncHandler } from "../../utils/asyncHandler";
+import { adminOpsPortalRoutes } from "./opsRoutes";
+import { adminSystemPortalRoutes } from "./systemRoutes";
 
 const accountsQuerySchema = adminListQuerySchema({
   sortKeys: ["created_at.desc", "created_at.asc", "points.desc", "points.asc", "full_name.asc", "full_name.desc", "last_login_at.desc"] as const,
@@ -96,3 +98,7 @@ adminPortalRoutes.post(
 
 // Global Search
 adminPortalRoutes.get("/search", validateRequest({ query: searchQuerySchema }), asyncHandler(adminPortal2Controller.globalSearch));
+
+// Đợt 3 (Hoạt động) & Đợt 4 (Hệ thống)
+adminPortalRoutes.use(adminOpsPortalRoutes);
+adminPortalRoutes.use(adminSystemPortalRoutes);

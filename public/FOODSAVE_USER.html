@@ -7662,7 +7662,7 @@ function updateReputationRules(){
   }
   refreshLocationToggle();
 </script>
-<script src="frontend/foodsave-order-flow.js?v=20261029b"></script>
+<script src="frontend/foodsave-order-flow.js?v=20261124a"></script>
 <script src="frontend/foodsave-pwa.js?v=20261030a"></script>
 <script src="frontend/foodsave-install.js?v=20261030a"></script>
 <script>
@@ -7689,9 +7689,13 @@ function updateReputationRules(){
 
     if (!window.foodsaveSupabase && window.supabase?.createClient) {
       // Cùng khóa lưu phiên với foodsave-auth-client.js (phiên người mua tách riêng khỏi cửa hàng/từ thiện)
+      const supabaseUrl = (typeof window.FOODSAVE_SUPABASE_URL === 'string' && window.FOODSAVE_SUPABASE_URL.trim())
+        || 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
+      const supabaseKey = (typeof window.FOODSAVE_SUPABASE_ANON_KEY === 'string' && window.FOODSAVE_SUPABASE_ANON_KEY.trim())
+        || 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
       window.foodsaveSupabase = window.supabase.createClient(
-        'https://idhpydhlgnxjjtyrgfkj.supabase.co',
-        'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf',
+        supabaseUrl,
+        supabaseKey,
         { auth: { storageKey: 'foodsave-customer-auth', persistSession: true, autoRefreshToken: true } }
       );
     }

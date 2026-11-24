@@ -7,6 +7,12 @@
   NODE_VERSION = "22"
   NPM_FLAGS = "--include=dev"
 
+[context.deploy-preview.environment]
+  AUTOMATION_ENABLED = "false"
+  PAYMENT_PROVIDER = "simulated"
+  PAYOUT_PROVIDER = "manual"
+  DEMO_MODE = "false"
+
 [functions]
   node_bundler = "esbuild"
 
@@ -74,6 +80,21 @@
 [[redirects]]
   from = "/admin_foodsave"
   to = "/ADMIN_FOODSAVE.html"
+  status = 302
+
+[[redirects]]
+  from = "/FOODSAVE_PARTNER_v2.html"
+  to = "/FOODSAVE_PARTNER.html"
+  status = 302
+
+[[redirects]]
+  from = "/ADMIN_FOODSAVE_v2.html"
+  to = "/admin/"
+  status = 302
+
+[[redirects]]
+  from = "/FOODSAVE_APP_demo.html"
+  to = "/FOODSAVE_APP.html"
   status = 302
 
 # Tác vụ đổi nhãn/giá và thông báo, chạy mỗi 5 phút

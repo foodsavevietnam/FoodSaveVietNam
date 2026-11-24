@@ -1,8 +1,14 @@
 // Phiên đăng nhập quản trị. Đây là file DUY NHẤT dưới public/admin được chạm thư viện Supabase.
 // Phiên lưu riêng (storageKey) như ADMIN_FOODSAVE.html để không lẫn với phiên người mua/cửa hàng.
-// URL/khóa chép từ ADMIN_FOODSAVE.html dòng 8-9 (publishable key, công khai).
-export const SUPABASE_URL = 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
+// Đọc cấu hình tập trung từ foodsave-config.js (publishable key, công khai), giữ fallback mặc định.
+const DEFAULT_SUPABASE_URL = 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
+const resolveSupabaseUrl = () => (typeof globalThis.window?.FOODSAVE_SUPABASE_URL === 'string' && globalThis.window.FOODSAVE_SUPABASE_URL.trim())
+  || DEFAULT_SUPABASE_URL;
+const resolveSupabaseKey = () => (typeof globalThis.window?.FOODSAVE_SUPABASE_ANON_KEY === 'string' && globalThis.window.FOODSAVE_SUPABASE_ANON_KEY.trim())
+  || DEFAULT_SUPABASE_KEY;
+export const SUPABASE_URL = resolveSupabaseUrl();
+export const SUPABASE_KEY = resolveSupabaseKey();
 const BAD_LOGIN = 'Email hoặc mật khẩu không đúng.';
 const LOGIN_FAILED = 'Không đăng nhập được. Vui lòng thử lại.';
 
@@ -12,7 +18,7 @@ const NO_SESSION = 'Không thể đăng nhập. Vui lòng thử lại.';
 const isBadCredential = (error) => error?.code === 'invalid_credentials'
   || /invalid login credentials/i.test(String(error?.message || ''));
 
-export function createAuth({ supabaseUrl = SUPABASE_URL, supabaseKey = SUPABASE_KEY } = {}) {
+export function createAuth({ supabaseUrl = resolveSupabaseUrl(), supabaseKey = resolveSupabaseKey() } = {}) {
   const lib = globalThis.window?.supabase;
   if (!lib?.createClient) throw new Error('Không tải được thư viện đăng nhập.');
   const client = lib.createClient(supabaseUrl, supabaseKey, {

@@ -143,7 +143,148 @@
   };
 
   /* ---------- chat theo đơn ---------- */
-  var chat = { orderId: null, timer: null, loading: false, lastKey: "", lastMarkedReadId: null };
+  var CHAT_POLL_REST_MS = 12000;
+  var CHAT_POLL_REALTIME_MS = 60000;
+  var CHAT_HIDDEN_DISCONNECT_MS = 60000;
+  var chat = {
+    orderId: null,
+    active: false,
+    timer: null,
+    pollIntervalMs: CHAT_POLL_REST_MS,
+    loading: false,
+    pendingReload: false,
+    lastKey: "",
+    lastMarkedReadId: null,
+    channel: null,
+    channelClient: null,
+    channelOrderId: null,
+    realtimeSubscribed: false,
+    hiddenTimer: null
+  };
+
+  function isRealtimeChatEnabled() {
+    return window.MIO_REALTIME_CHAT === true;
+  }
+
+  function isChatViewOpen() {
+    return Boolean(document && typeof document.querySelector === "function" && document.querySelector("#page-order-detail.active"));
+  }
+
+  function getRealtimeSupabaseClient() {
+    var candidates = [
+      function () { return window.FoodSaveAuth && typeof window.FoodSaveAuth.getClient === "function" ? window.FoodSaveAuth.getClient() : null; },
+      function () { return window.FoodSaveAuth && typeof window.FoodSaveAuth.getSupabaseClient === "function" ? window.FoodSaveAuth.getSupabaseClient() : null; },
+      function () { return typeof window.getFoodSaveSupabaseClient === "function" ? window.getFoodSaveSupabaseClient() : null; },
+      function () { return window.foodsaveSupabase || null; },
+      function () { return window.supabaseClient || null; },
+      function () { return window._supabaseClient || null; }
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      try {
+        var client = candidates[i]();
+        if (client && typeof client.channel === "function") return client;
+      } catch (e) { /* bỏ qua nếu Supabase client chưa sẵn sàng */ }
+    }
+    return null;
+  }
+
+  function clearHiddenDisconnectTimer() {
+    if (chat.hiddenTimer) {
+      clearTimeout(chat.hiddenTimer);
+      chat.hiddenTimer = null;
+    }
+  }
+
+  function teardownChatRealtime() {
+    clearHiddenDisconnectTimer();
+    var ch = chat.channel;
+    var client = chat.channelClient;
+    chat.channel = null;
+    chat.channelClient = null;
+    chat.channelOrderId = null;
+    var wasSubscribed = chat.realtimeSubscribed;
+    chat.realtimeSubscribed = false;
+    if (ch) {
+      try {
+        if (client && typeof client.removeChannel === "function") {
+          client.removeChannel(ch);
+        } else if (typeof ch.unsubscribe === "function") {
+          ch.unsubscribe();
+        }
+      } catch (e) { /* bỏ qua lỗi đóng kênh Realtime */ }
+    }
+    if (wasSubscribed && chat.active && chat.orderId) {
+      startChat();
+    }
+  }
+
+  function scheduleHiddenDisconnect() {
+    clearHiddenDisconnectTimer();
+    if (!chat.channel) return;
+    chat.hiddenTimer = setTimeout(function () {
+      chat.hiddenTimer = null;
+      if (document.hidden && chat.channel) {
+        teardownChatRealtime();
+      }
+    }, CHAT_HIDDEN_DISCONNECT_MS);
+  }
+
+  function subscribeChatRealtime(orderId) {
+    if (!isRealtimeChatEnabled() || !orderId) return false;
+    if (chat.channel && chat.channelOrderId === orderId) return true;
+    teardownChatRealtime();
+    var client = getRealtimeSupabaseClient();
+    if (!client) return false;
+    var channel = client.channel("order-chat-" + orderId);
+    if (!channel || typeof channel.on !== "function" || typeof channel.subscribe !== "function") return false;
+
+    chat.channel = channel;
+    chat.channelClient = client;
+    chat.channelOrderId = orderId;
+    chat.realtimeSubscribed = false;
+
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "order_messages",
+          filter: "order_id=eq." + orderId
+        },
+        function () {
+          if (chat.orderId !== orderId) return;
+          chat.lastKey = "";
+          loadChat(orderId);
+        }
+      )
+      .subscribe(function (status) {
+        if (chat.channel !== channel) return;
+        if (status === "SUBSCRIBED") {
+          chat.realtimeSubscribed = true;
+          if (chat.active) startChat();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          chat.realtimeSubscribed = false;
+          if (chat.active) startChat();
+        }
+      });
+
+    if (document.hidden) scheduleHiddenDisconnect();
+    return true;
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      if (chat.channel) scheduleHiddenDisconnect();
+      return;
+    }
+    clearHiddenDisconnectTimer();
+    if (!isRealtimeChatEnabled()) return;
+    if (chat.active && chat.orderId && isChatViewOpen()) {
+      if (!chat.channel) subscribeChatRealtime(chat.orderId);
+      loadChat(chat.orderId);
+    }
+  }
 
   function chatEligible(o) {
     return o && o.backendId && o.paymentStatus === "paid" && o.status !== "awaiting_payment";
@@ -171,25 +312,57 @@
       return;
     }
     host.style.display = "";
-    if (chat.orderId !== o.backendId) { chat.orderId = o.backendId; chat.lastKey = ""; chat.lastMarkedReadId = null; host.innerHTML = ""; }
+    if (chat.orderId !== o.backendId) {
+      teardownChatRealtime();
+      chat.orderId = o.backendId;
+      chat.lastKey = "";
+      chat.lastMarkedReadId = null;
+      host.innerHTML = "";
+    }
+    chat.active = true;
     startChat();
-    loadChat();
+    if (isRealtimeChatEnabled() && !document.hidden) {
+      subscribeChatRealtime(chat.orderId);
+    }
+    loadChat(chat.orderId);
   }
 
   function startChat() {
-    if (chat.timer) return;
+    var desiredMs = chat.realtimeSubscribed ? CHAT_POLL_REALTIME_MS : CHAT_POLL_REST_MS;
+    if (chat.timer && chat.pollIntervalMs === desiredMs) return;
+    if (chat.timer) {
+      clearInterval(chat.timer);
+      chat.timer = null;
+    }
+    chat.pollIntervalMs = desiredMs;
     chat.timer = setInterval(function () {
-      if (document.hidden || !document.querySelector("#page-order-detail.active")) return;
+      if (document.hidden || !isChatViewOpen()) return;
       if (window.FS && FS.poll && typeof FS.poll.isIdle === "function" && FS.poll.isIdle()) return;
-      loadChat();
-    }, 12000);
+      loadChat(chat.orderId);
+    }, desiredMs);
   }
-  function stopChat() { if (chat.timer) { clearInterval(chat.timer); chat.timer = null; } }
 
-  function loadChat() {
-    if (chat.loading || !chat.orderId) return;
+  function stopChat() {
+    chat.active = false;
+    chat.pendingReload = false;
+    if (chat.timer) {
+      clearInterval(chat.timer);
+      chat.timer = null;
+    }
+    chat.pollIntervalMs = CHAT_POLL_REST_MS;
+    teardownChatRealtime();
+    chat.orderId = null;
+  }
+
+  function loadChat(targetOrderId) {
+    var id = targetOrderId || chat.orderId;
+    if (!id || id !== chat.orderId) return;
+    if (chat.loading) {
+      chat.pendingReload = true;
+      return;
+    }
     chat.loading = true;
-    var id = chat.orderId;
+    chat.pendingReload = false;
     api("/orders/" + encodeURIComponent(id) + "/messages")
       .then(function (data) {
         if (id !== chat.orderId) return;
@@ -207,8 +380,69 @@
         }
       })
       .catch(function () { /* mất kết nối: giữ nguyên khung chat */ })
-      .then(function () { chat.loading = false; });
+      .then(function () {
+        chat.loading = false;
+        if (chat.pendingReload && chat.active && chat.orderId === id) {
+          chat.pendingReload = false;
+          loadChat(id);
+        }
+      });
   }
+
+  var baseNavTo = window.navTo;
+  if (typeof baseNavTo === "function") {
+    window.navTo = function (page) {
+      if (page !== "order-detail" && chat.active) {
+        stopChat();
+      }
+      return baseNavTo.apply(this, arguments);
+    };
+  }
+
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  }
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pagehide", stopChat);
+    window.addEventListener("beforeunload", stopChat);
+  }
+
+  window.FoodSaveOrderFlow = {
+    openChat: function (order) {
+      if (typeof order === "string") {
+        renderChat({ backendId: order, paymentStatus: "paid", status: "confirmed" });
+      } else {
+        renderChat(order);
+      }
+    },
+    closeChat: stopChat,
+    _test: {
+      CHAT_POLL_REST_MS: CHAT_POLL_REST_MS,
+      CHAT_POLL_REALTIME_MS: CHAT_POLL_REALTIME_MS,
+      CHAT_HIDDEN_DISCONNECT_MS: CHAT_HIDDEN_DISCONNECT_MS,
+      getState: function () {
+        return {
+          orderId: chat.orderId,
+          active: chat.active,
+          pollIntervalMs: chat.pollIntervalMs,
+          hasTimer: Boolean(chat.timer),
+          hasChannel: Boolean(chat.channel),
+          channelOrderId: chat.channelOrderId,
+          realtimeSubscribed: chat.realtimeSubscribed,
+          hasHiddenTimer: Boolean(chat.hiddenTimer),
+          loading: chat.loading
+        };
+      },
+      renderChat: renderChat,
+      startChat: startChat,
+      stopChat: stopChat,
+      loadChat: loadChat,
+      subscribeChatRealtime: subscribeChatRealtime,
+      teardownChatRealtime: teardownChatRealtime,
+      handleVisibilityChange: handleVisibilityChange,
+      getRealtimeSupabaseClient: getRealtimeSupabaseClient
+    }
+  };
 
   function paintChat(messages, canSend) {
     var host = el("od-chat");

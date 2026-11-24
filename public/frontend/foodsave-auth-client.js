@@ -11,8 +11,16 @@
   // Nay mỗi trang lưu riêng: foodsave.auth.session.customer / .partner / .charity
   const LEGACY_AUTH_STORAGE_KEY = "foodsave.auth.session";
   const PHONE_OTP_STORAGE_KEY = "foodsave.auth.phoneOtp";
-  const SUPABASE_URL = "https://idhpydhlgnxjjtyrgfkj.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf";
+  const DEFAULT_SUPABASE_URL = "https://idhpydhlgnxjjtyrgfkj.supabase.co";
+  const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf";
+  function resolveSupabaseUrl() {
+    return (typeof window.FOODSAVE_SUPABASE_URL === "string" && window.FOODSAVE_SUPABASE_URL.trim()) || DEFAULT_SUPABASE_URL;
+  }
+  function resolveSupabaseAnonKey() {
+    return (typeof window.FOODSAVE_SUPABASE_ANON_KEY === "string" && window.FOODSAVE_SUPABASE_ANON_KEY.trim()) || DEFAULT_SUPABASE_ANON_KEY;
+  }
+  const SUPABASE_URL = resolveSupabaseUrl();
+  const SUPABASE_ANON_KEY = resolveSupabaseAnonKey();
   let oauthNoticeTimer = 0;
   let customerLoginPending = false;
   let customerRegisterPending = false;
@@ -101,7 +109,7 @@
 
     // Mỗi cổng (người mua / cửa hàng / từ thiện) lưu phiên Supabase riêng. Nếu dùng chung khóa mặc định,
     // các trang cùng tên miền sẽ dùng nhầm phiên của nhau (vd trang cửa hàng gửi token của người mua).
-    window.foodsaveSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    window.foodsaveSupabase = window.supabase.createClient(resolveSupabaseUrl(), resolveSupabaseAnonKey(), {
       auth: { storageKey: supabaseStorageKeyForRole(pageRole), persistSession: true, autoRefreshToken: true }
     });
     return window.foodsaveSupabase;
@@ -120,7 +128,7 @@
       throw new Error("Supabase JS chưa sẵn sàng. Hãy kiểm tra thứ tự nhúng script @supabase/supabase-js.");
     }
 
-    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    return window.supabase.createClient(resolveSupabaseUrl(), resolveSupabaseAnonKey(), {
       auth: {
         persistSession: false,
         autoRefreshToken: false,

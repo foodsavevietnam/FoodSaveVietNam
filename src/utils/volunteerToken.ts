@@ -20,9 +20,26 @@ interface SelectionTokenPayload {
   exp: number;
 }
 
-// Cùng secret nhưng khác tiền tố: token chọn tổ chức không dùng được làm token TNV và ngược lại
-const secret = (): string => `foodsave-volunteer:${env.SUPABASE_SERVICE_ROLE_KEY}`;
-const selectionSecret = (): string => `foodsave-volunteer-select:${env.SUPABASE_SERVICE_ROLE_KEY}`;
+// Cùng secret nhưng khác tiền tố: token chọn tổ chức không dùng được làm token TNV và ngược lại.
+// Nếu VOLUNTEER_TOKEN_SECRET được cấu hình thì ký bằng khóa riêng; khi verify vẫn fallback sang khóa cũ
+// (SUPABASE_SERVICE_ROLE_KEY) để chuyển tiếp 12 giờ không đá văng TNV đang làm nhiệm vụ.
+const legacySecret = (): string => `foodsave-volunteer:${env.SUPABASE_SERVICE_ROLE_KEY}`;
+const legacySelectionSecret = (): string => `foodsave-volunteer-select:${env.SUPABASE_SERVICE_ROLE_KEY}`;
+
+const secret = (): string =>
+  env.VOLUNTEER_TOKEN_SECRET ? `foodsave-volunteer:${env.VOLUNTEER_TOKEN_SECRET}` : legacySecret();
+
+const selectionSecret = (): string =>
+  env.VOLUNTEER_TOKEN_SECRET ? `foodsave-volunteer-select:${env.VOLUNTEER_TOKEN_SECRET}` : legacySelectionSecret();
+
+const decodeWithFallback = (token: string, primaryKey: string, fallbackKey: string): Record<string, unknown> | null => {
+  const primary = decode(token, primaryKey);
+  if (primary) return primary;
+  if (fallbackKey !== primaryKey) {
+    return decode(token, fallbackKey);
+  }
+  return null;
+};
 
 const sign = (body: string, key: string): string => createHmac("sha256", key).update(body).digest("base64url");
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
@@ -55,7 +72,7 @@ export const createVolunteerToken = (volunteerId: string, charityId: string, amr
   encode({ vid: volunteerId, cid: charityId, exp: nowSeconds() + TOKEN_TTL_SECONDS, amr } satisfies VolunteerTokenPayload, secret());
 
 export const verifyVolunteerToken = (token: string): VolunteerTokenPayload | null => {
-  const payload = decode(token, secret());
+  const payload = decodeWithFallback(token, secret(), legacySecret());
   if (!payload) return null;
   const { vid, cid, exp } = payload;
   if (typeof vid !== "string" || !vid || typeof cid !== "string" || !cid || typeof exp !== "number" || exp < nowSeconds()) return null;
@@ -70,7 +87,7 @@ export const createSelectionToken = (email: string): string =>
   encode({ em: normalizeEmail(email), exp: nowSeconds() + SELECTION_TTL_SECONDS } satisfies SelectionTokenPayload, selectionSecret());
 
 export const verifySelectionToken = (token: string): { email: string } | null => {
-  const payload = decode(token, selectionSecret());
+  const payload = decodeWithFallback(token, selectionSecret(), legacySelectionSecret());
   if (!payload || typeof payload.em !== "string" || !payload.em || typeof payload.exp !== "number" || payload.exp < nowSeconds()) return null;
   return { email: payload.em };
 };

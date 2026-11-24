@@ -8,6 +8,16 @@ const optionalNonEmptyString = z.preprocess(
   z.string().trim().min(1).optional()
 );
 
+const optionalUrlString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().url().optional()
+);
+
+const optionalSecret32 = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(32).optional()
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
@@ -24,6 +34,13 @@ const envSchema = z.object({
   SOCKET_CORS_ORIGINS: z.string().min(1).default("http://localhost:3000,http://localhost:5173,http://localhost:8081,http://10.0.2.2:8081"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_REDIS_URL: optionalUrlString,
+  RATE_LIMIT_REDIS_TOKEN: optionalNonEmptyString,
+  VOLUNTEER_TOKEN_SECRET: optionalSecret32,
+  NEON_ACTIVITY_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   // Chu kỳ chạy tác vụ đổi nhãn khi chạy backend ở máy (npm run dev). 0 = tắt. Trên Netlify dùng Scheduled Function.
   LABEL_AUTOMATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300000),

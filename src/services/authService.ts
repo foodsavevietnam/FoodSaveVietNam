@@ -906,17 +906,189 @@ const loadOAuthOtpChallenge = async (challengeId: string, oauthProvider: OAuthPr
   return challenge;
 };
 
+const OTP_MAX_FAILED = 5;
+const OTP_WINDOW_MS = 15 * 60 * 1000;
+const OTP_LOCK_MS = 15 * 60 * 1000;
+
+interface OtpAttemptRow {
+  key: string;
+  failed_count: number;
+  window_started_at: string;
+  locked_until: string | null;
+}
+
+const isMissingOtpAttemptTableError = (error: { code?: string | null; message?: string | null } | null | undefined): boolean => {
+  if (!error) return false;
+  const code = String(error.code ?? "");
+  const message = String(error.message ?? "").toLowerCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("auth_otp_attempts") ||
+    message.includes("does not exist") ||
+    message.includes("schema cache")
+  );
+};
+
+const reserveAuthOtpAttempt = async (key: string): Promise<void> => {
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const now = Date.now();
+      const { data, error } = await supabaseAdmin
+        .from("auth_otp_attempts")
+        .select("key,failed_count,window_started_at,locked_until")
+        .eq("key", key)
+        .maybeSingle();
+
+      if (error) {
+        if (isMissingOtpAttemptTableError(error)) {
+          logger.warn("Bảng auth_otp_attempts chưa sẵn sàng, tạm bỏ qua khóa brute-force OTP", { code: error.code });
+          return;
+        }
+        logger.warn("Không đọc được bộ đếm OTP trong auth_otp_attempts, tạm fail-open", { code: error.code });
+        return;
+      }
+
+      const row = data as OtpAttemptRow | null;
+      if (!row) {
+        const { error: insertError } = await supabaseAdmin.from("auth_otp_attempts").insert({
+          key,
+          failed_count: 1,
+          window_started_at: new Date(now).toISOString(),
+          locked_until: null
+        });
+        if (!insertError) return;
+        if (insertError.code === "23505") continue;
+        if (isMissingOtpAttemptTableError(insertError)) {
+          logger.warn("Bảng auth_otp_attempts chưa sẵn sàng khi ghi, tạm fail-open", { code: insertError.code });
+          return;
+        }
+        logger.warn("Không ghi được bộ đếm OTP trong auth_otp_attempts, tạm fail-open", { code: insertError.code });
+        return;
+      }
+
+      const lockedUntil = row.locked_until ? new Date(row.locked_until).getTime() : null;
+      if (lockedUntil !== null && lockedUntil > now) {
+        throw new AppError(
+          "Bạn đã nhập sai mã OTP quá nhiều lần. Vui lòng thử lại sau 15 phút.",
+          HTTP_STATUS.TOO_MANY_REQUESTS,
+          ERROR_CODES.OTP_LOCKED
+        );
+      }
+
+      const fresh = new Date(row.window_started_at).getTime() < now - OTP_WINDOW_MS || lockedUntil !== null;
+      const count = (fresh ? 0 : Number(row.failed_count) || 0) + 1;
+      const patch = {
+        failed_count: count,
+        window_started_at: fresh ? new Date(now).toISOString() : row.window_started_at,
+        locked_until: count >= OTP_MAX_FAILED ? new Date(now + OTP_LOCK_MS).toISOString() : null
+      };
+
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("auth_otp_attempts")
+        .update(patch)
+        .eq("key", key)
+        .eq("failed_count", row.failed_count)
+        .select("key");
+
+      if (updateError) {
+        logger.warn("Không cập nhật được bộ đếm OTP trong auth_otp_attempts, tạm fail-open", { code: updateError.code });
+        return;
+      }
+      if (((updated ?? []) as unknown[]).length === 1) return;
+    }
+
+    throw new AppError(
+      "Bạn đã nhập sai mã OTP quá nhiều lần. Vui lòng thử lại sau 15 phút.",
+      HTTP_STATUS.TOO_MANY_REQUESTS,
+      ERROR_CODES.OTP_LOCKED
+    );
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    logger.warn("Lỗi bất ngờ khi kiểm tra bộ đếm OTP, tạm fail-open", error);
+  }
+};
+
+const resetAuthOtpAttempts = async (key: string): Promise<void> => {
+  try {
+    const { error } = await supabaseAdmin
+      .from("auth_otp_attempts")
+      .update({ failed_count: 0, locked_until: null, window_started_at: new Date().toISOString() })
+      .eq("key", key);
+    if (error && !isMissingOtpAttemptTableError(error)) {
+      logger.warn("Không đặt lại được bộ đếm OTP sau khi xác minh thành công", { code: error.code });
+    }
+  } catch {
+    // Best-effort cleanup; never break successful OTP login
+  }
+};
+
+const collectAllowedRedirectOrigins = (): Set<string> => {
+  const candidates: Array<string | undefined> = [
+    ...env.CORS_ORIGINS,
+    env.PUBLIC_SITE_URL,
+    env.GOOGLE_OAUTH_REDIRECT_URL,
+    env.FACEBOOK_OAUTH_REDIRECT_URL
+  ];
+  const origins = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        origins.add(parsed.origin);
+      }
+    } catch {
+      // Ignore malformed env entries
+    }
+  }
+  return origins;
+};
+
+export const assertAllowedRedirectUrl = (rawUrl: string): string => {
+  const trimmed = rawUrl.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new AppError("redirect_to không phải là URL hợp lệ", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new AppError("redirect_to không được chứa thông tin đăng nhập", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  if (parsed.protocol === "mio:") {
+    return trimmed;
+  }
+
+  const isHttps = parsed.protocol === "https:";
+  const isAllowedHttp = parsed.protocol === "http:" && env.NODE_ENV !== "production";
+  if (!isHttps && !isAllowedHttp) {
+    throw new AppError("Giao thức của redirect_to không được phép", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const allowedOrigins = collectAllowedRedirectOrigins();
+  if (!allowedOrigins.has(parsed.origin)) {
+    throw new AppError("redirect_to không thuộc danh sách tên miền được phép", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  return trimmed;
+};
+
 const startOAuth = async (
   oauthProvider: OAuthProvider,
   body: GoogleOAuthStartBody | FacebookOAuthStartBody,
   meta: RequestMeta
 ): Promise<OAuthStartResult> => {
   const config = oauthProviderConfigs[oauthProvider];
-  const redirectTo = body.redirect_to ?? (oauthProvider === "facebook" ? env.FACEBOOK_OAUTH_REDIRECT_URL : env.GOOGLE_OAUTH_REDIRECT_URL);
+  const rawRedirectTo = body.redirect_to ?? (oauthProvider === "facebook" ? env.FACEBOOK_OAUTH_REDIRECT_URL : env.GOOGLE_OAUTH_REDIRECT_URL);
 
-  if (!redirectTo) {
+  if (!rawRedirectTo) {
     throw new AppError(`redirect_to is required for ${config.label} OAuth`, HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
+
+  const redirectTo = assertAllowedRedirectUrl(rawRedirectTo);
 
   const { data, error } = await supabaseAuth.auth.signInWithOAuth({
     provider: oauthProvider,
@@ -1055,6 +1227,9 @@ const verifyOAuthOtp = async (
     throw new AppError("Tài khoản không thuộc đúng cổng đăng nhập", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
   }
 
+  const otpAttemptKey = `oauth-otp:${oauthProvider}:${email}`;
+  await reserveAuthOtpAttempt(otpAttemptKey);
+
   const { data, error } = await supabaseAuth.auth.verifyOtp({
     email,
     token: body.otp,
@@ -1076,6 +1251,8 @@ const verifyOAuthOtp = async (
     });
     throw authError(invalidOtpMessage);
   }
+
+  await resetAuthOtpAttempts(otpAttemptKey);
 
   const profile = await ensureOAuthProfile(data.user, oauthProvider);
   const expectedRole = body.expected_role ?? challenge.expected_role ?? undefined;
@@ -1239,6 +1416,9 @@ const verifyPhoneOtp = async (body: PhoneOtpVerifyBody, meta: RequestMeta): Prom
     phase: "VERIFY"
   });
 
+  const otpAttemptKey = `phone-otp:${smsPhone}`;
+  await reserveAuthOtpAttempt(otpAttemptKey);
+
   const { data, error } = await supabaseAuth.auth.verifyOtp({
     phone: smsPhone,
     token: body.otp,
@@ -1262,6 +1442,8 @@ const verifyPhoneOtp = async (body: PhoneOtpVerifyBody, meta: RequestMeta): Prom
     });
     throw authError("Mã OTP SMS không hợp lệ hoặc đã hết hạn");
   }
+
+  await resetAuthOtpAttempts(otpAttemptKey);
 
   await updateLastLogin(data.user.id, profile.role);
   await writeAuditLog("PHONE_OTP_VERIFIED", data.user.id, profile.role, meta, {
@@ -1583,6 +1765,22 @@ export const authService = {
     }
 
     const profile = await loadProfile(data.user.id);
+    if (profile.status === "suspended") {
+      try {
+        const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(data.session.access_token, "local");
+        if (signOutError) {
+          logger.warn("Không thể thu hồi phiên của tài khoản bị tạm khóa khi refresh", { userId: data.user.id });
+        }
+      } catch (signOutErr) {
+        logger.warn("Lỗi thu hồi phiên của tài khoản bị tạm khóa khi refresh", { userId: data.user.id, error: signOutErr });
+      }
+      await writeAuditLog("LOGIN_FAILED", data.user.id, profile.role, meta, {
+        reason: "SUSPENDED",
+        phase: "TOKEN_REFRESH"
+      });
+      throw new AppError("Tài khoản đã bị tạm khóa", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
+    }
+
     await writeAuditLog("TOKEN_REFRESH", data.user.id, profile.role, meta);
 
     return buildAuthResult(data.user, data.session);

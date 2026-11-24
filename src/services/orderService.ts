@@ -597,7 +597,10 @@ export const orderService = {
       else Object.assign(order, { payment_provider: payment.provider, payment_ref: payment.paymentRef });
     }
 
-    await supabaseAdmin.from("cart_items").delete().eq("user_id", customerId);
+    const orderedProductIds = [...new Set(body.items.map((item) => item.product_id))];
+    if (orderedProductIds.length > 0) {
+      await supabaseAdmin.from("cart_items").delete().eq("user_id", customerId).in("product_id", orderedProductIds);
+    }
 
     return {
       order,
@@ -838,17 +841,24 @@ export const orderService = {
       throw statusConflict("Đơn hàng đã bị hủy hoặc đã kết thúc");
     }
 
-    // Đơn tạo trước khi có quy trình trả trước (không có pay_deadline): giữ cách cũ, chỉ đổi trạng thái thanh toán
+    // Đơn tạo trước khi có quy trình trả trước (không có pay_deadline): vẫn đặt giữ tiền và đồng bộ sổ cái như đơn chuẩn
     if (order.status !== "awaiting_payment") {
       const { data, error } = await supabaseAdmin
         .from("orders")
-        .update({ payment_status: "paid", ...(paymentMethod ? { payment_method: paymentMethod } : {}) })
+        .update({
+          payment_status: "paid",
+          settlement_status: "held",
+          ...(paymentMethod ? { payment_method: paymentMethod } : {}),
+          ...(reference ? { payment_provider: reference.provider, payment_ref: reference.ref } : {})
+        })
         .eq("id", order.id)
         .select("*")
         .single();
       if (error) handleSupabaseError(error, "Failed to confirm order payment");
+      const updated = data as Order;
+      await ledgerService.syncOrderSafe(updated);
       await notifyStore(order, "order-paid", `Đơn ${order.order_number} đã thanh toán`, "Khách đã thanh toán, hãy nhận đơn và chuẩn bị hàng.");
-      return data as Order;
+      return updated;
     }
 
     if (order.pay_deadline && Date.now() > new Date(order.pay_deadline).getTime()) {

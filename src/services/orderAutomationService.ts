@@ -17,6 +17,11 @@ import { supabaseAdmin } from "./supabaseService";
 import { locationService } from "./locationService";
 
 const BATCH = 200;
+export const DEFAULT_ORDER_AUTOMATION_TIME_BUDGET_MS = 20_000;
+
+export interface OrderAutomationOptions {
+  timeBudgetMs?: number;
+}
 
 export interface OrderAutomationResult {
   checked_at: string;
@@ -30,13 +35,15 @@ export interface OrderAutomationResult {
   complaints_completed: number;
   volunteer_reminders: number;
   locations_pruned: number;
+  runs_purged: number;
+  budget_reached: boolean;
   errors: string[];
 }
 
 const formatVnTime = (iso: string): string =>
   new Date(iso).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
 
-const cancelUnpaid = async (nowIso: string): Promise<number> => {
+const cancelUnpaid = async (nowIso: string, checkBudget: () => boolean): Promise<number> => {
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select("*")
@@ -47,13 +54,14 @@ const cancelUnpaid = async (nowIso: string): Promise<number> => {
   if (error) throw error;
   let done = 0;
   for (const order of (data ?? []) as Order[]) {
+    if (!checkBudget()) break;
     if (await cancelOrderForPaymentTimeout(order)) done += 1;
   }
   return done;
 };
 
 // Vắng mặt chỉ được xác định SAU hạn lấy + thời gian châm chước (cùng mốc cửa hàng còn được xác nhận hoàn tất)
-const markNoShows = async (now: number): Promise<number> => {
+const markNoShows = async (now: number, checkBudget: () => boolean): Promise<number> => {
   const cutoffIso = new Date(now - policyMs(COMPLETE_GRACE_MINUTES)).toISOString();
   const { data, error } = await supabaseAdmin
     .from("orders")
@@ -66,13 +74,14 @@ const markNoShows = async (now: number): Promise<number> => {
   if (error) throw error;
   let done = 0;
   for (const order of (data ?? []) as Order[]) {
+    if (!checkBudget()) break;
     if (await markOrderNoShow(order)) done += 1;
   }
   return done;
 };
 
 /** Nhắc giữa chừng (qua nửa thời gian lấy hàng) và nhắc cuối (còn <= 15 phút, nhãn đỏ <= 10 phút). Có cờ chống gửi trùng. */
-const sendReminders = async (now: number): Promise<{ mid: number; final: number }> => {
+const sendReminders = async (now: number, checkBudget: () => boolean): Promise<{ mid: number; final: number }> => {
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select("*")
@@ -88,6 +97,7 @@ const sendReminders = async (now: number): Promise<{ mid: number; final: number 
   let mid = 0;
   let final = 0;
   for (const order of (data ?? []) as Order[]) {
+    if (!checkBudget()) break;
     const paidAt = new Date(order.paid_at as string).getTime();
     const deadline = new Date(order.pickup_deadline as string).getTime();
     const label: ProductLabel = order.policy_label ?? "green";
@@ -136,8 +146,10 @@ const sendReminders = async (now: number): Promise<{ mid: number; final: number 
 };
 
 export const orderAutomationService = {
-  async run(trigger: AutomationTrigger = "schedule"): Promise<OrderAutomationResult> {
-    const now = Date.now();
+  async run(trigger: AutomationTrigger = "schedule", options: OrderAutomationOptions = {}): Promise<OrderAutomationResult> {
+    const startedAtMs = Date.now();
+    const timeBudgetMs = options.timeBudgetMs ?? DEFAULT_ORDER_AUTOMATION_TIME_BUDGET_MS;
+    const now = startedAtMs;
     const nowIso = new Date(now).toISOString();
     const result: OrderAutomationResult = {
       checked_at: nowIso,
@@ -151,10 +163,20 @@ export const orderAutomationService = {
       complaints_completed: 0,
       volunteer_reminders: 0,
       locations_pruned: 0,
+      runs_purged: 0,
+      budget_reached: false,
       errors: []
+    };
+    const checkBudget = (): boolean => {
+      if (Date.now() - startedAtMs >= timeBudgetMs) {
+        result.budget_reached = true;
+        return false;
+      }
+      return true;
     };
     await policyConfigService.ensureFresh();
     const step = async (name: string, work: () => Promise<void>): Promise<void> => {
+      if (!checkBudget()) return;
       try {
         await work();
       } catch (error) {
@@ -165,10 +187,10 @@ export const orderAutomationService = {
     };
 
     // Thứ tự: hủy đơn chưa trả -> no-show -> nhắc nhở (đơn vừa no-show không bị nhắc) -> dọn chat
-    await step("payment_timeouts", async () => { result.payment_timeouts = await cancelUnpaid(nowIso); });
-    await step("no_shows", async () => { result.no_shows = await markNoShows(now); });
+    await step("payment_timeouts", async () => { result.payment_timeouts = await cancelUnpaid(nowIso, checkBudget); });
+    await step("no_shows", async () => { result.no_shows = await markNoShows(now, checkBudget); });
     await step("reminders", async () => {
-      const reminders = await sendReminders(now);
+      const reminders = await sendReminders(now, checkBudget);
       result.reminders_mid = reminders.mid;
       result.reminders_final = reminders.final;
     });
@@ -177,6 +199,7 @@ export const orderAutomationService = {
     // Khiếu nại: quá 12 giờ cửa hàng chưa phản hồi thì tự chuyển Admin; hoàn tất các quyết định hoàn tiền còn dang dở
     // Mỗi bước phụ có dòng nhật ký riêng để màn "Tự động hóa" của Admin hiện đúng lần chạy gần nhất của từng tác vụ
     const sub = async (job: "complaint-escalation" | "push-reminders", work: () => Promise<Record<string, number>>): Promise<void> => {
+      if (!checkBudget()) return;
       const startedAt = new Date();
       const before = result.errors.length;
       let summary: Record<string, number> = {};
@@ -191,8 +214,14 @@ export const orderAutomationService = {
     await step("chat_purge", async () => { result.chat_purged = await orderChatService.purgeOldMessages(); });
     // Xóa vị trí cũ hơn 2 giờ và vị trí của nhiệm vụ không còn hoạt động
     await step("location_prune", async () => { result.locations_pruned = await locationService.pruneInactive(); });
+    // Dọn nhật ký chạy tác vụ tự động cũ hơn 30 ngày
+    await step("automation_runs_purge", async () => { result.runs_purged = await automationRunService.purgeOldRuns(30); });
 
-    logger.info("Order automation finished", result);
+    if (result.budget_reached) {
+      logger.warn("Order automation stopped early due to time budget", { timeBudgetMs, result });
+    } else {
+      logger.info("Order automation finished", result);
+    }
     return result;
   }
 };

@@ -54,6 +54,7 @@ export interface ComplaintRow {
   admin_note: string | null;
   decided_by: string | null;
   decided_at: string | null;
+  outcome_applied_at?: string | null;
 }
 
 const PRIORITY_BY_REASON: Record<ReasonCode, string> = { spoiled_expired: "high", wrong_item: "medium", missing_items: "medium", other: "low" };
@@ -109,6 +110,23 @@ const notifyAdmins = async (title: string, body: string, complaintId: string): P
   await createNotification({ roleTarget: "admin", type: "complaint-escalated", title, body, relatedType: "complaint", relatedId: complaintId });
 };
 
+const isMissingColumnError = (error: { code?: string | null } | null | undefined): boolean =>
+  Boolean(error && (error.code === "42703" || error.code === "PGRST204"));
+
+const markOutcomeApplied = async (complaintId: string): Promise<void> => {
+  try {
+    const { error } = await supabaseAdmin
+      .from("complaints")
+      .update({ outcome_applied_at: new Date().toISOString() })
+      .eq("id", complaintId);
+    if (error && !isMissingColumnError(error)) {
+      logger.warn("Không đánh dấu được outcome_applied_at của khiếu nại", { complaintId, error });
+    }
+  } catch (error) {
+    logger.warn("Không đánh dấu được outcome_applied_at của khiếu nại", { complaintId, error });
+  }
+};
+
 /**
  * Hệ quả của một quyết định hoàn tiền / bác bỏ: sổ cái, cờ đơn, nhà cung cấp thanh toán, điểm uy tín.
  * Idempotent: gọi lại không hoàn / trừ điểm hai lần (khóa bút toán + nhật ký đơn). Không gửi thông báo (người gọi lo).
@@ -149,6 +167,7 @@ const applyOutcome = async (complaint: ComplaintRow): Promise<void> => {
       }
     }
   }
+  await markOutcomeApplied(complaint.id);
 };
 
 /** Gắn thông tin hiển thị: mã đơn, giá trị đơn, tên người mua, tên cửa hàng */
@@ -393,18 +412,35 @@ export const complaintService = {
 
   /** Tác vụ định kỳ: hoàn tất các quyết định hoàn tiền còn dang dở (lần xử lý trước bị lỗi giữa chừng). Idempotent. */
   async completePendingOutcomes(): Promise<number> {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("complaints")
       .select("*")
       .eq("status", "resolved")
       .in("decision", ["refund_full", "refund_partial"])
+      .is("outcome_applied_at", null)
+      .order("decided_at", { ascending: false })
       .limit(50);
+
+    // DB chưa chạy SQL 041 (chưa có cột outcome_applied_at): fallback ưu tiên 200 khiếu nại mới nhất
+    if (isMissingColumnError(error)) {
+      ({ data, error } = await supabaseAdmin
+        .from("complaints")
+        .select("*")
+        .eq("status", "resolved")
+        .in("decision", ["refund_full", "refund_partial"])
+        .order("decided_at", { ascending: false })
+        .limit(200));
+    }
+
     if (error) handleSupabaseError(error, "Failed to load resolved complaints");
     let done = 0;
     for (const c of (data ?? []) as ComplaintRow[]) {
       const { data: order } = await supabaseAdmin.from("orders").select("settlement_status").eq("id", c.order_id).maybeSingle();
       const status = (order as { settlement_status?: string } | null)?.settlement_status;
-      if (status === "refunded" || status === "partially_refunded") continue;
+      if (status === "refunded" || status === "partially_refunded") {
+        await markOutcomeApplied(c.id);
+        continue;
+      }
       try {
         await applyOutcome(c);
         done += 1;

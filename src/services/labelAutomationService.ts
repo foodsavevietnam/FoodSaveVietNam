@@ -14,6 +14,7 @@ export const RED_REMINDER_MAX = 3;
 export const CHARITY_SHARE_RATE = 0.5;
 export const CHARITY_MIN_QUANTITY = 5;
 export const CHARITY_OFFER_MINUTES = 45;
+export const DEFAULT_LABEL_AUTOMATION_TIME_BUDGET_MS = 20_000;
 // Khối lượng ước tính mỗi phần khi cửa hàng không khai estimated_weight_kg
 const DEFAULT_PORTION_WEIGHT_KG = 0.3;
 
@@ -60,6 +61,7 @@ export interface LabelAutomationResult {
   notifications: number;
   donations_created: number;
   offers_expired: number;
+  budget_reached: boolean;
 }
 
 const formatVnd = (value: number): string => `${Math.round(value).toLocaleString("vi-VN")}đ`;
@@ -119,28 +121,44 @@ const createCharityOffer = async (product: AutomationProduct, deadline: Date, no
     return 0;
   }
 
-  // Giữ phần của tổ chức: trừ khỏi số lượng bán cho người mua
-  const { error: stockError } = await supabaseAdmin
+  const donationId = (donation as { id: string }).id;
+
+  // Giữ phần của tổ chức: trừ khỏi số lượng bán cho người mua với optimistic lock
+  const { data: updatedProducts, error: stockError } = await supabaseAdmin
     .from("products")
     .update({ stock_quantity: Math.max(0, product.stock_quantity - quantity) })
     .eq("id", product.id)
-    .eq("stock_quantity", product.stock_quantity);
+    .eq("stock_quantity", product.stock_quantity)
+    .select("id");
 
-  if (stockError) logger.warn("Không trừ được số lượng dành cho từ thiện", stockError);
+  if (stockError || !updatedProducts || updatedProducts.length !== 1) {
+    logger.warn("Không trừ được số lượng dành cho từ thiện (tồn kho vừa thay đổi), hủy bản ghi donations", {
+      productId: product.id,
+      donationId,
+      expectedStock: product.stock_quantity,
+      updatedCount: updatedProducts?.length ?? 0,
+      error: stockError
+    });
+    const { error: rollbackError } = await supabaseAdmin.from("donations").delete().eq("id", donationId);
+    if (rollbackError) {
+      logger.error("Không xóa được bản ghi donations sau khi trừ kho thất bại", { donationId, error: rollbackError });
+    }
+    return 0;
+  }
 
   await notifyRoles(["charity"], {
     type: "charity-offer",
     title: `Có ${quantity} phần miễn phí: ${product.name}`,
     body: `${product.stores.name} tặng ${quantity} phần hàng nhãn đỏ. Nhận lời trước ${formatVnTime(offerExpiresAt)}.`,
     related_type: "donation",
-    related_id: (donation as { id: string }).id
+    related_id: donationId
   });
 
   return 1;
 };
 
 // Tổ chức không nhận lời đúng hạn: phần của tổ chức trả về cho người mua
-const expireCharityOffers = async (now: Date): Promise<number> => {
+const expireCharityOffers = async (now: Date, checkBudget: () => boolean): Promise<number> => {
   const { data, error } = await supabaseAdmin
     .from("donations")
     .select("id,product_id,quantity")
@@ -151,6 +169,7 @@ const expireCharityOffers = async (now: Date): Promise<number> => {
 
   let expired = 0;
   for (const offer of (data ?? []) as Array<{ id: string; product_id: string | null; quantity: number | null }>) {
+    if (!checkBudget()) break;
     const { data: cancelled, error: cancelError } = await supabaseAdmin
       .from("donations")
       .update({ status: "cancelled", note: "Không có tổ chức nhận lời đúng hạn, phần này đã mở bán cho người mua." })
@@ -281,7 +300,9 @@ export const labelAutomationService = {
    * tính lại nhãn/giá, gỡ hàng quá giờ, gửi thông báo vàng/đỏ, chia hàng đỏ cho từ thiện,
    * trả lại phần từ thiện không ai nhận.
    */
-  async run(options: { now?: Date; productIds?: string[] } = {}): Promise<LabelAutomationResult> {
+  async run(options: { now?: Date; productIds?: string[]; timeBudgetMs?: number } = {}): Promise<LabelAutomationResult> {
+    const startedAtMs = Date.now();
+    const timeBudgetMs = options.timeBudgetMs ?? DEFAULT_LABEL_AUTOMATION_TIME_BUDGET_MS;
     const now = options.now ?? new Date();
     const result: LabelAutomationResult = {
       checked: 0,
@@ -289,10 +310,27 @@ export const labelAutomationService = {
       stopped: 0,
       notifications: 0,
       donations_created: 0,
-      offers_expired: 0
+      offers_expired: 0,
+      budget_reached: false
+    };
+    const checkBudget = (): boolean => {
+      if (Date.now() - startedAtMs >= timeBudgetMs) {
+        result.budget_reached = true;
+        return false;
+      }
+      return true;
     };
 
-    if (!options.productIds) result.offers_expired = await expireCharityOffers(now);
+    if (!checkBudget()) {
+      logger.warn("Label automation stopped early due to time budget", { timeBudgetMs, result });
+      return result;
+    }
+
+    if (!options.productIds) result.offers_expired = await expireCharityOffers(now, checkBudget);
+    if (!checkBudget()) {
+      logger.warn("Label automation stopped early due to time budget", { timeBudgetMs, result });
+      return result;
+    }
 
     let request = supabaseAdmin
       .from("products")
@@ -311,6 +349,10 @@ export const labelAutomationService = {
     if (error) handleSupabaseError(error, "Failed to load products for label automation");
 
     for (const product of (data ?? []) as unknown as AutomationProduct[]) {
+      if (!checkBudget()) {
+        logger.warn("Label automation stopped early due to time budget", { timeBudgetMs, result });
+        break;
+      }
       result.checked += 1;
       try {
         await processProduct(product, now, result);

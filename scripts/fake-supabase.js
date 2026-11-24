@@ -81,7 +81,7 @@ class FakeDb {
         } else if (a.p_action === "start") {
           if (r.status === "processing") return { data: r, error: null };
           if (r.status !== "approved") return bad();
-          Object.assign(r, { status: "processing", processing_by: a.p_actor, processing_at: now, payout_ref: a.p_ref ?? r.payout_ref });
+          Object.assign(r, { status: "processing", processing_by: a.p_actor, processing_at: now, payout_ref: a.p_ref ?? r.payout_ref, admin_note: a.p_note ?? r.admin_note });
         } else if (a.p_action === "pay") {
           if (r.status === "paid") return { data: r, error: null };
           if (!["approved", "processing"].includes(r.status)) return bad();
@@ -89,7 +89,7 @@ class FakeDb {
           const w = this.wallet(this.storeWalletId(r.store_id));
           if (w.balance_cents < r.amount_cents) return { data: null, error: { message: "insufficient_balance" } };
           this.postLedger({ p_key: "withdrawal:" + r.id, p_order: null, p_type: "withdraw", p_from: w.id, p_to: "w-external", p_amount: r.amount_cents, p_meta: { bank_txn_ref: a.p_ref } });
-          Object.assign(r, { status: "paid", paid_by: a.p_actor, paid_at: now, bank_txn_ref: a.p_ref });
+          Object.assign(r, { status: "paid", paid_by: a.p_actor, paid_at: now, bank_txn_ref: a.p_ref, admin_note: a.p_note ?? r.admin_note });
         } else if (a.p_action === "fail") {
           if (r.status === "failed") return { data: r, error: null };
           if (!["approved", "processing"].includes(r.status)) return bad();
@@ -143,6 +143,36 @@ const matchOne = (row, { col, op, val }) => {
   throw new Error("fake-supabase: chưa hỗ trợ or(" + op + ")");
 };
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}|$)/;
+
+const compareValues = (a, b) => {
+  if (a === null || a === undefined || b === null || b === undefined) return null;
+  if (typeof a === "number" && typeof b === "number") {
+    if (Number.isNaN(a) || Number.isNaN(b)) return null;
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+  if (a instanceof Date || b instanceof Date) {
+    const ta = a instanceof Date ? a.getTime() : Date.parse(String(a));
+    const tb = b instanceof Date ? b.getTime() : Date.parse(String(b));
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return null;
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  }
+  if (typeof a === "string" && typeof b === "string") {
+    if (ISO_DATE_RE.test(a) && ISO_DATE_RE.test(b)) {
+      const ta = Date.parse(a);
+      const tb = Date.parse(b);
+      if (!Number.isNaN(ta) && !Number.isNaN(tb)) return ta < tb ? -1 : ta > tb ? 1 : 0;
+    }
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  }
+  return null;
+};
+
 class Query {
   constructor(db, name) {
     this.db = db; this.name = name; this.op = "select"; this.filters = []; this.payload = null;
@@ -188,10 +218,10 @@ class Query {
     else throw new Error("fake-supabase: chưa hỗ trợ not(" + op + ")");
     return this;
   }
-  lt(col, val) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && new Date(r[col]).getTime() < new Date(val).getTime()); return this; }
-  lte(col, val) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && new Date(r[col]).getTime() <= new Date(val).getTime()); return this; }
-  gt(col, val) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && new Date(r[col]).getTime() > new Date(val).getTime()); return this; }
-  gte(col, val) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && new Date(r[col]).getTime() >= new Date(val).getTime()); return this; }
+  lt(col, val) { this.filters.push((r) => { const c = compareValues(this.get(r, col), val); return c !== null && c < 0; }); return this; }
+  lte(col, val) { this.filters.push((r) => { const c = compareValues(this.get(r, col), val); return c !== null && c <= 0; }); return this; }
+  gt(col, val) { this.filters.push((r) => { const c = compareValues(this.get(r, col), val); return c !== null && c > 0; }); return this; }
+  gte(col, val) { this.filters.push((r) => { const c = compareValues(this.get(r, col), val); return c !== null && c >= 0; }); return this; }
   or(expr) { const conds = parseOr(expr); this.filters.push((r) => conds.some((c) => matchOne(r, c))); return this; }
   order(col, opts) { this.orderBy = { col, asc: !opts || opts.ascending !== false }; return this; }
   limit(n) { this.limitN = n; return this; }

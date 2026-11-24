@@ -4328,7 +4328,7 @@ function cartProductSnapshot(product) {
     name: product.name,
     price: product.price,
     price_cents: product.price_cents ?? product.price,
-    image_url: product.image_url || '',
+    image_url: product.image_url || product.image || '',
     emoji: product.emoji,
     store: product.store,
     storeId: product.storeId ?? product.store_id ?? 0
@@ -4355,7 +4355,7 @@ function productFlowPayload(id) {
     id: p.id,
     name: p.name,
     price_cents: p.price_cents ?? p.price,
-    image_url: p.image_url || ''
+    image_url: p.image_url || p.image || ''
   } : { id: key };
 }
 
@@ -4791,12 +4791,16 @@ function renderProductCard(p) {
     : `<strong>${fmt(p.price)}</strong><del>${fmt(p.original)}</del>`;
   const isFav = favorites.has(productIdKey(p.id));
   const distance = formatDistanceDisplay(p.distance, p.distanceText);
+  const imageSrc = p.image_url || p.image || '';
+  const artHtml = imageSrc && !String(p.emoji || '').includes('<img')
+    ? `<img src="${htmlSafe(imageSrc)}" alt="${htmlSafe(p.name)}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+    : p.emoji;
   return `
     <div class="product" onclick="openProduct(${productArg})">
       <div class="product-art">
         <span class="tag ${labelTag(p.label)}">${discount > 0 ? '-' + discount + '%' : 'Free'}</span>
         <button class="product-fav ${isFav ? 'active' : ''}" onclick="event.stopPropagation();toggleFav(${productArg},this)"><i class="ti ti-heart${isFav ? '-filled' : ''}"></i></button>
-        ${p.emoji}
+        ${artHtml}
       </div>
       <div class="product-body">
         <div class="product-store"><i class="ti ti-building-store"></i> ${p.store}</div>
@@ -5071,6 +5075,7 @@ function openProduct(id) {
 function productGalleryItems(p) {
   const urls = [
     p.image_url,
+    p.image,
     ...(Array.isArray(p.images) ? p.images : [])
   ].filter(Boolean);
   const uniqueUrls = [...new Set(urls.map(String))];
@@ -7152,8 +7157,47 @@ function updateReputationUI(){
     note.style.color = (trust.red_banned || trust.blocked) ? '#b3261e' : '';
   }
 }
+async function hasCustomerAuthSession(){
+  if (window.MIO_DEMO_MODE) return false;
+  const sync = window.FS && window.FS.sync;
+  const hasSyncAuthHeader = Boolean(sync && typeof sync.authHeader === 'function');
+  if (hasSyncAuthHeader) {
+    const header = sync.authHeader();
+    if (typeof header === 'string' && header.startsWith('Bearer ') && header.length > 7) return true;
+  }
+
+  const savedSession = (window.FoodSaveAuth && typeof window.FoodSaveAuth.readSession === 'function'
+    ? window.FoodSaveAuth.readSession()
+    : null) || window.FoodSaveCurrentAuth || (typeof readFoodSaveAuthSession === 'function' ? readFoodSaveAuthSession() : null);
+  const savedToken = savedSession && savedSession.role === 'customer' && typeof savedSession.accessToken === 'string'
+    ? savedSession.accessToken.trim()
+    : '';
+  if (!hasSyncAuthHeader && savedToken) return true;
+  if (hasSyncAuthHeader && !savedToken && window.FoodSaveCurrentAuth?.role === 'customer' && window.FoodSaveCurrentAuth.accessToken) {
+    return true;
+  }
+
+  let storedSupabaseSession = null;
+  try { storedSupabaseSession = localStorage.getItem('foodsave-customer-auth'); } catch (error) { /* bỏ qua */ }
+  const supabaseClient = window.foodsaveSupabase
+    || (storedSupabaseSession && window.FoodSaveAuth && typeof window.FoodSaveAuth.getSupabaseClient === 'function'
+      ? window.FoodSaveAuth.getSupabaseClient()
+      : null);
+  if (supabaseClient && supabaseClient.auth && typeof supabaseClient.auth.getSession === 'function') {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      const sbToken = data && data.session && typeof data.session.access_token === 'string'
+        ? data.session.access_token.trim()
+        : '';
+      if (sbToken && (!hasSyncAuthHeader || sbToken !== savedToken)) return true;
+    } catch (error) { /* bỏ qua */ }
+  }
+
+  return false;
+}
 async function loadCustomerTrust(){
   if (!window.FS || !window.FS.sync || typeof window.FS.sync.request !== 'function') return null;
+  if (!(await hasCustomerAuthSession())) return null;
   try {
     window.CUSTOMER_TRUST = await window.FS.sync.request('/customers/me/trust');
     window.userPoints = window.CUSTOMER_TRUST.points;
@@ -7164,6 +7208,11 @@ async function loadCustomerTrust(){
   }
 }
 window.loadCustomerTrust = loadCustomerTrust;
+window.addEventListener('foodsave:session-saved', (event) => {
+  if (!event.detail || !event.detail.role || event.detail.role === 'customer') {
+    loadCustomerTrust();
+  }
+});
 setTimeout(loadCustomerTrust, 1500);
 setInterval(() => { if (!document.hidden) loadCustomerTrust(); }, 60000);
 updateReputationUI();
@@ -7440,7 +7489,7 @@ function renderHotBanner(){
   if(list.length>1)hotBannerTimer=setInterval(()=>{hotBannerIdx=(hotBannerIdx+1)%list.length;const slides=host.querySelectorAll('.hb-slide'),dots=host.querySelectorAll('.hb-dots i');slides.forEach((s,i)=>s.classList.toggle('on',i===hotBannerIdx));dots.forEach((s,i)=>s.classList.toggle('on',i===hotBannerIdx));},5000);
 }
 function hotBannerGo(i){hotBannerIdx=i;renderHotBanner();}
-window.foodsaveAfterProductsReplace=renderHotBanner;
+window.foodsaveAfterProductsReplace=function(){renderHotBanner();if(typeof renderHome==='function')renderHome();if(typeof renderMarket==='function')renderMarket();};
 document.addEventListener('DOMContentLoaded',()=>setTimeout(renderHotBanner,600));
 
 
@@ -7792,51 +7841,40 @@ function updateReputationRules(){
     if (typeof window.R === 'function') window.R();
   }
 
+  let loadProductsInFlight = null;
+
   async function loadProducts() {
-    const container = fsEl('product-container');
-    if (container) {
-      container.style.display = 'grid';
-      container.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-emo">⏳</div><h3>Đang tải sản phẩm</h3><p>MIO đang lấy dữ liệu mới nhất từ Supabase.</p></div>';
+    window.__foodsaveSupabaseProductsReady = false;
+    window.foodsaveSupabaseProducts = [];
+
+    if (window.MIO_DEMO_MODE) {
+      if (typeof renderMarket === 'function') renderMarket();
+      if (typeof renderHome === 'function') renderHome();
+      return typeof PRODUCTS !== 'undefined' ? PRODUCTS : [];
     }
 
-    try {
-      const supabase = foodsaveSupabaseClient();
-      // Lấy kèm cửa hàng để hiện tên và tính khoảng cách; chỉ lấy món còn hàng
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, stores(id,name,address,district,city,latitude,longitude,logo_url,emoji)')
-        .gt('stock_quantity', 0)
-        .order('created_at', { ascending: false });
+    if (loadProductsInFlight) return loadProductsInFlight;
 
-      if (error) throw error;
-
-      window.foodsaveSupabaseProducts = Array.isArray(data) ? data : [];
-      window.__foodsaveSupabaseProductsReady = true;
-      const nearbyLocation = window.FS && window.FS.sync && typeof window.FS.sync.getNearbyLocation === 'function'
-        ? window.FS.sync.getNearbyLocation()
-        : null;
-      if (!nearbyLocation) renderSupabaseProductList(window.foodsaveSupabaseProducts);
-      else if (typeof renderMarket === 'function') renderMarket();
-    } catch (error) {
-      console.error('[MIO] Không thể tải products từ Supabase:', error);
-      const nearbyLocation = window.FS && window.FS.sync && typeof window.FS.sync.getNearbyLocation === 'function'
-        ? window.FS.sync.getNearbyLocation()
-        : null;
-      if (container && !nearbyLocation) {
-        container.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-emo">⚠️</div><h3>Không tải được sản phẩm</h3><p>Vui lòng kiểm tra kết nối Supabase hoặc quyền đọc bảng products.</p></div>';
+    loadProductsInFlight = (async () => {
+      try {
+        if (window.FS && window.FS.sync && typeof window.FS.sync.refresh === 'function') {
+          await window.FS.sync.refresh();
+        }
+        if (typeof renderMarket === 'function') renderMarket();
+        if (typeof renderHome === 'function') renderHome();
+      } catch (error) {
+        console.warn('[MIO] Không thể làm mới danh sách sản phẩm từ API:', error);
+      } finally {
+        loadProductsInFlight = null;
       }
-      if (typeof toast === 'function') toast('Không thể tải sản phẩm từ Supabase.', 'warn');
-    }
+      return typeof PRODUCTS !== 'undefined' ? PRODUCTS : [];
+    })();
+
+    return loadProductsInFlight;
   }
 
   window.renderSupabaseProductList = renderSupabaseProductList;
   window.loadProducts = loadProducts;
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadProducts);
-  } else {
-    loadProducts();
-  }
 
   function emailOtpConfig(mode) {
     if (mode === 'login') {

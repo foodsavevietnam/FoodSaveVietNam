@@ -25,10 +25,17 @@ const runLabelAutomation = (): void => {
     .catch((error: unknown) => logger.error("Label automation failed", error));
 };
 
-const labelAutomationTimer = env.LABEL_AUTOMATION_INTERVAL_MS > 0
+const labelAutomationTimer = env.AUTOMATION_ENABLED && env.LABEL_AUTOMATION_INTERVAL_MS > 0
   ? setInterval(runLabelAutomation, env.LABEL_AUTOMATION_INTERVAL_MS)
   : null;
-if (labelAutomationTimer) runLabelAutomation();
+if (labelAutomationTimer) {
+  runLabelAutomation();
+} else {
+  logger.info("Label automation is disabled on boot", {
+    automationEnabled: env.AUTOMATION_ENABLED,
+    intervalMs: env.LABEL_AUTOMATION_INTERVAL_MS
+  });
+}
 
 const shutdown = (signal: string): void => {
   if (labelAutomationTimer) clearInterval(labelAutomationTimer);

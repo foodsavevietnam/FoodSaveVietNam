@@ -351,6 +351,7 @@ small.lock{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px
 </div>
 
 <script src="frontend/foodsave-location.js?v=20261122c"></script>
+<script src="frontend/foodsave-pwa.js?v=20261030a"></script>
 <script>
 (function () {
 'use strict';
@@ -880,6 +881,7 @@ function finishLogin(data) {
   lsSet(TOKEN_KEY, data.token); lsSet(INFO_KEY, JSON.stringify(data.volunteer));
   sessionGen++; S.login = freshLogin(); S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; S.data = fresh(); S.data.volunteer.id = data.volunteer.id; firstLoad = true;
   try { if (window.FoodSaveLocation) window.FoodSaveLocation.syncConsent(); } catch (e) {}
+  try { if (window.FSPwa) window.FSPwa.sync(); } catch (e) {}
   render(); loadAll(); toast('Đăng nhập thành công');
 }
 function loginFail(e) { S.login.busy = false; S.login.error = e.message || 'Không đăng nhập được.'; render(); }
@@ -1377,12 +1379,9 @@ initLocation();
     S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; render(); loadAll();
   } else render();
 })();
+// PWA: service worker, nút "Cài ứng dụng", nút "Bật thông báo" (token tình nguyện viên lấy từ phiên đăng nhập của trang)
+if (window.FSPwa) window.FSPwa.init({ role: 'volunteer', request: function (path, options) { return api(path, options); } });
 })();
-</script>
-<script src="frontend/foodsave-pwa.js?v=20261029a"></script>
-<script>
-  // PWA: service worker, nút "Cài ứng dụng", nút "Bật thông báo" (token tình nguyện viên lấy từ phiên đăng nhập của trang)
-  if (window.FSPwa) FSPwa.init({ role: 'volunteer', request: function (path, options) { return api(path, options); } });
 </script>
 </body>
 </html>

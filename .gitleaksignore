@@ -1,0 +1,2 @@
+# Synthetic redaction fixture (`api_key: 'sk_live_12345'`) in logger PII redaction unit test
+8cf233f27e1fdd9ab16f5133c0e991f1187c0c19:tests/wave3-observability-crypto.test.mjs:generic-api-key:88

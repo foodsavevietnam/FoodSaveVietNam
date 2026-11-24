@@ -1,8 +1,7 @@
 # Gitleaks configuration for MIO / FoodSave Vietnam.
-# Extends the full built-in Gitleaks ruleset while allowlisting ONLY:
-#   1. Supabase browser publishable keys (`sb_publishable_*`), which are intentionally
-#      public client identifiers protected by Row Level Security (never `sb_secret_*` or JWTs).
-#   2. Synthetic redaction unit-test fixture string `api_key: 'sk_live_12345'` in observability tests.
+# Extends the full built-in Gitleaks ruleset while allowlisting ONLY
+# Supabase browser publishable keys (`sb_publishable_*`), which are intentionally
+# public client identifiers protected by Row Level Security (never `sb_secret_*` or JWTs).
 
 title = "MIO / FoodSave Vietnam Gitleaks Config"
 
@@ -10,8 +9,7 @@ title = "MIO / FoodSave Vietnam Gitleaks Config"
 useDefault = true
 
 [allowlist]
-description = "Allow Supabase public browser publishable keys and synthetic redaction unit-test fixture"
+description = "Allow Supabase public browser publishable keys (protected by RLS)"
 regexes = [
-  '''sb_publishable_[A-Za-z0-9_-]{20,}''',
-  '''api_key:\s*['"]sk_live_12345['"]''',
+  '''^sb_publishable_[A-Za-z0-9_-]{20,}$''',
 ]

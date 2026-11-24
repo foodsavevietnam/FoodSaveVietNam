@@ -143,7 +143,7 @@
   };
 
   /* ---------- chat theo đơn ---------- */
-  var chat = { orderId: null, timer: null, loading: false, lastKey: "" };
+  var chat = { orderId: null, timer: null, loading: false, lastKey: "", lastMarkedReadId: null };
 
   function chatEligible(o) {
     return o && o.backendId && o.paymentStatus === "paid" && o.status !== "awaiting_payment";
@@ -171,7 +171,7 @@
       return;
     }
     host.style.display = "";
-    if (chat.orderId !== o.backendId) { chat.orderId = o.backendId; chat.lastKey = ""; host.innerHTML = ""; }
+    if (chat.orderId !== o.backendId) { chat.orderId = o.backendId; chat.lastKey = ""; chat.lastMarkedReadId = null; host.innerHTML = ""; }
     startChat();
     loadChat();
   }
@@ -180,8 +180,9 @@
     if (chat.timer) return;
     chat.timer = setInterval(function () {
       if (document.hidden || !document.querySelector("#page-order-detail.active")) return;
+      if (window.FS && FS.poll && typeof FS.poll.isIdle === "function" && FS.poll.isIdle()) return;
       loadChat();
-    }, 6000);
+    }, 12000);
   }
   function stopChat() { if (chat.timer) { clearInterval(chat.timer); chat.timer = null; } }
 
@@ -192,8 +193,18 @@
     api("/orders/" + encodeURIComponent(id) + "/messages")
       .then(function (data) {
         if (id !== chat.orderId) return;
-        paintChat(data.messages || [], !!data.can_send);
-        api("/orders/" + encodeURIComponent(id) + "/messages/read", { method: "POST" }).catch(function () {});
+        var messages = (data && data.messages) || [];
+        paintChat(messages, !!(data && data.can_send));
+        var unreadOther = messages.filter(function (m) {
+          return m && m.sender_role && m.sender_role !== "customer" && m.sender_role !== "system" && !m.read_at;
+        });
+        var latestUnreadId = unreadOther.length ? String(unreadOther[unreadOther.length - 1].id || "") : "";
+        if (latestUnreadId && latestUnreadId !== chat.lastMarkedReadId) {
+          chat.lastMarkedReadId = latestUnreadId;
+          api("/orders/" + encodeURIComponent(id) + "/messages/read", { method: "POST" }).catch(function () {
+            if (chat.orderId === id && chat.lastMarkedReadId === latestUnreadId) chat.lastMarkedReadId = null;
+          });
+        }
       })
       .catch(function () { /* mất kết nối: giữ nguyên khung chat */ })
       .then(function () { chat.loading = false; });

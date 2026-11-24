@@ -167,7 +167,7 @@ test.describe('FOODSAVE_VOLUNTEER.html: vị trí và chỉ đường', () => {
 
     // Tải lỗi (500): danh sách rỗng không có nghĩa là hết việc
     state.failTasks = true;
-    await page.clock.fastForward(11000);
+    await page.clock.fastForward(31000);
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => window.FoodSaveLocation._isTracking())).toBe(true);
     expect(deletes()).toHaveLength(0);
@@ -175,13 +175,13 @@ test.describe('FOODSAVE_VOLUNTEER.html: vị trí và chỉ đường', () => {
     // Tải lại thành công và nhiệm vụ đã xong: dừng
     state.failTasks = false;
     state.tasks = [volunteerTask({ status: 'completed', my_pickup: { done_at: '2026-11-22T02:00:00Z' }, completed_at: '2026-11-22T02:00:00Z' })];
-    await page.clock.fastForward(11000);
+    await page.clock.fastForward(31000);
     await expect.poll(() => deletes().length).toBe(1);
     expect(await page.evaluate(() => window.FoodSaveLocation._isTracking())).toBe(false);
 
     // Có việc mới rồi đăng xuất: dừng và DELETE còn mang token
     state.tasks = [volunteerTask({ id: 'don-2', status: 'accepted' })];
-    await page.clock.fastForward(11000);
+    await page.clock.fastForward(121000);
     await expect.poll(() => page.evaluate(() => window.FoodSaveLocation._isTracking())).toBe(true);
     await page.click('[data-act="tab"][data-t="profile"]');
     await page.click('[data-act="logout"]');
@@ -326,7 +326,7 @@ test('FOODSAVE_VOLUNTEER.html: đăng xuất lúc đang tải danh sách thì KH
   // Chặn phản hồi /volunteer/tasks của lần poll kế tiếp, đăng xuất, rồi mới thả
   let release;
   state.gate = new Promise(resolve => { release = resolve; });
-  await page.clock.fastForward(11000);
+  await page.clock.fastForward(31000);
   await expect.poll(() => calls.filter(c => c.path === '/volunteer/tasks').length).toBe(2);
   await page.click('[data-act="tab"][data-t="profile"]');
   await page.click('[data-act="logout"]');

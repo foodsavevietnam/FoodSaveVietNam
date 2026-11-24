@@ -13,7 +13,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:api": "tsc && node dist/server.js",
     "check": "node scripts/check-project.mjs",
-    "test": "npm run build && node --test tests/dev-server.test.mjs tests/frontend-config.test.mjs tests/project-integrity.test.mjs tests/neon-activity.test.mjs tests/environment-loader.test.mjs tests/zod-compatibility.test.mjs tests/backend-release.test.mjs tests/charity-onboarding.test.mjs tests/admin-core.test.mjs tests/admin-portal.test.mjs tests/p0-live-fixes.test.mjs",
+    "test": "npm run build && node --test tests/dev-server.test.mjs tests/frontend-config.test.mjs tests/project-integrity.test.mjs tests/neon-activity.test.mjs tests/environment-loader.test.mjs tests/zod-compatibility.test.mjs tests/backend-release.test.mjs tests/charity-onboarding.test.mjs tests/admin-core.test.mjs tests/admin-portal.test.mjs tests/p0-live-fixes.test.mjs tests/wave2-security-be.test.mjs tests/wave2-auth-ratelimit.test.mjs tests/wave2-fe-security.test.mjs",
     "test:admin": "tsc && node scripts/test-admin-api.js",
     "test:order": "tsc && node scripts/test-order-policy.js && node scripts/test-order-flow.js",
     "test:location": "tsc && node scripts/test-live-location.js",

@@ -4362,12 +4362,12 @@ function productFlowPayload(id) {
 function toast(msg, type='info', key='') {
   const icons = { info: 'ti-circle-check', warn: 'ti-alert-triangle', error: 'ti-circle-x' };
   if (key) {
-    document.querySelectorAll(`#toast-wrap .toast[data-key="${key}"]`).forEach(el => el.remove());
+    document.querySelectorAll('#toast-wrap .toast[data-key]').forEach(el => { if (el.dataset.key === String(key)) el.remove(); });
   }
   const t = document.createElement('div');
   t.className = 'toast ' + (type === 'info' ? '' : type);
   if (key) t.dataset.key = key;
-  t.innerHTML = `<i class="ti ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+  t.innerHTML = `<i class="ti ${icons[type] || icons.info}"></i><span>${htmlSafe(msg)}</span>`;
   $('#toast-wrap').appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; t.style.transition = 'all .3s'; }, 2700);
   setTimeout(() => t.remove(), 3100);
@@ -4791,24 +4791,24 @@ function renderProductCard(p) {
     : `<strong>${fmt(p.price)}</strong><del>${fmt(p.original)}</del>`;
   const isFav = favorites.has(productIdKey(p.id));
   const distance = formatDistanceDisplay(p.distance, p.distanceText);
-  const imageSrc = p.image_url || p.image || '';
-  const artHtml = imageSrc && !String(p.emoji || '').includes('<img')
+  const imageSrc = p.image || p.image_url || '';
+  const artHtml = imageSrc
     ? `<img src="${htmlSafe(imageSrc)}" alt="${htmlSafe(p.name)}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
-    : p.emoji;
+    : htmlSafe(p.emoji || '🍽️');
   return `
     <div class="product" onclick="openProduct(${productArg})">
       <div class="product-art">
-        <span class="tag ${labelTag(p.label)}">${discount > 0 ? '-' + discount + '%' : 'Free'}</span>
+        <span class="tag ${labelTag(p.label) || 'tag-green'}">${discount > 0 ? '-' + discount + '%' : 'Free'}</span>
         <button class="product-fav ${isFav ? 'active' : ''}" onclick="event.stopPropagation();toggleFav(${productArg},this)"><i class="ti ti-heart${isFav ? '-filled' : ''}"></i></button>
         ${artHtml}
       </div>
       <div class="product-body">
-        <div class="product-store"><i class="ti ti-building-store"></i> ${p.store}</div>
-        <div class="product-name">${p.name}</div>
+        <div class="product-store"><i class="ti ti-building-store"></i> ${htmlSafe(p.store)}</div>
+        <div class="product-name">${htmlSafe(p.name)}</div>
         <div class="product-meta">
-          <span><i class="ti ti-map-pin"></i> ${distance}</span>
-          <span><i class="ti ti-clock"></i> ${expiresText(p.expiresHrs)}</span>
-          <span><i class="ti ti-star-filled" style="color:var(--orange-500)"></i> ${p.rating}</span>
+          <span><i class="ti ti-map-pin"></i> ${htmlSafe(distance)}</span>
+          <span><i class="ti ti-clock"></i> ${htmlSafe(expiresText(p.expiresHrs))}</span>
+          <span><i class="ti ti-star-filled" style="color:var(--orange-500)"></i> ${htmlSafe(p.rating)}</span>
         </div>
         <div class="price">${priceHtml}</div>
         <div class="product-actions">
@@ -4825,10 +4825,10 @@ function renderHome() {
   $('#home-stores').innerHTML = STORES.slice(0,3).map(s => `
     <div class="store-card" onclick="openStore(${htmlSafe(jsArg(s.id))})">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div style="display:flex;gap:10px;align-items:center"><div style="font-size:32px">${s.logo}</div><div><div class="store-name">${s.name}</div><div class="store-addr"><i class="ti ti-map-pin"></i> ${s.addr.split(',')[1]}</div></div></div>
-        <span class="store-rating"><i class="ti ti-star-filled"></i> ${s.rating}</span>
+        <div style="display:flex;gap:10px;align-items:center"><div style="font-size:32px">${htmlSafe(s.logo)}</div><div><div class="store-name">${htmlSafe(s.name)}</div><div class="store-addr"><i class="ti ti-map-pin"></i> ${htmlSafe((s.addr || '').split(',')[1] || s.addr || '')}</div></div></div>
+        <span class="store-rating"><i class="ti ti-star-filled"></i> ${htmlSafe(s.rating)}</span>
       </div>
-      <div class="store-meta"><span class="text-muted">${formatDistanceDisplay(s.distance, s.distanceText)} · ${s.hours}</span><span class="tag tag-green">${s.products} sản phẩm</span></div>
+      <div class="store-meta"><span class="text-muted">${htmlSafe(formatDistanceDisplay(s.distance, s.distanceText))} · ${htmlSafe(s.hours)}</span><span class="tag tag-green">${Number(s.products) || 0} sản phẩm</span></div>
     </div>
   `).join('');
 
@@ -6194,21 +6194,22 @@ function renderOrders(filter) {
   $('#orders-list').innerHTML = list.map(o => {
     const statusClass = orderStatusView(o.status).c;
     const statusText = orderStatusView(o.status).t;
-    const items = o.items.map(it => { const p = productFromCartItem(it); return p ? p.emoji + ' ' + p.name + (it.qty > 1 ? ' ×' + it.qty : '') : ''; }).join(', ');
+    const orderArg = htmlSafe(jsArg(o.id));
+    const items = o.items.map(it => { const p = productFromCartItem(it); return p ? htmlSafe(p.emoji) + ' ' + htmlSafe(p.name) + (it.qty > 1 ? ' ×' + Number(it.qty) : '') : ''; }).join(', ');
     return `
-      <div class="card" style="padding:18px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap" onclick="currentOrderId='${o.id}';navTo('order-detail')">
+      <div class="card" style="padding:18px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap" onclick="currentOrderId=${orderArg};navTo('order-detail')">
         <div style="flex:1;min-width:240px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:800;color:var(--orange-500)">${o.id}</span>
-            <span class="tag ${statusClass}">${statusText}</span>
+            <span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:800;color:var(--orange-500)">${htmlSafe(o.id)}</span>
+            <span class="tag ${htmlSafe(statusClass)}">${htmlSafe(statusText)}</span>
             ${o.status === 'ready' ? '<span class="tag tag-orange" style="animation:pulse 2s infinite">⏰ Mang QR đến nhận</span>' : ''}
           </div>
           <div style="font-size:14px;line-height:1.5;margin-bottom:6px">${items}</div>
-          <div class="text-muted" style="font-size:12px"><i class="ti ti-building-store"></i> ${o.store} · <i class="ti ti-clock"></i> ${o.pickup} · <i class="ti ti-credit-card"></i> ${o.payment}</div>
+          <div class="text-muted" style="font-size:12px"><i class="ti ti-building-store"></i> ${htmlSafe(o.store)} · <i class="ti ti-clock"></i> ${htmlSafe(o.pickup)} · <i class="ti ti-credit-card"></i> ${htmlSafe(o.payment)}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:800;color:var(--green-900);margin-bottom:6px">${fmt(o.total)}</div>
-          <div class="text-muted" style="font-size:12px;margin-bottom:8px">${o.date}</div>
+          <div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:800;color:var(--green-900);margin-bottom:6px">${htmlSafe(fmt(o.total))}</div>
+          <div class="text-muted" style="font-size:12px;margin-bottom:8px">${htmlSafe(o.date)}</div>
           <button class="btn btn-ghost btn-sm">Chi tiết <i class="ti ti-chevron-right"></i></button>
         </div>
       </div>`;
@@ -6263,9 +6264,9 @@ function renderOrderDetail() {
     const p = productFromCartItem(it);
     if (!p) return '';
     return `<div style="display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)">
-      <div style="width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--green-100),var(--orange-100));display:grid;place-items:center;font-size:28px;flex-shrink:0">${p.emoji}</div>
-      <div style="flex:1"><div class="fw-800" style="font-size:14px">${p.name}</div><div class="text-muted" style="font-size:12px">${p.store} · SL ${it.qty}</div></div>
-      <div class="fw-800" style="color:var(--green-900)">${fmt(p.price * it.qty)}</div>
+      <div style="width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--green-100),var(--orange-100));display:grid;place-items:center;font-size:28px;flex-shrink:0">${htmlSafe(p.emoji)}</div>
+      <div style="flex:1"><div class="fw-800" style="font-size:14px">${htmlSafe(p.name)}</div><div class="text-muted" style="font-size:12px">${htmlSafe(p.store)} · SL ${Number(it.qty) || 0}</div></div>
+      <div class="fw-800" style="color:var(--green-900)">${htmlSafe(fmt(p.price * it.qty))}</div>
     </div>`;
   }).join('');
 
@@ -6273,11 +6274,11 @@ function renderOrderDetail() {
   const store = STORES.find(s => s.id === o.storeId);
   if (store) {
     $('#od-store').innerHTML = `
-      <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><div style="font-size:42px">${store.logo}</div><div><div class="fw-800" style="font-size:15px">${store.name}</div><div class="text-muted" style="font-size:12px"><i class="ti ti-map-pin"></i> ${store.addr}</div></div></div>
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><div style="font-size:42px">${htmlSafe(store.logo)}</div><div><div class="fw-800" style="font-size:15px">${htmlSafe(store.name)}</div><div class="text-muted" style="font-size:12px"><i class="ti ti-map-pin"></i> ${htmlSafe(store.addr)}</div></div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
-        <div><span class="text-muted">📏 Khoảng cách:</span> <strong>${formatDistanceDisplay(store.distance, store.distanceText)}</strong></div>
-        <div><span class="text-muted">🕒 Giờ mở:</span> <strong>${store.hours}</strong></div>
-        <div><span class="text-muted">⏰ Khung nhận:</span> <strong>${o.pickup}</strong></div>
+        <div><span class="text-muted">📏 Khoảng cách:</span> <strong>${htmlSafe(formatDistanceDisplay(store.distance, store.distanceText))}</strong></div>
+        <div><span class="text-muted">🕒 Giờ mở:</span> <strong>${htmlSafe(store.hours)}</strong></div>
+        <div><span class="text-muted">⏰ Khung nhận:</span> <strong>${htmlSafe(o.pickup)}</strong></div>
         <div><span class="text-muted">📞 Hotline:</span> <strong>1900 1545</strong></div>
       </div>
       ${storeRouteUrl(store) ? '<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" onclick="openOrderStoreRoute()"><i class="ti ti-route"></i> Chỉ đường tới cửa hàng</button>' : ''}`;
@@ -6328,13 +6329,17 @@ window.foodsaveAfterUserOrdersReplace = function (previousStatus) {
     }
   }
 };
-// Đang xem đơn hàng thì làm mới nhanh để thấy cửa hàng cập nhật
+// Đang xem đơn hàng thì chỉ làm mới nhẹ danh sách đơn mỗi 20 giây; dừng khi ẩn tab hoặc rảnh ≥ 15 phút
 setInterval(() => {
-  if (document.hidden) return;
-  if (document.querySelector('#page-orders.active, #page-order-detail.active') && window.FS && window.FS.sync && window.FS.sync.refresh) {
-    window.FS.sync.refresh().catch(() => {});
+  if (document.hidden || window.MIO_DEMO_MODE) return;
+  if (window.FS && FS.poll && typeof FS.poll.isIdle === 'function' && FS.poll.isIdle()) return;
+  if (!document.querySelector('#page-orders.active, #page-order-detail.active')) return;
+  if (window.FS && FS.sync && typeof FS.sync.refreshParts === 'function') {
+    FS.sync.refreshParts(['orders'], { minGap: 18000 }).catch(() => {});
+  } else if (window.FS && FS.sync && typeof FS.sync.getOrders === 'function') {
+    FS.sync.getOrders().catch(() => {});
   }
-}, 10000);
+}, 20000);
 
 function closeRating() { $('#rating-modal').classList.remove('active'); }
 
@@ -7214,7 +7219,10 @@ window.addEventListener('foodsave:session-saved', (event) => {
   }
 });
 setTimeout(loadCustomerTrust, 1500);
-setInterval(() => { if (!document.hidden) loadCustomerTrust(); }, 60000);
+setInterval(() => {
+  if (document.hidden || (window.FS && FS.poll && typeof FS.poll.isIdle === 'function' && FS.poll.isIdle())) return;
+  loadCustomerTrust();
+}, 60000);
 updateReputationUI();
 if (typeof updateTreeGameUI === 'function') updateTreeGameUI();
 
@@ -7465,7 +7473,11 @@ function updatePermBar(){
   const bar=document.getElementById('notif-perm');
   if(bar)bar.style.display=('Notification' in window&&Notification.permission==='default')?'flex':'none';
 }
-setInterval(()=>{if(!document.hidden&&window.FS&&FS.sync&&FS.sync.refreshNotifications)FS.sync.refreshNotifications().catch(()=>{});},20000);
+setInterval(()=>{
+  if(document.hidden||window.MIO_DEMO_MODE)return;
+  if(window.FS&&FS.poll&&typeof FS.poll.isIdle==='function'&&FS.poll.isIdle())return;
+  if(window.FS&&FS.sync&&FS.sync.refreshNotifications)FS.sync.refreshNotifications().catch(()=>{});
+},45000);
 document.addEventListener('DOMContentLoaded',updatePermBar);
 
 // ───── Banner lớn hàng nhãn vàng / đỏ ở trang chủ
@@ -7483,7 +7495,7 @@ function renderHotBanner(){
   host.innerHTML='<div class="hb-wrap">'+list.map((p,i)=>{
     const pct=p.original>p.price?Math.round((1-p.price/p.original)*100):(p.label==='red'?80:50);
     const red=p.label==='red';
-    return '<div class="hb-slide'+(i===hotBannerIdx?' on':'')+' '+(red?'red':'yellow')+'"><div class="hb-l"><div class="hb-tag">'+(red?'🔥 NHÃN ĐỎ · GIẢI CỨU GẤP':'⏰ NHÃN VÀNG · GIẢM SÂU HÔM NAY')+'</div><div class="hb-name">'+escapeHtmlSafe(p.name)+'</div><div class="hb-sub">'+escapeHtmlSafe(p.store)+' · còn '+p.stock+' phần</div><div class="hb-price"><b>'+Math.round(p.price).toLocaleString('vi-VN')+'đ</b>'+(p.original>p.price?'<s>'+Math.round(p.original).toLocaleString('vi-VN')+'đ</s>':'')+'<span class="hb-pct">-'+pct+'%</span></div><div class="hb-row"><span class="hb-time"><i class="ti ti-clock"></i> '+hotLeftText(p.expiresHrs)+'</span><button type="button" class="hb-cta" onclick="openProduct(\''+p.id+'\')">Săn ngay →</button></div></div><div class="hb-r">'+(p.image?'<img src="'+escapeHtmlSafe(p.image)+'" alt="">':'<span>'+escapeHtmlSafe(p.emoji||'🍱')+'</span>')+'</div></div>';
+    return '<div class="hb-slide'+(i===hotBannerIdx?' on':'')+' '+(red?'red':'yellow')+'"><div class="hb-l"><div class="hb-tag">'+(red?'🔥 NHÃN ĐỎ · GIẢI CỨU GẤP':'⏰ NHÃN VÀNG · GIẢM SÂU HÔM NAY')+'</div><div class="hb-name">'+escapeHtmlSafe(p.name)+'</div><div class="hb-sub">'+escapeHtmlSafe(p.store)+' · còn '+p.stock+' phần</div><div class="hb-price"><b>'+Math.round(p.price).toLocaleString('vi-VN')+'đ</b>'+(p.original>p.price?'<s>'+Math.round(p.original).toLocaleString('vi-VN')+'đ</s>':'')+'<span class="hb-pct">-'+pct+'%</span></div><div class="hb-row"><span class="hb-time"><i class="ti ti-clock"></i> '+hotLeftText(p.expiresHrs)+'</span><button type="button" class="hb-cta" onclick="openProduct('+htmlSafe(jsArg(p.id))+')">Săn ngay →</button></div></div><div class="hb-r">'+(p.image?'<img src="'+escapeHtmlSafe(p.image)+'" alt="">':'<span>'+escapeHtmlSafe(p.emoji||'🍱')+'</span>')+'</div></div>';
   }).join('')+'<div class="hb-dots">'+list.map((p,i)=>'<i class="'+(i===hotBannerIdx?'on':'')+'" onclick="hotBannerGo('+i+')"></i>').join('')+'</div></div>';
   clearInterval(hotBannerTimer);
   if(list.length>1)hotBannerTimer=setInterval(()=>{hotBannerIdx=(hotBannerIdx+1)%list.length;const slides=host.querySelectorAll('.hb-slide'),dots=host.querySelectorAll('.hb-dots i');slides.forEach((s,i)=>s.classList.toggle('on',i===hotBannerIdx));dots.forEach((s,i)=>s.classList.toggle('on',i===hotBannerIdx));},5000);

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { open, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
-import { checkProject, HTML_FILES, inspectHtml, MANIFEST_FILES, resolveLocalReference } from '../scripts/check-project.mjs';
+import { checkProject, FRONTEND_FILES, HTML_FILES, inspectHtml, MANIFEST_FILES, resolveLocalReference } from '../scripts/check-project.mjs';
 
 const PUBLIC_ROOT = new URL('../public/', import.meta.url);
 
@@ -125,5 +127,85 @@ test('MIO PWA manifests and packaged image headers match the installed icon size
       const size = expectedIcons.get(relativeFile);
       assert.equal(icon.sizes, `${size}x${size}`, `${file}: manifest size does not match image header`);
     }
+  }
+});
+
+test('FRONTEND_FILES covers active location, chatbot, and admin stylesheet assets and auto-scans new frontend/admin files', async () => {
+  for (const required of [
+    'frontend/foodsave-location.js',
+    'frontend/foodsave-location.css',
+    'frontend/mio-chatbot.js',
+    'frontend/mio-chatbot.css',
+    'admin/styles/admin.css',
+  ]) {
+    assert.ok(FRONTEND_FILES.includes(required), `FRONTEND_FILES missing ${required}`);
+  }
+
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'mio-check-autodiscover-'));
+  try {
+    const publicRoot = path.join(tempRoot, 'public');
+    await mkdir(path.join(publicRoot, 'frontend'), { recursive: true });
+    await mkdir(path.join(publicRoot, 'admin', 'styles'), { recursive: true });
+    await writeFile(path.join(publicRoot, 'frontend', 'unlisted-bad.js'), 'function broken( {');
+    await writeFile(path.join(publicRoot, 'admin', 'styles', 'unlisted.css'), 'body { background: url("/missing-bg.png"); }');
+
+    const result = await checkProject({ publicRoot });
+    assert.ok(result.issues.some((issue) => issue.file === 'frontend/unlisted-bad.js' && /syntax error/i.test(issue.message)));
+    assert.ok(result.issues.some((issue) => issue.file === 'admin/styles/unlisted.css' && /missing-bg\.png/i.test(issue.message)));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('checkProject fails when hidden, backup, or blocked sensitive files appear inside public/ while allowing .well-known/', async () => {
+  assert.equal(resolveLocalReference('/.well-known/assetlinks.json'), '.well-known/assetlinks.json');
+  assert.throws(() => resolveLocalReference('/frontend/.well-known/assetlinks.json'));
+
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'mio-check-public-hygiene-'));
+  try {
+    const publicRoot = path.join(tempRoot, 'public');
+    await mkdir(path.join(publicRoot, 'frontend'), { recursive: true });
+    await mkdir(path.join(publicRoot, '.well-known'), { recursive: true });
+    await Promise.all([
+      writeFile(path.join(publicRoot, '.well-known', 'assetlinks.json'), '[]'),
+      writeFile(path.join(publicRoot, '.well-known', '.hidden-inside'), ''),
+      writeFile(path.join(publicRoot, '.env'), 'TEST=1'),
+      writeFile(path.join(publicRoot, '.DS_Store'), ''),
+      writeFile(path.join(publicRoot, 'index.html.bak'), ''),
+      writeFile(path.join(publicRoot, 'frontend', 'jwt-secret.txt'), ''),
+      writeFile(path.join(publicRoot, 'private.key'), ''),
+    ]);
+
+    const result = await checkProject({ publicRoot });
+    const flagged = new Set(result.issues.map((issue) => issue.file));
+    assert.equal(flagged.has('.well-known'), false, 'public/.well-known directory must be allowed');
+    assert.equal(flagged.has('.well-known/assetlinks.json'), false, 'public/.well-known/assetlinks.json must be allowed');
+    for (const forbidden of ['.env', '.DS_Store', '.well-known/.hidden-inside', 'index.html.bak', 'frontend/jwt-secret.txt', 'private.key']) {
+      assert.ok(flagged.has(forbidden), `Expected ${forbidden} in public/ to fail checkProject`);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('checkProject forbids SQL files outside database/ while permitting database/**/*.sql', async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'mio-check-sql-placement-'));
+  try {
+    const publicRoot = path.join(tempRoot, 'public');
+    await mkdir(publicRoot, { recursive: true });
+    await mkdir(path.join(tempRoot, 'database', 'Admin'), { recursive: true });
+    await mkdir(path.join(tempRoot, 'scripts'), { recursive: true });
+    await Promise.all([
+      writeFile(path.join(tempRoot, 'database', 'Admin', '015_valid.sql'), 'select 1;'),
+      writeFile(path.join(tempRoot, '014_stray_root.sql'), 'drop table x;'),
+      writeFile(path.join(tempRoot, 'scripts', 'helper.sql'), 'select 1;'),
+      writeFile(path.join(publicRoot, 'exposed.sql'), 'select 1;'),
+    ]);
+
+    const result = await checkProject({ publicRoot, projectRoot: tempRoot });
+    const sqlIssues = result.issues.filter((issue) => /SQL files/i.test(issue.message)).map((issue) => issue.file);
+    assert.deepEqual(sqlIssues.sort(), ['014_stray_root.sql', 'exposed.sql', 'scripts/helper.sql']);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
   }
 });

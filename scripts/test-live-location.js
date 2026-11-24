@@ -537,13 +537,29 @@ const scenario = async (name, fn) => {
 
   await scenario("O6. Migration 039 thay handle_new_user và bỏ qua account_type = 'volunteer'", async () => {
     const sql = require("fs").readFileSync(require("path").join(__dirname, "../database/User/039_live_location.sql"), "utf8").replace(/\r\n/g, "\n"); // checkout CRLF trên Windows
-    const start = sql.indexOf("create or replace function public.handle_new_user()");
-    assert.ok(start >= 0, "phải có create or replace function public.handle_new_user()");
-    const body = sql.slice(start, sql.indexOf("$$;", start));
-    assert.ok(body.includes("if new.raw_user_meta_data ->> 'account_type' = 'volunteer'\n     and exists (select 1 from public.volunteers v where lower(trim(v.email)) = lower(trim(new.email))) then\n    return new;"),
-      "chỉ bỏ qua khi email thuộc một TNV thật (chống đặt trước bằng metadata)");
-    assert.ok(body.indexOf("account_type' = 'volunteer'") < body.indexOf("insert into public.profiles"), "trả về trước khi tạo profiles");
-    assert.ok(body.includes("insert into public.customer_profiles"), "giữ luồng tạo hồ sơ người mua");
+    const fnMatch = /create\s+or\s+replace\s+function\s+public\.handle_new_user\s*\(\s*\)/i.exec(sql);
+    assert.ok(fnMatch, "phải có create or replace function public.handle_new_user()");
+    const endIdx = sql.indexOf("$$;", fnMatch.index);
+    assert.ok(endIdx > fnMatch.index, "phải đóng thân hàm handle_new_user bằng $$;");
+    const body = sql.slice(fnMatch.index, endIdx).replace(/--[^\n]*/g, "");
+
+    const volunteerGuard = /if\s+(?:meta|new\.raw_user_meta_data)\s*->>\s*'account_type'\s*=\s*'volunteer'[\s\S]*?exists\s*\(\s*select\s+1\s+from\s+public\.volunteers\b[\s\S]*?lower\s*\(\s*trim\s*\(\s*v\.email\s*\)\s*\)\s*=\s*(?:normalized_email|lower\s*\(\s*trim\s*\(\s*new\.email\s*\)\s*\))[\s\S]*?\)\s*then\s+return\s+new\s*;/i.exec(body);
+    assert.ok(volunteerGuard, "chỉ bỏ qua khi email thuộc một TNV thật (chống đặt trước bằng metadata)");
+
+    const insertProfiles = /insert\s+into\s+public\.profiles\b/i.exec(body);
+    assert.ok(insertProfiles, "phải có insert into public.profiles");
+    assert.ok(volunteerGuard.index + volunteerGuard[0].length < insertProfiles.index, "trả về trước khi tạo profiles");
+
+    assert.ok(/insert\s+into\s+public\.customer_profiles\b/i.test(body), "giữ luồng tạo hồ sơ người mua");
+    assert.ok(!/'admin'/i.test(body), "handle_new_user không được nhận role = 'admin' từ metadata");
+    assert.ok(/when\s+(?:meta|new\.raw_user_meta_data)\s*->>\s*'role'\s+in\s*\(\s*'customer'\s*,\s*'partner'\s*,\s*'charity'\s*\)/i.test(body),
+      "chỉ cho phép nhận customer/partner/charity từ metadata");
+
+    const cleanSql = sql.replace(/--[^\n]*/g, "");
+    assert.ok(/create\s+or\s+replace\s+function\s+public\.protect_profile_privileged_columns\s*\(\s*\)/i.test(cleanSql),
+      "phải có hàm protect_profile_privileged_columns()");
+    assert.ok(/create\s+trigger\s+protect_profile_privileged_columns\s+before\s+insert\s+or\s+update\s+on\s+public\.profiles\b/i.test(cleanSql),
+      "protect_profile_privileged_columns phải chạy ở before insert or update trên public.profiles");
   });
 
 

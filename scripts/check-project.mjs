@@ -1,4 +1,4 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -98,12 +98,17 @@ export const FRONTEND_FILES = Object.freeze([
   'frontend/foodsave-matching.js',
   'frontend/foodsave-map.js',
   'frontend/foodsave-map.css',
+  'frontend/foodsave-location.js',
+  'frontend/foodsave-location.css',
   'frontend/foodsave-live-data.js',
   'frontend/foodsave-legal-content.js',
   'frontend/foodsave-install.js',
   'frontend/foodsave-cookie-consent.js',
   'frontend/foodsave-cookie-consent.css',
   'frontend/foodsave-auth-client.js',
+  'frontend/mio-chatbot.js',
+  'frontend/mio-chatbot.css',
+  'admin/styles/admin.css',
 ]);
 
 export const MANIFEST_FILES = Object.freeze([
@@ -113,15 +118,21 @@ export const MANIFEST_FILES = Object.freeze([
 ]);
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL('../public/', import.meta.url));
+const DEFAULT_PROJECT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SITE_ORIGIN = 'https://foodsave.local';
 const BLOCKED_DIRECTORIES = new Set([
   'node_modules', 'build', 'dist', 'out', 'coverage', '__pycache__',
 ]);
+const IGNORED_PROJECT_DIRS = new Set([
+  '.git', 'node_modules', 'dist', '.netlify', '.neon', 'playwright-report', 'test-results', '.superpowers',
+]);
 const BLOCKED_FILE = /(?:\.(?:pem|key)$|^id_rsa|secret|credential|token|password)/i;
+const BACKUP_FILE = /\.bak(?:$|[-_.])/i;
 
 function isAllowedPath(relativePath) {
-  return relativePath.split('/').every((segment) => (
-    segment && segment !== '..' && !segment.startsWith('.')
+  return relativePath.split('/').every((segment, index) => (
+    segment && segment !== '..'
+    && (!segment.startsWith('.') || (index === 0 && segment === '.well-known'))
     && !BLOCKED_DIRECTORIES.has(segment.toLowerCase())
     && !BLOCKED_FILE.test(segment)
   ));
@@ -213,15 +224,138 @@ async function assertPublicFile(publicRoot, relativeFile) {
   return candidate;
 }
 
-/** Validate only the explicit site entrypoints; never recurse into project directories. */
-export async function checkProject({ publicRoot = DEFAULT_PUBLIC_ROOT } = {}) {
+async function scanPublicDirectory(publicRoot, addIssue) {
+  const discoveredCodeFiles = [];
+  const reportedSqlInPublic = new Set();
+  let rootStat;
+  try {
+    rootStat = await lstat(publicRoot);
+  } catch {
+    addIssue('.', 1, 'Public root is missing or unreadable');
+    return { discoveredCodeFiles, reportedSqlInPublic };
+  }
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+    addIssue('.', 1, 'Public root must be a real directory');
+    return { discoveredCodeFiles, reportedSqlInPublic };
+  }
+
+  async function walk(currentDir, relativeDir) {
+    let names;
+    try {
+      names = (await readdir(currentDir)).sort();
+    } catch {
+      addIssue(relativeDir || '.', 1, 'Cannot list public directory');
+      return;
+    }
+    for (const name of names) {
+      const relPath = relativeDir ? `${relativeDir}/${name}` : name;
+      let entry;
+      try {
+        entry = await lstat(path.join(currentDir, name));
+      } catch (error) {
+        if (error.code === 'ENOENT') continue;
+        addIssue(relPath, 1, 'Cannot stat public entry');
+        continue;
+      }
+      if (entry.isSymbolicLink()) {
+        addIssue(relPath, 1, 'Symbolic links are not allowed in public assets');
+        continue;
+      }
+      if (name.startsWith('.') && !(relPath === '.well-known' && entry.isDirectory())) {
+        addIssue(relPath, 1, 'Hidden or sensitive file is not allowed in public assets');
+        continue;
+      }
+      if (entry.isDirectory() && BLOCKED_DIRECTORIES.has(name.toLowerCase())) {
+        addIssue(relPath, 1, 'Disallowed directory in public assets');
+        continue;
+      }
+      if (BACKUP_FILE.test(name)) {
+        addIssue(relPath, 1, 'Backup file is not allowed in public assets');
+        if (entry.isDirectory()) continue;
+      }
+      if (BLOCKED_FILE.test(name)) {
+        addIssue(relPath, 1, 'Blocked or sensitive file is not allowed in public assets');
+        if (entry.isDirectory()) continue;
+      }
+      if (entry.isDirectory()) {
+        await walk(path.join(currentDir, name), relPath);
+      } else if (entry.isFile()) {
+        if (name.toLowerCase().endsWith('.sql')) {
+          reportedSqlInPublic.add(relPath);
+          addIssue(relPath, 1, 'SQL files are only allowed inside database/');
+        } else if (
+          (relPath.startsWith('frontend/') || relPath.startsWith('admin/'))
+          && /\.(?:js|mjs|css)$/i.test(name)
+          && isAllowedPath(relPath)
+        ) {
+          discoveredCodeFiles.push(relPath);
+        }
+      }
+    }
+  }
+
+  await walk(publicRoot, '');
+  return { discoveredCodeFiles, reportedSqlInPublic };
+}
+
+async function scanStraySqlFiles(projectRoot, addIssue, reportedSqlInPublic = new Set()) {
+  if (!projectRoot) return;
+  let rootStat;
+  try {
+    rootStat = await lstat(projectRoot);
+  } catch {
+    return;
+  }
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return;
+
+  async function walk(currentDir, relativeDir) {
+    let names;
+    try {
+      names = (await readdir(currentDir)).sort();
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const relPath = relativeDir ? `${relativeDir}/${name}` : name;
+      if (relPath === 'database') continue;
+      let entry;
+      try {
+        entry = await lstat(path.join(currentDir, name));
+      } catch (error) {
+        if (error.code === 'ENOENT') continue;
+        continue;
+      }
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        if (IGNORED_PROJECT_DIRS.has(name) || name.startsWith('_backup_')) continue;
+        await walk(path.join(currentDir, name), relPath);
+      } else if (entry.isFile() && name.toLowerCase().endsWith('.sql')) {
+        if (relPath.startsWith('public/') && reportedSqlInPublic.has(relPath.slice('public/'.length))) continue;
+        addIssue(relPath, 1, 'SQL files are only allowed inside database/');
+      }
+    }
+  }
+
+  await walk(projectRoot, '');
+}
+
+/** Validate site entrypoints, public directory hygiene, and SQL file placement. */
+export async function checkProject({
+  publicRoot = DEFAULT_PUBLIC_ROOT,
+  projectRoot = publicRoot === DEFAULT_PUBLIC_ROOT ? DEFAULT_PROJECT_ROOT : undefined,
+} = {}) {
   const issues = [];
   let checkedReferences = 0;
   let checkedScripts = 0;
   const contents = new Map();
-  const files = [...HTML_FILES, ...FRONTEND_FILES, ...ADMIN_MODULE_FILES, ...MANIFEST_FILES, 'sw.js'];
-
   const addIssue = (file, line, message) => issues.push({ file, line, message });
+
+  const { discoveredCodeFiles, reportedSqlInPublic } = await scanPublicDirectory(publicRoot, addIssue);
+  await scanStraySqlFiles(projectRoot, addIssue, reportedSqlInPublic);
+
+  const codeFiles = [...new Set([...FRONTEND_FILES, ...ADMIN_MODULE_FILES, ...discoveredCodeFiles])];
+  const files = [...new Set([...HTML_FILES, ...codeFiles, ...MANIFEST_FILES, 'sw.js'])];
+
   for (const file of files) {
     try {
       const absolutePath = await assertPublicFile(publicRoot, file);
@@ -263,11 +397,11 @@ export async function checkProject({ publicRoot = DEFAULT_PUBLIC_ROOT } = {}) {
     for (const script of scripts) checkScript(file, script.code, script.line);
   }
 
-  for (const file of [...FRONTEND_FILES, ...ADMIN_MODULE_FILES]) {
+  for (const file of codeFiles) {
     const content = contents.get(file);
     if (content === undefined) continue;
     if (file.endsWith('.js') && !file.startsWith('admin/')) checkScript(file, content);
-    if (file.endsWith('.mjs') || file.startsWith('admin/')) {
+    if (file.endsWith('.mjs') || (file.startsWith('admin/') && file.endsWith('.js'))) {
       checkedScripts += 1;
       const result = spawnSync(process.execPath, ['--check', '--input-type=module'], {
         input: content,

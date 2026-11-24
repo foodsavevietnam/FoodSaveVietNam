@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { env } from "../config/env";
 import { isPostgresAvailable, postgresPool } from "../config/postgres";
 import { supabaseAdmin } from "./supabaseService";
 import { ERROR_CODES } from "../constants/errors";
@@ -396,6 +397,95 @@ const baseService = {
   }
 };
 
+const MIGRATION_PENDING_CODES = new Set(["42883", "42P01", "PGRST202", "PGRST205"]);
+const warnedMissingRpcs = new Set<string>();
+
+const isMigrationPendingError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && MIGRATION_PENDING_CODES.has(code);
+};
+
+const warnMissingRpcOnce = (rpcName: string, error: unknown): void => {
+  if (warnedMissingRpcs.has(rpcName)) return;
+  warnedMissingRpcs.add(rpcName);
+  logger.warn(`RPC ${rpcName} chưa sẵn sàng (chưa áp dụng SQL 041); tự động chuyển về nhánh dự phòng`, {
+    rpc: rpcName,
+    code: (error as { code?: string } | null)?.code,
+    message: (error as { message?: string } | null)?.message
+  });
+};
+
+interface RpcSellerReputationPayload extends SellerReputationRow {
+  trust_score_before?: number;
+  status_changed?: boolean;
+  violation_recorded?: boolean;
+}
+
+const applyDeltaViaRpc = async (params: {
+  storeId: string;
+  delta: number;
+  violationType?: string | null;
+  reason?: string | null;
+  orderId?: string | null;
+  pgAvailable: boolean;
+}): Promise<{ ok: true; data: RpcSellerReputationPayload; reputation: SellerReputation } | { ok: false }> => {
+  const { data, error } = await supabaseAdmin.rpc("fs_seller_reputation_apply_delta", {
+    p_store_id: params.storeId,
+    p_delta: params.delta,
+    p_violation_type: params.violationType ?? null,
+    p_reason: params.reason ?? null,
+    p_order_id: params.orderId ?? null
+  });
+
+  if (error) {
+    if (isMigrationPendingError(error)) {
+      warnMissingRpcOnce("fs_seller_reputation_apply_delta", error);
+      return { ok: false };
+    }
+    if (error.code === "P0002" || error.message?.includes("seller_reputation_not_found")) {
+      throw new AppError("Không tìm thấy hồ sơ danh tiếng của seller", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
+    if (!params.pgAvailable) {
+      warnMissingRpcOnce("fs_seller_reputation_apply_delta", error);
+      return { ok: false };
+    }
+    logger.warn("Lỗi gọi RPC fs_seller_reputation_apply_delta, chuyển sang PostgreSQL trực tiếp", {
+      storeId: params.storeId,
+      code: error.code,
+      message: error.message
+    });
+    return { ok: false };
+  }
+
+  if (!data || typeof data !== "object") {
+    return { ok: false };
+  }
+
+  const row = data as RpcSellerReputationPayload;
+  return { ok: true, data: row, reputation: mapReputation(row) };
+};
+
+const emitPenaltyStatusIfNeeded = (reputation: SellerReputation): void => {
+  if (reputation.status === "Banned") {
+    emitStoreStatusChanged(
+      buildStatusPayload(
+        reputation,
+        "TRUST_SCORE_BELOW_40",
+        "Tài khoản cửa hàng đã bị khóa vĩnh viễn do điểm uy tín dưới 40."
+      )
+    );
+  } else if (reputation.status === "Restricted") {
+    emitStoreStatusChanged(
+      buildStatusPayload(
+        reputation,
+        "TRUST_SCORE_BELOW_85",
+        "Cửa hàng tạm thời bị chặn đăng món mới trong 48 giờ do điểm uy tín từ 40 đến dưới 85."
+      )
+    );
+  }
+};
+
 // Hồ sơ uy tín mặc định khi không dùng được PostgreSQL trực tiếp (đọc bằng Supabase, nếu chưa có thì điểm tối đa)
 const fallbackReputation = async (sellerId: string): Promise<SellerReputation> => {
   const { data } = await supabaseAdmin.from("seller_reputation").select("seller_id,trust_score,rating_avg,status,restricted_until,created_at,updated_at").eq("seller_id", sellerId).maybeSingle();
@@ -404,24 +494,116 @@ const fallbackReputation = async (sellerId: string): Promise<SellerReputation> =
   return { seller_id: sellerId, trust_score: 100, rating_avg: 5, status: "Active", restricted_until: null, created_at: now, updated_at: now };
 };
 
-// Mọi hàm điểm uy tín đều tự bỏ qua (không báo lỗi, không chờ) khi chưa cấu hình PostgreSQL trực tiếp.
+// G-7: Khi bật SELLER_REPUTATION_RPC_ENABLED hoặc không có PostgreSQL trực tiếp, thử gọi RPC
+// fs_seller_reputation_apply_delta (SQL 041) trước; nếu chưa migrate (42883/PGRST202) thì rơi về hành vi cũ.
 // Riêng getSellerReputationForActor LUÔN kiểm tra quyền sở hữu qua supabaseAdmin TRƯỚC nhánh fallback để chống IDOR.
 type ReputationService = typeof baseService;
 export const sellerReputationService: ReputationService = {
-  ...(Object.fromEntries(
-    Object.entries(baseService)
-      .filter(([name]) => name !== "getSellerReputationForActor")
-      .map(([name, fn]) => [
-        name,
-        async (...args: unknown[]): Promise<unknown> => {
-          if (await isPostgresAvailable()) return (fn as (...input: unknown[]) => Promise<unknown>)(...args);
-          logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): " + name);
-          return fallbackReputation(String(args[0]));
-        }
-      ])
-  ) as unknown as Omit<ReputationService, "getSellerReputationForActor">),
+  async getSellerReputation(sellerId: string): Promise<SellerReputation> {
+    const pgAvailable = await isPostgresAvailable();
+    if (env.SELLER_REPUTATION_RPC_ENABLED || !pgAvailable) {
+      // Đọc thuần trước để tránh gọi RPC khóa ghi FOR UPDATE cho các yêu cầu GET phổ biến;
+      // chỉ gọi RPC delta=0 khi chưa có dòng seller_reputation (tạo lười từ bảng stores).
+      const { data: existing, error: readError } = await supabaseAdmin
+        .from("seller_reputation")
+        .select("seller_id,trust_score,rating_avg,status,restricted_until,created_at,updated_at")
+        .eq("seller_id", sellerId)
+        .maybeSingle();
+      if (!readError && existing) {
+        return mapReputation(existing as unknown as SellerReputationRow);
+      }
+      const rpc = await applyDeltaViaRpc({ storeId: sellerId, delta: 0, pgAvailable });
+      if (rpc.ok) return rpc.reputation;
+    }
+    if (pgAvailable) return baseService.getSellerReputation(sellerId);
+    logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): getSellerReputation");
+    return fallbackReputation(sellerId);
+  },
+
   async getSellerReputationForActor(sellerId: string, actorId: string, actorRole: UserRole): Promise<SellerReputation> {
     await assertSellerReadableByActor(sellerId, actorId, actorRole);
     return sellerReputationService.getSellerReputation(sellerId);
+  },
+
+  async handleSellerCancellation(sellerId: string, orderId: string): Promise<SellerReputation> {
+    const pgAvailable = await isPostgresAvailable();
+    if (env.SELLER_REPUTATION_RPC_ENABLED || !pgAvailable) {
+      const rpc = await applyDeltaViaRpc({
+        storeId: sellerId,
+        delta: -CANCELLATION_PENALTY_POINTS,
+        violationType: "SELLER_CANCELLED_ORDER",
+        reason: "Seller hủy đơn do hết hàng ảo",
+        orderId,
+        pgAvailable
+      });
+      if (rpc.ok) {
+        logger.info("Đã trừ điểm seller vì hủy đơn", {
+          sellerId,
+          orderId,
+          trustScoreBefore: rpc.data.trust_score_before ?? rpc.reputation.trust_score,
+          trustScoreAfter: rpc.reputation.trust_score
+        });
+        emitPenaltyStatusIfNeeded(rpc.reputation);
+        return rpc.reputation;
+      }
+    }
+    if (pgAvailable) return baseService.handleSellerCancellation(sellerId, orderId);
+    logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): handleSellerCancellation");
+    return fallbackReputation(sellerId);
+  },
+
+  async checkAndApplyPenalties(sellerId: string): Promise<SellerReputation> {
+    const pgAvailable = await isPostgresAvailable();
+    if (env.SELLER_REPUTATION_RPC_ENABLED || !pgAvailable) {
+      const rpc = await applyDeltaViaRpc({ storeId: sellerId, delta: 0, pgAvailable });
+      if (rpc.ok) {
+        emitPenaltyStatusIfNeeded(rpc.reputation);
+        return rpc.reputation;
+      }
+    }
+    if (pgAvailable) return baseService.checkAndApplyPenalties(sellerId);
+    logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): checkAndApplyPenalties");
+    return fallbackReputation(sellerId);
+  },
+
+  async handleOrderSuccess(sellerId: string, isCharityOrder: boolean): Promise<SellerReputation> {
+    const pgAvailable = await isPostgresAvailable();
+    const recoveryPoints = isCharityOrder ? CHARITY_ORDER_RECOVERY_POINTS : NORMAL_ORDER_RECOVERY_POINTS;
+    if (env.SELLER_REPUTATION_RPC_ENABLED || !pgAvailable) {
+      const rpc = await applyDeltaViaRpc({ storeId: sellerId, delta: recoveryPoints, pgAvailable });
+      if (rpc.ok) {
+        const restored = Boolean(rpc.data.status_changed && rpc.reputation.status === "Active");
+        emitStoreStatusChanged(
+          buildStatusPayload(
+            rpc.reputation,
+            restored ? "SELLER_REPUTATION_RECOVERED" : "SUCCESSFUL_ORDER_REPUTATION_REWARD",
+            restored
+              ? "Chúc mừng, cửa hàng đã phục hồi uy tín và được mở lại tính năng đăng món mới."
+              : `Cửa hàng được cộng ${recoveryPoints} điểm uy tín nhờ hoàn tất đơn hàng.`
+          )
+        );
+        return rpc.reputation;
+      }
+    }
+    if (pgAvailable) return baseService.handleOrderSuccess(sellerId, isCharityOrder);
+    logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): handleOrderSuccess");
+    return fallbackReputation(sellerId);
+  },
+
+  async updateSellerRatingAverage(sellerId: string, ratingAverage: number): Promise<SellerReputation> {
+    const pgAvailable = await isPostgresAvailable();
+    if (env.SELLER_REPUTATION_RPC_ENABLED || !pgAvailable) {
+      const rpc = await applyDeltaViaRpc({ storeId: sellerId, delta: 0, pgAvailable });
+      if (rpc.ok) {
+        await supabaseAdmin.from("seller_reputation").update({ rating_avg: ratingAverage }).eq("seller_id", sellerId);
+        await supabaseAdmin.from("stores").update({ rating: ratingAverage }).eq("id", sellerId);
+        const updated = { ...rpc.reputation, rating_avg: ratingAverage };
+        emitPenaltyStatusIfNeeded(updated);
+        return updated;
+      }
+    }
+    if (pgAvailable) return baseService.updateSellerRatingAverage(sellerId, ratingAverage);
+    logger.warn("Bỏ qua tính điểm uy tín (chưa có kết nối PostgreSQL): updateSellerRatingAverage");
+    return fallbackReputation(sellerId);
   }
 };

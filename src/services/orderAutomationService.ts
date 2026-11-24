@@ -3,12 +3,14 @@
  * Mỗi bước bọc try/catch riêng: một bước lỗi không làm hỏng các bước còn lại.
  */
 import { COMPLETE_GRACE_MINUTES, LABEL_POLICY, policyMs } from "../constants/orderPolicy";
+import { env } from "../config/env";
 import type { Order, ProductLabel } from "../types/domain";
 import { logger } from "../utils/logger";
 import { orderChatService } from "./orderChatService";
 import { createNotification } from "./notificationService";
 import { complaintService } from "./complaintService";
 import { automationRunService, type AutomationTrigger } from "./automationRunService";
+import { backgroundJobService } from "./backgroundJobService";
 import { policyConfigService } from "./policyConfigService";
 import { volunteerReminderService } from "./volunteerReminderService";
 import { ledgerService } from "./ledgerService";
@@ -36,6 +38,7 @@ export interface OrderAutomationResult {
   volunteer_reminders: number;
   locations_pruned: number;
   runs_purged: number;
+  outbox_processed: number;
   budget_reached: boolean;
   errors: string[];
 }
@@ -164,6 +167,7 @@ export const orderAutomationService = {
       volunteer_reminders: 0,
       locations_pruned: 0,
       runs_purged: 0,
+      outbox_processed: 0,
       budget_reached: false,
       errors: []
     };
@@ -216,6 +220,19 @@ export const orderAutomationService = {
     await step("location_prune", async () => { result.locations_pruned = await locationService.pruneInactive(); });
     // Dọn nhật ký chạy tác vụ tự động cũ hơn 30 ngày
     await step("automation_runs_purge", async () => { result.runs_purged = await automationRunService.purgeOldRuns(30); });
+    // Xử lý hàng đợi Outbox khi bật cờ OUTBOX_ENABLED và còn đủ ngân sách thời gian (> 3 giây)
+    if (env.OUTBOX_ENABLED) {
+      const remainingMs = timeBudgetMs - (Date.now() - startedAtMs);
+      if (remainingMs > 3000) {
+        await step("outbox_process", async () => {
+          const outbox = await backgroundJobService.processPendingJobs({
+            limit: 10,
+            timeBudgetMs: Math.min(5000, remainingMs)
+          });
+          result.outbox_processed = outbox.done;
+        });
+      }
+    }
 
     if (result.budget_reached) {
       logger.warn("Order automation stopped early due to time budget", { timeBudgetMs, result });

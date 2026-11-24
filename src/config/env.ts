@@ -112,7 +112,31 @@ const envSchema = z.object({
   DATABASE_SSL_REJECT_UNAUTHORIZED: z
     .enum(["true", "false"])
     .default("true")
-    .transform((value) => value === "true")
+    .transform((value) => value === "true"),
+  // Cờ tính năng mở rộng Wave 4B (mặc định tắt để giữ nguyên hành vi trước khi áp dụng SQL 041/042)
+  ORDER_ATOMIC_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SELLER_REPUTATION_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  LOCATION_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  OUTBOX_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  AUTH_LOCAL_JWT_VERIFY: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SUPABASE_JWT_SECRET: optionalNonEmptyString,
+  // Bucket lưu ảnh minh chứng khiếu nại (mặc định partner-assets; có thể chuyển sang complaint-evidence sau khi chạy SQL 043b)
+  COMPLAINT_STORAGE_BUCKET: z.string().trim().min(1).default("partner-assets")
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -2,28 +2,36 @@ import { Pool, type PoolConfig } from "pg";
 import { logger } from "../utils/logger";
 import { env } from "./env";
 
-const sharedPoolConfig = {
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : false
-} satisfies PoolConfig;
+export const isServerlessRuntime = (environment: NodeJS.ProcessEnv = process.env): boolean =>
+  environment.NETLIFY === "true" || Boolean(environment.AWS_LAMBDA_FUNCTION_NAME);
 
-const legacySupabaseDatabaseUrl = env.SUPABASE_DATABASE_URL;
+export const buildPostgresPoolConfig = (environment: NodeJS.ProcessEnv = process.env): PoolConfig => {
+  const serverless = isServerlessRuntime(environment);
+  const sharedPoolConfig = {
+    max: serverless ? 2 : 20,
+    idleTimeoutMillis: serverless ? 10000 : 30000,
+    connectionTimeoutMillis: 5000,
+    ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : false
+  } satisfies PoolConfig;
 
-const poolConfig: PoolConfig = legacySupabaseDatabaseUrl
-  ? {
-      ...sharedPoolConfig,
-      connectionString: legacySupabaseDatabaseUrl
-    }
-  : {
-      ...sharedPoolConfig,
-      host: env.DATABASE_HOST,
-      port: env.DATABASE_PORT,
-      database: env.DATABASE_NAME,
-      user: env.DATABASE_USER,
-      password: env.DATABASE_PASSWORD
-    };
+  const legacySupabaseDatabaseUrl = env.SUPABASE_DATABASE_URL;
+
+  return legacySupabaseDatabaseUrl
+    ? {
+        ...sharedPoolConfig,
+        connectionString: legacySupabaseDatabaseUrl
+      }
+    : {
+        ...sharedPoolConfig,
+        host: env.DATABASE_HOST,
+        port: env.DATABASE_PORT,
+        database: env.DATABASE_NAME,
+        user: env.DATABASE_USER,
+        password: env.DATABASE_PASSWORD
+      };
+};
+
+const poolConfig: PoolConfig = buildPostgresPoolConfig();
 
 export const postgresPool = new Pool(poolConfig);
 

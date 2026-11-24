@@ -29,13 +29,14 @@ import { AppError } from "../utils/appError";
 import { generateCode, getRange, handleSupabaseError, requireRecord, supabaseAdmin, toPagination } from "./supabaseService";
 import type { PaginatedResponse } from "../types/api";
 import { sellerReputationService } from "./sellerReputationService";
-import { momoPaymentService } from "./momoPaymentService";
+import { momoPaymentService, registerMomoOrderPaidHandler } from "./momoPaymentService";
 import { ecoImpactService } from "./ecoImpactService";
 import { customerReputationService } from "./customerReputationService";
 import { policyConfigService } from "./policyConfigService";
 import { orderChatService } from "./orderChatService";
 import { createNotification } from "./notificationService";
 import { ledgerService } from "./ledgerService";
+import { signEvidenceUrls } from "./complaintService";
 import { env } from "../config/env";
 import { getPaymentProvider } from "./payments";
 import type { PaymentInit } from "./payments";
@@ -63,6 +64,7 @@ interface ProductForCheckout {
 }
 
 interface VoucherForCheckout {
+  id?: string;
   code: string;
   store_id: string | null;
   percent_off: number | null;
@@ -74,6 +76,45 @@ interface VoucherForCheckout {
   expires_at: string;
   is_active: boolean;
 }
+
+const MIGRATION_PENDING_CODES = new Set(["42883", "42P01", "PGRST202", "PGRST205"]);
+const warnedMissingRpcs = new Set<string>();
+
+const isMigrationPendingError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && MIGRATION_PENDING_CODES.has(code);
+};
+
+const warnMissingRpcOnce = (rpcName: string, error: unknown): void => {
+  if (warnedMissingRpcs.has(rpcName)) return;
+  warnedMissingRpcs.add(rpcName);
+  logger.warn(`RPC ${rpcName} chưa sẵn sàng (chưa áp dụng SQL 041); tự động chuyển về luồng JS dự phòng`, {
+    rpc: rpcName,
+    code: (error as { code?: string } | null)?.code,
+    message: (error as { message?: string } | null)?.message
+  });
+};
+
+const mapReserveStockRpcError = (error: { code?: string; message?: string; hint?: string; details?: string }): never => {
+  const msg = error.message ?? "";
+  if (msg.includes("product_not_found")) {
+    throw new AppError("One or more products were not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+  if (msg.includes("product_inactive") || msg.includes("insufficient_stock")) {
+    throw new AppError("One or more products do not have enough stock", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
+  }
+  if (msg.includes("voucher_not_found")) {
+    throw new AppError("Voucher was not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+  if (msg.includes("voucher_inactive") || msg.includes("voucher_expired")) {
+    throw new AppError("Voucher is inactive or expired", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
+  }
+  if (msg.includes("voucher_exhausted")) {
+    throw new AppError("Voucher redemption limit has been reached", HTTP_STATUS.CONFLICT, ERROR_CODES.RESOURCE_CONFLICT);
+  }
+  return handleSupabaseError(error as Parameters<typeof handleSupabaseError>[0], "Failed to reserve order stock");
+};
 
 
 const getOwnedStoreIds = async (ownerId: string): Promise<string[]> => {
@@ -177,7 +218,7 @@ const calculateDiscount = async (voucherCode: string | undefined, storeId: strin
 
   const { data, error } = await supabaseAdmin
     .from("vouchers")
-    .select("code,store_id,percent_off,fixed_discount_cents,min_order_cents,max_redemptions,redemption_count,starts_at,expires_at,is_active")
+    .select("id,code,store_id,percent_off,fixed_discount_cents,min_order_cents,max_redemptions,redemption_count,starts_at,expires_at,is_active")
     .eq("code", voucherCode.toUpperCase())
     .single();
 
@@ -231,6 +272,20 @@ const logOrderEvent = async (orderId: string, eventType: string, detail: Record<
  * Chỉ chạy MỘT lần cho mỗi đơn nhờ cột stock_restored_at.
  */
 const restoreOrderStock = async (orderId: string, mode: "always" | "if_sellable", reason: string): Promise<void> => {
+  if (env.ORDER_ATOMIC_RPC_ENABLED && mode === "always") {
+    const restoreVoucher = reason === "payment_provider_error" || reason === "payment_timeout";
+    const { error: rpcError } = await supabaseAdmin.rpc("fs_restore_order_stock_atomic", {
+      p_order_id: orderId,
+      p_restore_voucher: restoreVoucher
+    });
+    if (!rpcError) return;
+    if (isMigrationPendingError(rpcError)) {
+      warnMissingRpcOnce("fs_restore_order_stock_atomic", rpcError);
+    } else {
+      logger.warn("Không trả được tồn kho bằng RPC nguyên tử, chuyển sang luồng dự phòng", { orderId, reason, error: rpcError });
+    }
+  }
+
   const { data: claimed, error: claimError } = await supabaseAdmin
     .from("orders")
     .update({ stock_restored_at: new Date().toISOString() })
@@ -561,17 +616,42 @@ export const orderService = {
 
     if (itemError) handleSupabaseError(itemError, "Failed to create order items");
 
-    for (const item of body.items) {
-      const product = requireRecord(productById.get(item.product_id), "Checkout product was not found");
-      const { error: stockError } = await supabaseAdmin
-        .from("products")
-        .update({ stock_quantity: product.stock_quantity - item.quantity, sold_count: product.sold_count + item.quantity })
-        .eq("id", item.product_id);
-
-      if (stockError) handleSupabaseError(stockError, "Failed to update product stock");
+    let reservedViaRpc = false;
+    if (env.ORDER_ATOMIC_RPC_ENABLED) {
+      const { error: reserveError } = await supabaseAdmin.rpc("fs_reserve_order_stock", {
+        p_items: body.items.map((item) => ({ product_id: item.product_id, quantity: item.quantity })),
+        p_voucher_id: voucher?.id ?? null
+      });
+      if (!reserveError) {
+        reservedViaRpc = true;
+      } else if (isMigrationPendingError(reserveError)) {
+        warnMissingRpcOnce("fs_reserve_order_stock", reserveError);
+      } else {
+        await supabaseAdmin.from("order_items").delete().eq("order_id", orderId);
+        await supabaseAdmin.from("orders").delete().eq("id", orderId);
+        mapReserveStockRpcError(reserveError);
+      }
     }
 
-    if (voucher) {
+    if (!reservedViaRpc) {
+      for (const item of body.items) {
+        const product = requireRecord(productById.get(item.product_id), "Checkout product was not found");
+        const { error: stockError } = await supabaseAdmin
+          .from("products")
+          .update({ stock_quantity: product.stock_quantity - item.quantity, sold_count: product.sold_count + item.quantity })
+          .eq("id", item.product_id);
+
+        if (stockError) handleSupabaseError(stockError, "Failed to update product stock");
+      }
+
+      if (voucher) {
+        const { error: voucherError } = await supabaseAdmin
+          .from("vouchers")
+          .update({ redemption_count: voucher.redemption_count + 1 })
+          .eq("code", voucher.code);
+        if (voucherError) handleSupabaseError(voucherError, "Failed to update voucher");
+      }
+    } else if (voucher && !voucher.id) {
       const { error: voucherError } = await supabaseAdmin
         .from("vouchers")
         .update({ redemption_count: voucher.redemption_count + 1 })
@@ -629,11 +709,11 @@ export const orderService = {
 
   async pollMomoPayment(actorId: string, actorRole: UserRole, orderId: string): Promise<{ order: Order; payment: unknown }> {
     const order = await assertOrderAccess(orderId, actorId, actorRole);
-    return momoPaymentService.queryPayment(order);
+    return momoPaymentService.queryPayment(order, (id) => orderService.markPaidBySystem(id));
   },
 
   async applyMomoWebhookMock(body: MomoWebhookMockBody): Promise<Order> {
-        const result = await momoPaymentService.applyMockWebhook(body);
+        const result = await momoPaymentService.applyMockWebhook(body, (id) => orderService.markPaidBySystem(id));
         
         if (!result) {
             throw new Error("Không tìm thấy đơn hàng sau khi xử lý webhook");
@@ -693,10 +773,25 @@ export const orderService = {
 
     if (error) handleSupabaseError(error, "Failed to load order details");
     let result = data as Record<string, unknown>;
-    // Người mua không thấy ghi chú nội bộ của admin (giống complaintService.list)
-    if (actorRole === "customer" && result && Array.isArray(result.complaints)) {
+    if (result && Array.isArray(result.complaints) && result.complaints.length > 0) {
       const complaints = result.complaints as Array<Record<string, unknown>>;
-      result = { ...result, complaints: complaints.map((c) => ({ ...c, admin_note: null })) };
+      const hydrated = await Promise.all(
+        complaints.map(async (c) => {
+          const next: Record<string, unknown> = { ...c };
+          if (Array.isArray(c.image_urls)) {
+            next.image_urls = await signEvidenceUrls(c.image_urls as string[]);
+          }
+          if (Array.isArray(c.store_response_images)) {
+            next.store_response_images = await signEvidenceUrls(c.store_response_images as string[]);
+          }
+          // Người mua không thấy ghi chú nội bộ của admin (giống complaintService.list)
+          if (actorRole === "customer") {
+            next.admin_note = null;
+          }
+          return next;
+        })
+      );
+      result = { ...result, complaints: hydrated };
     }
     return maskOrderForActor(result, actorRole);
   },
@@ -1046,3 +1141,5 @@ export const orderService = {
     return data;
   }
 };
+
+registerMomoOrderPaidHandler((orderId) => orderService.markPaidBySystem(orderId));

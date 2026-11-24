@@ -1300,13 +1300,14 @@ const PARTNER_OPENING_DAYS=["Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","T
 // ════════════════════════════════════════════════════════════
 // MODAL & TOAST
 // ════════════════════════════════════════════════════════════
+function safePartnerImgUrl(u){const s=String(u??'').trim();return /^(https?:\/\/|\/)/i.test(s)?s:'';}
 function closeM(){if(typeof stopProductBarcodeScan==='function')stopProductBarcodeScan();document.getElementById('mb').innerHTML='';}
-function modal(t,c){document.getElementById('mb').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal"><div class="f ac jb m16"><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--green-950);letter-spacing:-.02em">${t}</h3><div onclick="closeM()" style="width:36px;height:36px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.15s" onmouseover="this.style.background='var(--red-100)';this.style.color='var(--red)'" onmouseout="this.style.background='var(--soft)';this.style.color='var(--muted)'"><i class="ti ti-x" style="font-size:17px"></i></div></div>${c}</div></div>`;}
+function modal(t,c){document.getElementById('mb').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal"><div class="f ac jb m16"><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--green-950);letter-spacing:-.02em">${escHtml(t)}</h3><div onclick="closeM()" style="width:36px;height:36px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.15s" onmouseover="this.style.background='var(--red-100)';this.style.color='var(--red)'" onmouseout="this.style.background='var(--soft)';this.style.color='var(--muted)'"><i class="ti ti-x" style="font-size:17px"></i></div></div>${c}</div></div>`;}
 function tst(t,d,type){
   const cs={order:'var(--green-700)',expiry:'var(--red)',charity:'var(--green-700)',info:'var(--blue)',payout:'var(--green-700)'};
   const icns={order:'ti-shopping-bag',expiry:'ti-alert-triangle',charity:'ti-heart',info:'ti-info-circle',payout:'ti-wallet'};
   const e=document.createElement('div');e.className='toast';e.style.borderLeftColor=cs[type]||'var(--green-700)';
-  e.innerHTML=`<div style="width:38px;height:38px;border-radius:11px;background:${cs[type]}15;color:${cs[type]};display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ${icns[type]||'ti-bell'}" style="font-size:18px"></i></div><div style="flex:1"><div style="font-size:13.5px;font-weight:800;color:var(--green-950);margin-bottom:2px;font-family:'Plus Jakarta Sans'">${t}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${d}</div></div><div onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--muted);padding:4px"><i class="ti ti-x"></i></div>`;
+  e.innerHTML=`<div style="width:38px;height:38px;border-radius:11px;background:${cs[type]||'var(--green-700)'}15;color:${cs[type]||'var(--green-700)'};display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ${icns[type]||'ti-bell'}" style="font-size:18px"></i></div><div style="flex:1"><div style="font-size:13.5px;font-weight:800;color:var(--green-950);margin-bottom:2px;font-family:'Plus Jakarta Sans'">${escHtml(t)}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(d)}</div></div><div onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--muted);padding:4px"><i class="ti ti-x"></i></div>`;
   document.getElementById('tb').appendChild(e);
   setTimeout(()=>{if(e.parentElement)e.remove();},5000);
 }
@@ -2089,14 +2090,15 @@ function partnerStoreInitials(name){
 function partnerStoreAvatarHtml(profile,imgId){
   const data=normalizePartnerStoreProfile(profile||{});
   const idAttr=imgId?` id="${escHtml(imgId)}"`:'';
-  if(data.logo_url){
-    return `<img${idAttr} data-partner-avatar src="${escHtml(data.logo_url)}" alt="${escHtml(data.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
+  const safeLogo=safePartnerImgUrl(data.logo_url);
+  if(safeLogo){
+    return `<img${idAttr} data-partner-avatar src="${escHtml(safeLogo)}" alt="${escHtml(data.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
   }
   return `<div${idAttr} data-partner-avatar-empty title="Cập nhật ảnh sau" style="width:100%;height:100%;border-radius:inherit;background:var(--green-50);color:var(--green-700);display:flex;align-items:center;justify-content:center"><i class="ti ti-camera-plus" style="font-size:18px"></i></div>`;
 }
 
 function partnerAvatarContainerStyle(profile){
-  return normalizePartnerStoreProfile(profile||{}).logo_url
+  return safePartnerImgUrl(normalizePartnerStoreProfile(profile||{}).logo_url)
     ? 'background:#fff;color:transparent;border:0;'
     : 'background:var(--green-50);color:var(--green-700);border:1px dashed var(--green-700);';
 }
@@ -2338,24 +2340,24 @@ function pDash(){
   ${blocked?`<div class="card m12" style="border-left:4px solid var(--red);background:linear-gradient(135deg,#fef2f2,#fff)">
   <div class="st" style="color:var(--red-600)"><i class="ti ti-alert-triangle"></i> Chặn đăng — Sản phẩm tự động gỡ <span class="tg tg-r" style="margin-left:auto">≤30-45 phút</span></div>
   ${PRD.filter(p=>p.blocked&&!p.donated).map(p=>{const i=PRD.indexOf(p);return`<div class="f ac g12 m8" style="padding:14px;background:#fff;border-radius:12px;border-left:3px solid var(--red);box-shadow:var(--shadow-sm)">
-  <span style="font-size:24px">${p.img}</span>
-  <div class="f1"><div class="f ac g6 m6"><span style="font-size:13px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${p.n}</span><span class="blocked-badge"><i class="ti ti-ban"></i> ĐÃ GỠ</span></div><div style="font-size:11px;color:var(--muted);font-weight:500">SX: ${p.mfg} → HSD: ${p.exp} · Còn ${p.left}</div></div>
+  <span style="font-size:24px">${escHtml(p.img)}</span>
+  <div class="f1"><div class="f ac g6 m6"><span style="font-size:13px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(p.n)}</span><span class="blocked-badge"><i class="ti ti-ban"></i> ĐÃ GỠ</span></div><div style="font-size:11px;color:var(--muted);font-weight:500">SX: ${escHtml(p.mfg)} → HSD: ${escHtml(p.exp)} · Còn ${escHtml(p.left)}</div></div>
   <button class="btn btn-green btn-sm" onclick="donateProduct(${i})"><i class="ti ti-heart"></i> Tặng 0đ</button></div>`;}).join('')}</div>`:''}
   ${syncConf?`<div class="sync-warn m12">
   <div style="width:40px;height:40px;border-radius:12px;background:var(--yellow);color:var(--green-950);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-refresh-alert" style="font-size:18px"></i></div>
-  <div class="f1"><div style="font-size:13px;font-weight:900;color:var(--yellow-600);font-family:'Plus Jakarta Sans'">Xung đột đồng bộ tồn kho!</div><div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-top:3px;font-weight:500">${PRD.filter(p=>p.sync==='conflict'&&!p.donated).map(p=>`<strong>${p.n}</strong> (${p.sku}): App ${p.q} ≠ Quầy ${p.q-2}`).join(' · ')}</div></div>
+  <div class="f1"><div style="font-size:13px;font-weight:900;color:var(--yellow-600);font-family:'Plus Jakarta Sans'">Xung đột đồng bộ tồn kho!</div><div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-top:3px;font-weight:500">${PRD.filter(p=>p.sync==='conflict'&&!p.donated).map(p=>`<strong>${escHtml(p.n)}</strong> (${escHtml(p.sku)}): App ${escHtml(p.q)} ≠ Quầy ${escHtml(p.q-2)}`).join(' · ')}</div></div>
   <button class="btn btn-primary btn-sm" onclick="PRD.forEach(p=>{if(p.sync==='conflict')p.sync='ok'});R();tst('Đã đồng bộ','Tồn kho cập nhật','info')"><i class="ti ti-refresh"></i> Sync</button></div>`:''}
   <div class="grid-2 m12">
   <div class="card"><div class="st"><i class="ti ti-clock-hour-4"></i> Cảnh báo hạn sử dụng</div>
   ${ap.filter(p=>p.l==='red'||p.l==='yellow').map(p=>{const i=PRD.indexOf(p);return`<div class="f ac g12 m10" style="padding:12px;background:${lB(p.l)};border-radius:13px;border-left:3px solid ${lC(p.l)}">
-  <span style="font-size:24px">${p.img}</span>
-  <div class="f1"><div class="f ac jb m6"><span style="font-size:13px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${p.n}</span><span class="tg ${lT(p.l)}">${lN(p.l)} · ${lD(p.l)} · ${p.left}</span></div><div style="font-size:11px;color:var(--muted);font-weight:500">SX: ${p.mfg} → HSD: ${p.exp}</div><div class="ptk" style="margin-top:6px"><div class="ptf" style="width:${Math.min(100,Math.round(p.leftMin/1440*100))}%;background:${lC(p.l)}"></div></div></div>
-  ${p.l==='red'?`<button class="btn btn-r btn-sm" onclick="tst('Giảm giá','${p.n} -20%','expiry')">-20%</button>`:''}</div>`;}).join('')}</div>
+  <span style="font-size:24px">${escHtml(p.img)}</span>
+  <div class="f1"><div class="f ac jb m6"><span style="font-size:13px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(p.n)}</span><span class="tg ${lT(p.l)}">${escHtml(lN(p.l))} · ${escHtml(lD(p.l))} · ${escHtml(p.left)}</span></div><div style="font-size:11px;color:var(--muted);font-weight:500">SX: ${escHtml(p.mfg)} → HSD: ${escHtml(p.exp)}</div><div class="ptk" style="margin-top:6px"><div class="ptf" style="width:${Math.min(100,Math.round(p.leftMin/1440*100))}%;background:${lC(p.l)}"></div></div></div>
+  ${p.l==='red'?`<button class="btn btn-r btn-sm" onclick="tst('Giảm giá',PRD[${i}].n+' -20%','expiry')">-20%</button>`:''}</div>`;}).join('')}</div>
   <div class="card"><div class="st"><i class="ti ti-package"></i> Đơn mới nhất <span style="margin-left:auto;font-size:11.5px;color:var(--green-800);cursor:pointer;font-weight:800" onclick="go('orders')">Xem tất cả <i class="ti ti-arrow-right"></i></span></div>
-  ${ORD.filter(o=>!['done','cancelled'].includes(o.st)).map(o=>{const i=ORD.indexOf(o);return`<div class="oc" onclick="pg='orders';selO=${i};oP='${o.st}';R()">
-  <div class="pi" style="background:${lB(o.l)}"><div class="sdot ${o.l[0]}"></div></div>
-  <div class="f1" style="min-width:0"><div class="f ac g6 m6"><span style="font-size:13px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${o.id}</span><span class="tg ${stC[o.st]}">${stM[o.st]}</span><span class="tg ${lT(o.l)}">${lN(o.l)}</span></div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${o.items} · ${o.c}</div></div>
-  <span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${fm(o.p)}</span></div>`;}).join('')}</div>
+  ${ORD.filter(o=>!['done','cancelled'].includes(o.st)).map(o=>{const i=ORD.indexOf(o);return`<div class="oc" onclick="pg='orders';selO=${i};oP=ORD[${i}].st;R()">
+  <div class="pi" style="background:${lB(o.l)}"><div class="sdot ${escHtml(String(o.l||'')[0]||'')}"></div></div>
+  <div class="f1" style="min-width:0"><div class="f ac g6 m6"><span style="font-size:13px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(o.id)}</span><span class="tg ${stC[o.st]||''}">${escHtml(stM[o.st]||o.st)}</span><span class="tg ${lT(o.l)}">${escHtml(lN(o.l))}</span></div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(o.items)} · ${escHtml(o.c)}</div></div>
+  <span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${escHtml(fm(o.p))}</span></div>`;}).join('')}</div>
   </div>
   <div class="grid-2 m12">
   <div class="card gradient-card"><div style="position:relative;z-index:1">
@@ -2556,15 +2558,15 @@ function pOrders(){
     <button class="btn btn-primary" onclick="showPOSModal()"><i class="ti ti-plus"></i> Đơn POS</button>
   </div>
   ${filtered.length===0?`<div style="text-align:center;padding:60px;color:var(--muted)"><i class="ti ti-package-off" style="font-size:52px;display:block;margin-bottom:10px;opacity:.5"></i><p style="font-size:14px;font-weight:700">Không có đơn hàng nào</p></div>`:''}
-  ${filtered.map(o=>{const i=ORD.indexOf(o);return`<div class="oc ${selO===i?'on':''}" onclick="selO=${i};oP='${o.st}';R()">
-    <div class="pi" style="background:${lB(o.l)}"><div class="sdot ${o.l[0]}"></div></div>
+  ${filtered.map(o=>{const i=ORD.indexOf(o);return`<div class="oc ${selO===i?'on':''}" onclick="selO=${i};oP=ORD[${i}].st;R()">
+    <div class="pi" style="background:${lB(o.l)}"><div class="sdot ${escHtml(String(o.l||'')[0]||'')}"></div></div>
     <div class="f1" style="min-width:0">
-      <div class="f ac g6 m6"><span style="font-size:13.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${o.id}</span><span class="tg ${stC[o.st]}">${stM[o.st]}</span><span class="tg ${lT(o.l)}">Nhãn ${lN(o.l)}</span>${o.st==='cancelled'&&o.penalty?'<span class="tg tg-r"><i class="ti ti-ban"></i> Phạt</span>':''}</div>
-      <div style="font-size:12px;color:var(--muted);font-weight:500">${o.items} · ${o.c}</div>
-      <div class="f ac jb" style="margin-top:4px"><span style="font-size:11px;color:var(--muted-2);font-weight:700">${o.mt} · ${o.time}</span><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${fm(o.p)}</span></div>
+      <div class="f ac g6 m6"><span style="font-size:13.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(o.id)}</span><span class="tg ${stC[o.st]||''}">${escHtml(stM[o.st]||o.st)}</span><span class="tg ${lT(o.l)}">Nhãn ${escHtml(lN(o.l))}</span>${o.st==='cancelled'&&o.penalty?'<span class="tg tg-r"><i class="ti ti-ban"></i> Phạt</span>':''}</div>
+      <div style="font-size:12px;color:var(--muted);font-weight:500">${escHtml(o.items)} · ${escHtml(o.c)}</div>
+      <div class="f ac jb" style="margin-top:4px"><span style="font-size:11px;color:var(--muted-2);font-weight:700">${escHtml(o.mt)} · ${escHtml(o.time)}</span><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${escHtml(fm(o.p))}</span></div>
     </div>
     ${o.st==='warning'?'<div class="sdot r"></div>':o.st==='new'?'<div class="sdot y"></div>':''}
-    ${o.rating?`<div style="font-size:12px;color:var(--yellow-600);font-weight:800;display:flex;align-items:center;gap:2px"><i class="ti ti-star-filled" style="color:var(--yellow)"></i>${o.rating}</div>`:''}
+    ${o.rating?`<div style="font-size:12px;color:var(--yellow-600);font-weight:800;display:flex;align-items:center;gap:2px"><i class="ti ti-star-filled" style="color:var(--yellow)"></i>${escHtml(o.rating)}</div>`:''}
   </div>`;}).join('')}
   </div>
   <div class="pos-r">
@@ -2577,23 +2579,24 @@ function ordDetail(){
   const o=ORD[selO];
   const PH=[{k:'new',l:'Đơn mới'},{k:'confirmed',l:'Đã nhận'},{k:'ready',l:'Sẵn sàng'},{k:'done',l:'Hoàn thành'}];
   const ci=PH.findIndex(p=>p.k===oP);
+  const ratingNum=Math.max(0,Math.min(5,Math.round(Number(o.rating)||0)));
   return`<div class="pos-g"><div class="pos-l">
-  <div class="f ac g10 m14"><button class="btn btn-o" onclick="selO=null;R()"><i class="ti ti-arrow-left"></i> Danh sách</button><h3 style="font-family:'Plus Jakarta Sans';font-size:18px;font-weight:900;color:var(--green-950);letter-spacing:-.02em">Đơn ${o.id}</h3></div>
+  <div class="f ac g10 m14"><button class="btn btn-o" onclick="selO=null;R()"><i class="ti ti-arrow-left"></i> Danh sách</button><h3 style="font-family:'Plus Jakarta Sans';font-size:18px;font-weight:900;color:var(--green-950);letter-spacing:-.02em">Đơn ${escHtml(o.id)}</h3></div>
   <div class="card m12">
-    <div class="f ac jb m12"><div class="f ac g6"><span class="tg ${lT(o.l)}" style="padding:5px 11px">Nhãn ${lN(o.l)}</span><span class="tg ${stC[oP]}" style="padding:5px 11px">${stM[oP]}</span>${o.st==='cancelled'?`<span class="tg tg-r">Đã hủy${o.penalty?' · Phạt':''}</span>`:''}</div><span style="font-family:'Plus Jakarta Sans';font-size:24px;font-weight:900;color:var(--green-800);letter-spacing:-.02em">${fm(o.p)}</span></div>
-    <div style="padding:14px;background:var(--soft);border-radius:13px;margin-bottom:12px"><div class="f ac g12"><div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--green-50),var(--green-100));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-user" style="font-size:22px;color:var(--green-800)"></i></div><div class="f1"><div style="font-size:14.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${o.c}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${o.ph} · ${o.mt} · ${o.time}</div></div><span class="tg ${o.pay==='Đã thanh toán'?'tg-g':o.pay==='Đã hoàn tiền'?'tg-r':'tg-g'}">${o.pay}</span></div></div>
+    <div class="f ac jb m12"><div class="f ac g6"><span class="tg ${lT(o.l)}" style="padding:5px 11px">Nhãn ${escHtml(lN(o.l))}</span><span class="tg ${stC[oP]||''}" style="padding:5px 11px">${escHtml(stM[oP]||oP)}</span>${o.st==='cancelled'?`<span class="tg tg-r">Đã hủy${o.penalty?' · Phạt':''}</span>`:''}</div><span style="font-family:'Plus Jakarta Sans';font-size:24px;font-weight:900;color:var(--green-800);letter-spacing:-.02em">${escHtml(fm(o.p))}</span></div>
+    <div style="padding:14px;background:var(--soft);border-radius:13px;margin-bottom:12px"><div class="f ac g12"><div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--green-50),var(--green-100));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-user" style="font-size:22px;color:var(--green-800)"></i></div><div class="f1"><div style="font-size:14.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(o.c)}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(o.ph)} · ${escHtml(o.mt)} · ${escHtml(o.time)}</div></div><span class="tg ${o.pay==='Đã thanh toán'?'tg-g':o.pay==='Đã hoàn tiền'?'tg-r':'tg-g'}">${escHtml(o.pay)}</span></div></div>
     ${orderReceiverHtml(o)}
     ${partnerOrderEtaBoxHtml(o)}
     <div style="font-size:13px;font-weight:900;color:var(--ink-soft);margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em;font-family:'Plus Jakarta Sans'">Sản phẩm</div>
     ${orderLinesHtml(o)}
     ${orderMoneyHtml(o)}
-    <div style="padding:10px 14px;background:var(--blue-100);border-radius:11px;font-size:12px;color:var(--blue);font-weight:800"><i class="ti ti-qrcode"></i> <strong>Mã nhận hàng:</strong> ${o.code}</div>
-    ${o.rating?`<div style="padding:10px 14px;background:var(--yellow-100);border-radius:11px;margin-top:10px;font-size:12px;color:var(--yellow-600);font-weight:800"><i class="ti ti-star-filled"></i> Khách đánh giá: ${'★'.repeat(o.rating)}${'☆'.repeat(5-o.rating)} (${o.rating}/5)</div>`:''}
-    ${o.st==='cancelled'?`<div style="padding:12px 14px;background:var(--red-100);border-radius:11px;margin-top:10px;border-left:3px solid var(--red)"><div style="font-size:12px;font-weight:800;color:var(--red-600)">Lý do hủy: ${o.cancelReason||'Cửa hàng từ chối'}</div>${o.penalty?`<div style="font-size:11px;color:var(--muted);margin-top:5px;font-weight:600"><i class="ti ti-alert-triangle"></i> Khách bị phạt 15.000đ + Cảnh cáo vi phạm</div>`:''}</div>`:''}
+    <div style="padding:10px 14px;background:var(--blue-100);border-radius:11px;font-size:12px;color:var(--blue);font-weight:800"><i class="ti ti-qrcode"></i> <strong>Mã nhận hàng:</strong> ${escHtml(o.code)}</div>
+    ${ratingNum?`<div style="padding:10px 14px;background:var(--yellow-100);border-radius:11px;margin-top:10px;font-size:12px;color:var(--yellow-600);font-weight:800"><i class="ti ti-star-filled"></i> Khách đánh giá: ${'★'.repeat(ratingNum)}${'☆'.repeat(5-ratingNum)} (${ratingNum}/5)</div>`:''}
+    ${o.st==='cancelled'?`<div style="padding:12px 14px;background:var(--red-100);border-radius:11px;margin-top:10px;border-left:3px solid var(--red)"><div style="font-size:12px;font-weight:800;color:var(--red-600)">Lý do hủy: ${escHtml(o.cancelReason||'Cửa hàng từ chối')}</div>${o.penalty?`<div style="font-size:11px;color:var(--muted);margin-top:5px;font-weight:600"><i class="ti ti-alert-triangle"></i> Khách bị phạt 15.000đ + Cảnh cáo vi phạm</div>`:''}</div>`:''}
   </div>
   ${oP!=='cancelled'?`<div class="card"><div class="st"><i class="ti ti-list-check"></i> Tiến trình đơn</div><div class="f g6 m8">${PH.map((p,i)=>`<div style="flex:1;text-align:center"><div style="height:6px;border-radius:4px;background:${i<=ci?'linear-gradient(90deg,var(--green-700),var(--green-800))':'var(--line)'};margin-bottom:7px"></div><div style="font-size:10px;color:${i<=ci?'var(--green-800)':'var(--muted)'};font-weight:${i===ci?'900':'700'};font-family:'Plus Jakarta Sans'">${p.l}</div></div>`).join('')}</div></div>`:''}
   </div>
-  <div class="pos-r"><div class="pos-rh"><span style="font-size:14px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">Thao tác</span><span class="tg ${stC[oP]}">${stM[oP]}</span></div>
+  <div class="pos-r"><div class="pos-rh"><span style="font-size:14px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">Thao tác</span><span class="tg ${stC[oP]||''}">${escHtml(stM[oP]||oP)}</span></div>
   <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:10px;overflow-y:auto">
   ${oP==='new'?`
     <div style="padding:12px 14px;background:var(--yellow-100);border-radius:12px;font-size:12px;color:var(--yellow-600);font-weight:800"><i class="ti ti-hourglass"></i> Đơn mới từ người mua. Nhận đơn để giữ hàng cho khách.</div>
@@ -2608,23 +2611,23 @@ function ordDetail(){
     <button class="btn btn-bl btn-lg" style="width:100%;justify-content:center" onclick="oP='ready';R();tst('Sẵn sàng','Đã thông báo khách','order')"><i class="ti ti-check"></i> Sẵn sàng · Chờ khách</button>`
   :oP==='ready'?`
     <div style="padding:12px 14px;background:var(--blue-100);border-radius:12px;font-size:12px;color:var(--blue);font-weight:800"><i class="ti ti-walk"></i> Đang chờ khách đến...</div>
-    <div style="text-align:center;padding:14px"><i class="ti ti-qrcode" style="font-size:42px;color:var(--green-800);margin-bottom:8px;display:block"></i><input id="order-code-input" class="inp" placeholder="Nhập mã nhận hàng: ${o.code}" style="text-align:center;font-weight:900;font-size:16px;margin-top:8px;font-family:'Plus Jakarta Sans'"></div>
+    <div style="text-align:center;padding:14px"><i class="ti ti-qrcode" style="font-size:42px;color:var(--green-800);margin-bottom:8px;display:block"></i><input id="order-code-input" class="inp" placeholder="Nhập mã nhận hàng: ${escHtml(o.code)}" style="text-align:center;font-weight:900;font-size:16px;margin-top:8px;font-family:'Plus Jakarta Sans'"></div>
     <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="orderConfirmPickup()"><i class="ti ti-check"></i> Xác nhận khách đã nhận hàng</button>
     <button class="btn btn-o" style="width:100%;justify-content:center;color:var(--red)" onclick="noShow()"><i class="ti ti-alert-triangle"></i> Khách vắng mặt</button>`
   :oP==='warning'?`
-    <div style="padding:13px;background:var(--red-100);border-radius:12px;display:flex;align-items:center;gap:10px;border-left:3px solid var(--red)"><div class="sdot r"></div><div><div style="font-size:12.5px;font-weight:900;color:var(--red-600);font-family:'Plus Jakarta Sans'">Khách chưa đến! ${o.time}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500;margin-top:2px">Vắng mặt → auto cancel sau 30p</div></div></div>
-    <div style="text-align:center;padding:12px"><input class="inp" placeholder="${o.code}" style="text-align:center;font-weight:900;font-size:15px;font-family:'Plus Jakarta Sans'"></div>
+    <div style="padding:13px;background:var(--red-100);border-radius:12px;display:flex;align-items:center;gap:10px;border-left:3px solid var(--red)"><div class="sdot r"></div><div><div style="font-size:12.5px;font-weight:900;color:var(--red-600);font-family:'Plus Jakarta Sans'">Khách chưa đến! ${escHtml(o.time)}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500;margin-top:2px">Vắng mặt → auto cancel sau 30p</div></div></div>
+    <div style="text-align:center;padding:12px"><input class="inp" placeholder="${escHtml(o.code)}" style="text-align:center;font-weight:900;font-size:15px;font-family:'Plus Jakarta Sans'"></div>
     <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="oP='scanning';R()"><i class="ti ti-scan"></i> Quét QR</button>
     <button class="btn btn-r btn-lg" style="width:100%;justify-content:center" onclick="noShow()"><i class="ti ti-user-off"></i> Vắng mặt · Phạt khách</button>`
   :oP==='scanning'?`
     <div class="scanner" style="margin-bottom:12px"><div class="sl"></div><div style="z-index:1;text-align:center;color:rgba(255,255,255,.6)"><i class="ti ti-scan" style="font-size:48px;color:var(--green-700);margin-bottom:6px;display:block"></i><p style="font-size:11.5px;font-weight:700">Đưa QR vào khung</p></div></div>
-    <input class="inp m10" placeholder="Hoặc nhập: ${o.code}" style="text-align:center;font-weight:900;font-family:'Plus Jakarta Sans'">
-    <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="oP='done';R();tst('Giao hàng thành công','${fm(o.p)} → Đã release','payout')"><i class="ti ti-check"></i> Xác nhận · Nhận thanh toán</button>`
+    <input class="inp m10" placeholder="Hoặc nhập: ${escHtml(o.code)}" style="text-align:center;font-weight:900;font-family:'Plus Jakarta Sans'">
+    <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="oP='done';R();tst('Giao hàng thành công',fm(ORD[selO]?.p||0)+' → Đã release','payout')"><i class="ti ti-check"></i> Xác nhận · Nhận thanh toán</button>`
   :oP==='done'?`
-    <div style="text-align:center;padding:26px"><div style="width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,var(--green-600),var(--green-800));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 12px 28px rgba(34,197,94,.36)"><i class="ti ti-check" style="font-size:42px;color:#fff;font-weight:900"></i></div><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--green-800);margin-bottom:5px;letter-spacing:-.02em">Hoàn thành!</h3><p style="font-size:12.5px;color:var(--muted);font-weight:500">${fm(o.p)} → Ký quỹ → Ví người bán</p></div>
+    <div style="text-align:center;padding:26px"><div style="width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,var(--green-600),var(--green-800));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 12px 28px rgba(34,197,94,.36)"><i class="ti ti-check" style="font-size:42px;color:#fff;font-weight:900"></i></div><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--green-800);margin-bottom:5px;letter-spacing:-.02em">Hoàn thành!</h3><p style="font-size:12.5px;color:var(--muted);font-weight:500">${escHtml(fm(o.p))} → Ký quỹ → Ví người bán</p></div>
     <button class="btn btn-o btn-lg" style="width:100%;justify-content:center" onclick="selO=null;R()"><i class="ti ti-arrow-left"></i> Danh sách</button>`
   :oP==='cancelled'?`
-    <div style="text-align:center;padding:26px"><i class="ti ti-x" style="font-size:56px;color:var(--red);margin-bottom:12px;display:block"></i><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--red-600);margin-bottom:5px;letter-spacing:-.02em">Đơn đã hủy</h3><p style="font-size:12px;color:var(--muted);font-weight:500">${o.cancelReason||'Đã hủy bởi hệ thống'}</p>${o.penalty?`<div style="padding:11px;background:var(--red-100);border-radius:11px;margin-top:14px;font-size:12px;color:var(--red-600);font-weight:800"><i class="ti ti-alert-triangle"></i> Khách bị phạt: 15.000đ + Vi phạm</div>`:''}</div>
+    <div style="text-align:center;padding:26px"><i class="ti ti-x" style="font-size:56px;color:var(--red);margin-bottom:12px;display:block"></i><h3 style="font-family:'Plus Jakarta Sans';font-size:22px;font-weight:900;color:var(--red-600);margin-bottom:5px;letter-spacing:-.02em">Đơn đã hủy</h3><p style="font-size:12px;color:var(--muted);font-weight:500">${escHtml(o.cancelReason||'Đã hủy bởi hệ thống')}</p>${o.penalty?`<div style="padding:11px;background:var(--red-100);border-radius:11px;margin-top:14px;font-size:12px;color:var(--red-600);font-weight:800"><i class="ti ti-alert-triangle"></i> Khách bị phạt: 15.000đ + Vi phạm</div>`:''}</div>
     <button class="btn btn-o btn-lg" style="width:100%;justify-content:center" onclick="selO=null;R()"><i class="ti ti-arrow-left"></i> Danh sách</button>`
   :''}
   </div></div></div>`;
@@ -2639,8 +2642,8 @@ function donateProduct(i){
   if(!p.id||!/^[0-9a-f-]{36}$/i.test(String(p.id))){tst('Chưa gửi được','Sản phẩm này chưa có trên hệ thống','info');return;}
   if(!(p.q>0)){tst('Hết hàng','Sản phẩm không còn phần nào để tặng','info');return;}
   modal('Tặng cho tổ chức từ thiện',
-    '<div style="padding:12px 14px;background:var(--soft);border-radius:12px;margin-bottom:14px;font-size:13.5px;font-weight:800;color:var(--green-950)">'+p.img+' '+p.n+' · còn '+p.q+' phần</div>'+
-    '<div class="field"><label>Số phần muốn tặng</label><input id="donate-qty" class="inp" type="number" min="1" max="'+p.q+'" value="'+p.q+'"></div>'+
+    '<div style="padding:12px 14px;background:var(--soft);border-radius:12px;margin-bottom:14px;font-size:13.5px;font-weight:800;color:var(--green-950)">'+escHtml(p.img)+' '+escHtml(p.n)+' · còn '+escHtml(p.q)+' phần</div>'+
+    '<div class="field"><label>Số phần muốn tặng</label><input id="donate-qty" class="inp" type="number" min="1" max="'+Number(p.q)+'" value="'+Number(p.q)+'"></div>'+
     '<p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:16px;font-weight:500">Đề nghị được gửi tới các tổ chức trong bán kính phục vụ. Tổ chức nhận trước được hàng. Sau 45 phút không ai nhận, phần này tự quay lại bán. Phần tặng được giữ riêng, không bán cho người mua.</p>'+
     '<button id="donate-submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="submitDonation('+i+')"><i class="ti ti-heart"></i> Gửi đề nghị tặng</button>');
 }
@@ -2710,22 +2713,22 @@ function pInv(){
     </div>
     <div class="f g8"><button class="btn btn-o" onclick="showBarcode()"><i class="ti ti-barcode"></i> Barcode</button><button class="btn btn-primary" onclick="addProd()"><i class="ti ti-plus"></i> Thêm SP</button></div>
   </div>
-  ${conflicts.length?`<div class="sync-warn m12"><div style="width:40px;height:40px;border-radius:12px;background:var(--yellow);color:var(--green-950);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-refresh-alert" style="font-size:18px"></i></div><div class="f1"><div style="font-size:13px;font-weight:900;color:var(--yellow-600);font-family:'Plus Jakarta Sans'">Xung đột đồng bộ tồn kho</div><div style="font-size:11.5px;color:var(--ink-soft);font-weight:500;margin-top:3px">${conflicts.map(p=>p.n+': App('+p.q+') ≠ Quầy('+(p.q-2)+')').join(' · ')}</div></div><button class="btn btn-primary btn-sm" onclick="PRD.forEach(p=>{if(p.sync==='conflict')p.sync='ok'});R();tst('Sync OK','Đã đồng bộ','info')"><i class="ti ti-refresh"></i> Sync</button></div>`:''}
-  ${blocked.length?`<div class="card m12" style="border-left:4px solid var(--red);background:linear-gradient(135deg,#fef2f2,#fff);padding:16px"><div class="f ac jb m10"><span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--red-600);text-transform:uppercase;letter-spacing:.04em">Chặn đăng: ${blocked.length} SP đã gỡ (còn ≤30-45p)</span></div>${blocked.map(p=>{const i=PRD.indexOf(p);return`<div class="f ac g12 m6" style="padding:11px;background:#fff;border-radius:11px;border:1px solid var(--line)"><span style="font-size:22px">${p.img}</span><div class="f1"><span style="font-size:12.5px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${p.n}</span> <span style="font-size:10.5px;color:var(--red);font-weight:800"><i class="ti ti-clock"></i>${p.left}</span></div><span class="blocked-badge"><i class="ti ti-ban"></i>ĐÃ GỠ</span><button class="btn btn-green btn-sm" onclick="donateProduct(${i})"><i class="ti ti-heart"></i>Tặng</button></div>`;}).join('')}</div>`:''}
+  ${conflicts.length?`<div class="sync-warn m12"><div style="width:40px;height:40px;border-radius:12px;background:var(--yellow);color:var(--green-950);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-refresh-alert" style="font-size:18px"></i></div><div class="f1"><div style="font-size:13px;font-weight:900;color:var(--yellow-600);font-family:'Plus Jakarta Sans'">Xung đột đồng bộ tồn kho</div><div style="font-size:11.5px;color:var(--ink-soft);font-weight:500;margin-top:3px">${conflicts.map(p=>escHtml(p.n)+': App('+escHtml(p.q)+') ≠ Quầy('+escHtml(p.q-2)+')').join(' · ')}</div></div><button class="btn btn-primary btn-sm" onclick="PRD.forEach(p=>{if(p.sync==='conflict')p.sync='ok'});R();tst('Sync OK','Đã đồng bộ','info')"><i class="ti ti-refresh"></i> Sync</button></div>`:''}
+  ${blocked.length?`<div class="card m12" style="border-left:4px solid var(--red);background:linear-gradient(135deg,#fef2f2,#fff);padding:16px"><div class="f ac jb m10"><span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--red-600);text-transform:uppercase;letter-spacing:.04em">Chặn đăng: ${blocked.length} SP đã gỡ (còn ≤30-45p)</span></div>${blocked.map(p=>{const i=PRD.indexOf(p);return`<div class="f ac g12 m6" style="padding:11px;background:#fff;border-radius:11px;border:1px solid var(--line)"><span style="font-size:22px">${escHtml(p.img)}</span><div class="f1"><span style="font-size:12.5px;font-weight:800;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(p.n)}</span> <span style="font-size:10.5px;color:var(--red);font-weight:800"><i class="ti ti-clock"></i>${escHtml(p.left)}</span></div><span class="blocked-badge"><i class="ti ti-ban"></i>ĐÃ GỠ</span><button class="btn btn-green btn-sm" onclick="donateProduct(${i})"><i class="ti ti-heart"></i>Tặng</button></div>`;}).join('')}</div>`:''}
   <div class="card-h m12"><table class="tbl"><thead><tr><th>Sản phẩm</th><th>SKU</th><th>Danh mục</th><th>Ngày SX</th><th>Hạn SD</th><th>Còn lại</th><th>Giá gốc</th><th>Giá bán</th><th>SL</th><th>Nhãn</th><th>Đồng bộ</th><th>Thao tác</th></tr></thead><tbody>
   ${ap.map(p=>{const i=PRD.indexOf(p);return`<tr>
-  <td><div class="f ac g8"><span style="font-size:20px">${p.img}</span><span style="font-weight:800;color:var(--green-950);font-size:12.5px;font-family:'Plus Jakarta Sans'">${p.n}</span></div></td>
-  <td style="font-family:monospace;font-size:10.5px;color:var(--muted);font-weight:800">${p.sku}</td>
-  <td style="font-size:11px;font-weight:600">${p.cat}</td>
-  <td style="font-size:11px;color:var(--muted);font-weight:500">${p.mfg}</td>
-  <td style="font-size:11px;color:${p.l==='red'?'var(--red-600)':'var(--ink-soft)'};font-weight:${p.l==='red'?'900':'600'}">${p.exp}</td>
-  <td><span style="font-size:11.5px;font-weight:900;color:${p.l==='red'?'var(--red-600)':p.l==='yellow'?'var(--yellow-600)':'var(--green-800)'};font-family:'Plus Jakarta Sans'">${p.left}</span></td>
-  <td style="text-decoration:line-through;color:var(--muted-2);font-size:11.5px;font-weight:500">${fm(p.po)}</td>
-  <td style="font-family:'Plus Jakarta Sans';font-weight:900;color:var(--green-800);font-size:13px">${fm(p.p)}</td>
-  <td style="font-weight:800;font-size:12.5px;font-family:'Plus Jakarta Sans'">${p.q}</td>
-  <td><span class="tg ${lT(p.l)}"><span class="sdot ${p.l[0]}" style="width:7px;height:7px"></span> ${lN(p.l)} · ${lD(p.l)}</span></td>
+  <td><div class="f ac g8"><span style="font-size:20px">${escHtml(p.img)}</span><span style="font-weight:800;color:var(--green-950);font-size:12.5px;font-family:'Plus Jakarta Sans'">${escHtml(p.n)}</span></div></td>
+  <td style="font-family:monospace;font-size:10.5px;color:var(--muted);font-weight:800">${escHtml(p.sku)}</td>
+  <td style="font-size:11px;font-weight:600">${escHtml(p.cat)}</td>
+  <td style="font-size:11px;color:var(--muted);font-weight:500">${escHtml(p.mfg)}</td>
+  <td style="font-size:11px;color:${p.l==='red'?'var(--red-600)':'var(--ink-soft)'};font-weight:${p.l==='red'?'900':'600'}">${escHtml(p.exp)}</td>
+  <td><span style="font-size:11.5px;font-weight:900;color:${p.l==='red'?'var(--red-600)':p.l==='yellow'?'var(--yellow-600)':'var(--green-800)'};font-family:'Plus Jakarta Sans'">${escHtml(p.left)}</span></td>
+  <td style="text-decoration:line-through;color:var(--muted-2);font-size:11.5px;font-weight:500">${escHtml(fm(p.po))}</td>
+  <td style="font-family:'Plus Jakarta Sans';font-weight:900;color:var(--green-800);font-size:13px">${escHtml(fm(p.p))}</td>
+  <td style="font-weight:800;font-size:12.5px;font-family:'Plus Jakarta Sans'">${escHtml(p.q)}</td>
+  <td><span class="tg ${lT(p.l)}"><span class="sdot ${escHtml(String(p.l||'')[0]||'')}" style="width:7px;height:7px"></span> ${escHtml(lN(p.l))} · ${escHtml(lD(p.l))}</span></td>
   <td>${p.sync==='conflict'?'<span class="tg tg-r">Lỗi sync</span>':'<span class="tg tg-g">OK</span>'}</td>
-  <td><div class="f g6"><button class="btn btn-sm btn-o" onclick="editProduct('${p.n}',${p.p},${p.q})">Sửa</button>${p.l==='red'?`<button class="btn btn-sm btn-r" onclick="tst('Giảm giá','${p.n} -20%','expiry')">-20%</button>`:''}<button class="btn btn-sm btn-green" onclick="donateProduct(${i})"><i class="ti ti-heart"></i></button></div></td>
+  <td><div class="f g6"><button class="btn btn-sm btn-o" onclick="editProduct(PRD[${i}].n,PRD[${i}].p,PRD[${i}].q)">Sửa</button>${p.l==='red'?`<button class="btn btn-sm btn-r" onclick="tst('Giảm giá',PRD[${i}].n+' -20%','expiry')">-20%</button>`:''}<button class="btn btn-sm btn-green" onclick="donateProduct(${i})"><i class="ti ti-heart"></i></button></div></td>
   </tr>`;}).join('')}</tbody></table></div>
   <div class="f g10 m12"><button class="btn btn-r btn-lg" style="flex:1;justify-content:center" onclick="showXaKho()"><i class="ti ti-flame"></i> Xả kho nhanh</button><button class="btn btn-primary btn-lg" style="flex:1;justify-content:center" onclick="showDonaFallback()"><i class="ti ti-heart"></i> Chuyển tặng từ thiện</button></div>
   <div class="card" style="background:linear-gradient(135deg,var(--blue-100),#dbeafe);border-color:#93c5fd"><div class="st" style="color:var(--blue)"><i class="ti ti-robot"></i> AI Inventory Insights</div><div class="grid-3 m10">${[
@@ -2823,19 +2826,19 @@ function proofEscape(text){return String(text==null?'':text).replace(/[&<>"']/g,
 // Ảnh minh chứng do tổ chức từ thiện gửi sau khi nhận hàng
 function approvedPhotos(d){return (d.photos||[]).filter(p=>p.status==='approved'||p.status==='auto_approved');}
 function donationProofHtml(d,di){
-  const photos=approvedPhotos(d);
-  const report='<button class="btn btn-sm btn-o" style="margin-top:8px" onclick="showDonationReport(\''+d.id+'\')"><i class="ti ti-report"></i> Báo cáo lô</button>';
+  const photos=approvedPhotos(d).filter(p=>safePartnerImgUrl(p.url));
+  const report='<button class="btn btn-sm btn-o" style="margin-top:8px" onclick="showDonationReport(DONATIONS['+di+'].id)"><i class="ti ti-report"></i> Báo cáo lô</button>';
   if(!photos.length)return d.status==='completed'?'<div style="font-size:11.5px;color:var(--muted);font-weight:600;margin-top:6px"><i class="ti ti-camera"></i> Đang chờ ảnh minh chứng từ tổ chức</div>'+report:'';
   return '<div style="margin-top:8px"><div style="font-size:11.5px;font-weight:800;color:var(--green-800);margin-bottom:6px"><i class="ti ti-circle-check"></i> Đã có '+photos.length+' ảnh minh chứng từ tổ chức</div><div class="f g6" style="flex-wrap:wrap">'+
-    photos.map(p=>'<img src="'+proofEscape(p.url)+'" alt="Ảnh minh chứng" onclick="openProofViewer('+di+')" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer">').join('')+'</div>'+report+'</div>';
+    photos.map(p=>{const u=safePartnerImgUrl(p.url);return '<img src="'+proofEscape(u)+'" alt="Ảnh minh chứng" onclick="openProofViewer('+di+')" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer">';}).join('')+'</div>'+report+'</div>';
 }
 function openProofViewer(di){
   const d=DONATIONS[di];
-  const photos=d?approvedPhotos(d):[];
+  const photos=(d?approvedPhotos(d):[]).filter(p=>safePartnerImgUrl(p.url));
   if(!photos.length)return;
   modal('Ảnh minh chứng · '+(d.code||''),
     '<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;font-weight:600">'+proofEscape(d.items)+' · '+proofEscape(d.charityName||'Tổ chức từ thiện')+'</div>'+
-    photos.map(p=>'<a href="'+proofEscape(p.url)+'" target="_blank" rel="noopener"><img src="'+proofEscape(p.url)+'" alt="Ảnh minh chứng" style="width:100%;border-radius:14px;border:1px solid var(--line);margin-bottom:4px"></a><div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:10px">'+proofEscape(p.name||'TNV')+' · '+(p.stage==='pickup'?'nhận hàng':'phát hàng')+(p.isDemo?' · ảnh demo':'')+'</div>').join(''));
+    photos.map(p=>{const u=safePartnerImgUrl(p.url);return '<a href="'+proofEscape(u)+'" target="_blank" rel="noopener"><img src="'+proofEscape(u)+'" alt="Ảnh minh chứng" style="width:100%;border-radius:14px;border:1px solid var(--line);margin-bottom:4px"></a><div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:10px">'+proofEscape(p.name||'TNV')+' · '+(p.stage==='pickup'?'nhận hàng':'phát hàng')+(p.isDemo?' · ảnh demo':'')+'</div>';}).join(''));
 }
 async function showDonationReport(donationId){
   modal('Báo cáo lô','<div style="padding:30px;text-align:center;color:var(--muted);font-weight:700">Đang tải báo cáo…</div>');
@@ -2843,16 +2846,16 @@ async function showDonationReport(donationId){
     const report=await window.FS.sync.getDonationReport(donationId);
     const html=window.FS.renderDonationReport(report);
     window.FS.lastReportHtml=html;
-    modal('Báo cáo lô '+proofEscape(report.donation.code),html+'<button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:14px" onclick="window.FS.printDonationReport()"><i class="ti ti-printer"></i> In / lưu PDF</button>');
+    modal('Báo cáo lô '+(report.donation.code||''),html+'<button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:14px" onclick="window.FS.printDonationReport()"><i class="ti ti-printer"></i> In / lưu PDF</button>');
   }catch(err){modal('Báo cáo lô','<div style="padding:20px;color:var(--red);font-weight:700">'+proofEscape(err&&err.message||'Không tải được báo cáo')+'</div>');}
 }
 
 function donationActions(d,i){
   const stage=donationStage(d);
   const teamNames=(d.team&&d.team.pickup&&d.team.pickup.length)?d.team.pickup.map(m=>m.name).filter(Boolean).join(', '):'';
-  const vol=(teamNames||d.vol)?('TNV: <strong>'+(teamNames||d.vol)+'</strong>'+(!teamNames&&d.volunteerPhone?' · '+d.volunteerPhone:'')):'';
+  const vol=(teamNames||d.vol)?('TNV: <strong>'+escHtml(teamNames||d.vol)+'</strong>'+(!teamNames&&d.volunteerPhone?' · '+escHtml(d.volunteerPhone):'')):'';
   if(stage==='open'&&!d.isAuto)return '<button class="btn btn-sm btn-o" style="color:var(--red)" onclick="cancelDonation('+i+')">Hủy đề nghị</button>';
-  if(stage==='claimed')return '<div style="text-align:right"><div style="font-size:12px;font-weight:800;margin-bottom:8px;color:var(--green-950)">'+(d.charityName||'Một tổ chức')+' muốn nhận lô này</div><div class="f g8" style="justify-content:flex-end"><button class="btn btn-sm btn-primary" onclick="donationStoreRespond('+i+',true)"><i class="ti ti-check"></i> Chấp nhận</button><button class="btn btn-sm btn-o" style="color:var(--red)" onclick="donationStoreRespond('+i+',false)">Từ chối</button></div></div>';
+  if(stage==='claimed')return '<div style="text-align:right"><div style="font-size:12px;font-weight:800;margin-bottom:8px;color:var(--green-950)">'+escHtml(d.charityName||'Một tổ chức')+' muốn nhận lô này</div><div class="f g8" style="justify-content:flex-end"><button class="btn btn-sm btn-primary" onclick="donationStoreRespond('+i+',true)"><i class="ti ti-check"></i> Chấp nhận</button><button class="btn btn-sm btn-o" style="color:var(--red)" onclick="donationStoreRespond('+i+',false)">Từ chối</button></div></div>';
   if(stage==='confirmed')return '<div style="font-size:12px;color:var(--muted);font-weight:700;text-align:right">Đã chấp nhận<br>Chờ tổ chức phân tình nguyện viên</div>';
   if(stage==='assigned'||stage==='enroute_unpacked')return '<div style="text-align:right"><div style="font-size:12px;margin-bottom:8px;color:var(--green-950)">'+vol+'</div><button class="btn btn-sm btn-primary" onclick="donationMarkPacked('+i+')"><i class="ti ti-package"></i> Đã đóng gói xong</button></div>';
   if(stage==='packed'||stage==='enroute')return '<div style="text-align:right;min-width:230px"><div style="font-size:12px;margin-bottom:8px;color:var(--green-950)">'+vol+'<br><span style="color:var(--muted)">'+(stage==='enroute'?'Đang trên đường đến':'Đang chờ TNV đến')+'</span></div><div class="f g8"><input id="handover-code-'+i+'" class="inp" placeholder="Nhập mã của TNV" style="text-transform:uppercase;font-weight:900;letter-spacing:.08em;text-align:center"><button class="btn btn-sm btn-primary" onclick="donationHandover('+i+')">Xác nhận</button></div></div>';
@@ -3333,7 +3336,7 @@ function showAnaStat(k){
   const rev=ORD.filter(o=>o.st==='done').reduce((s,o)=>s+o.p,0);const doneOrds=ORD.filter(o=>o.st==='done');
   const data={
   rev:{t:'Chi tiết Doanh thu',c:`<div class="grid-3 g10 m14">${[{l:"Hôm nay",v:fm(rev)},{l:"Hôm qua",v:fm(Math.round(rev*0.85))},{l:"Tuần trước",v:fm(Math.round(rev*0.72))}].map(m=>`<div style="padding:16px;background:var(--soft);border-radius:12px;text-align:center"><div style="font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${m.l}</div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:var(--green-700);margin-top:4px;letter-spacing:-.02em">${m.v}</div></div>`).join('')}</div>`},
-  orders:{t:'Đơn hoàn thành',c:`<div class="m14"><span style="font-family:'Plus Jakarta Sans';font-size:32px;font-weight:900;color:var(--blue);letter-spacing:-.025em">${doneOrds.length} đơn</span></div>${doneOrds.map(o=>`<div class="f ac g10 m8" style="padding:11px;background:var(--soft);border-radius:12px"><div class="f1"><span style="font-size:12.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${o.id}</span> <span style="font-size:11.5px;color:var(--muted);font-weight:500">${o.c} · ${o.items}</span></div><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${fm(o.p)}</span></div>`).join('')}`},
+  orders:{t:'Đơn hoàn thành',c:`<div class="m14"><span style="font-family:'Plus Jakarta Sans';font-size:32px;font-weight:900;color:var(--blue);letter-spacing:-.025em">${doneOrds.length} đơn</span></div>${doneOrds.map(o=>`<div class="f ac g10 m8" style="padding:11px;background:var(--soft);border-radius:12px"><div class="f1"><span style="font-size:12.5px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(o.id)}</span> <span style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(o.c)} · ${escHtml(o.items)}</span></div><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${escHtml(fm(o.p))}</span></div>`).join('')}`},
   food:{t:'Thực phẩm đã cứu',c:`<div class="grid-3 g10 m14">${[{l:"Hôm nay",v:"23.5kg"},{l:"Tuần",v:"142kg"},{l:"Tháng",v:"328kg"}].map(m=>`<div style="padding:16px;background:var(--green-100);border-radius:12px;text-align:center"><div style="font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${m.l}</div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:var(--green-800);margin-top:4px;letter-spacing:-.02em">${m.v}</div></div>`).join('')}</div><p style="font-size:13px;color:var(--muted);line-height:1.75;font-weight:500">Tương đương giảm <strong style="color:var(--green-800)">142kg CO₂</strong> phát thải. Cửa hàng đang ở <strong style="color:var(--yellow-600)">Top 3 khu vực!</strong></p>`},
   rate:{t:'Tỷ lệ bán hàng',c:`<div class="grid-2 g10 m14">${[{l:"Tỷ lệ bán",v:"78%",c:"var(--green-700)"},{l:"Chưa bán",v:"22%",c:"var(--yellow-600)"},{l:"Donation",v:"45 đơn",c:"var(--green-700)"},{l:"Expired",v:"2 SP",c:"var(--red)"}].map(m=>`<div style="padding:16px;background:var(--soft);border-radius:12px;text-align:center"><div style="font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${m.l}</div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:${m.c};margin-top:4px;letter-spacing:-.02em">${m.v}</div></div>`).join('')}</div>`},
   chart:{t:'Doanh thu 7 ngày — Chi tiết',c:`${["T2","T3","T4","T5","T6","T7","CN"].map((d,i)=>{const v=[180,320,250,420,380,500,Math.round(rev/1000)][i];return`<div class="f ac jb" style="padding:11px 0;border-bottom:1px solid var(--line-2)"><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950);letter-spacing:-.015em">${d}</span><div style="flex:1;margin:0 16px"><div style="height:9px;background:var(--line);border-radius:5px"><div style="height:100%;width:${Math.round(v/500*100)}%;background:linear-gradient(90deg,var(--green-700),var(--green-800));border-radius:5px"></div></div></div><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-800)">${v}K</span></div>`;}).join('')}`},
@@ -3948,9 +3951,9 @@ window.foodsaveAfterNotifsReplace=function(){
 function renderNotiList(){
   const box=document.getElementById('noti-list');if(!box)return;
   if(!NOTIFS.length){box.innerHTML='<div style="text-align:center;padding:36px 10px;color:var(--muted);font-weight:700;font-size:13px"><i class="ti ti-bell-off" style="font-size:34px;display:block;margin-bottom:8px;opacity:.5"></i>Chưa có thông báo nào.</div>';return;}
-  box.innerHTML=NOTIFS.slice(0,40).map(n=>{
+  box.innerHTML=NOTIFS.slice(0,40).map((n,idx)=>{
     const look=notiLook(n);
-    return '<div class="f g12" onclick="openNoti(\''+n.id+'\')" style="cursor:pointer;align-items:flex-start;padding:13px;background:'+(n.unread?'var(--soft)':'transparent')+';border-radius:13px;margin-bottom:8px;border-left:3px solid '+look.color+'">'+
+    return '<div class="f g12" onclick="openNoti(NOTIFS['+idx+'].id)" style="cursor:pointer;align-items:flex-start;padding:13px;background:'+(n.unread?'var(--soft)':'transparent')+';border-radius:13px;margin-bottom:8px;border-left:3px solid '+look.color+'">'+
       '<div style="width:40px;height:40px;border-radius:12px;background:var(--soft-2,#f1f5f9);color:'+look.color+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti '+look.icon+'" style="font-size:19px"></i></div>'+
       '<div class="f1" style="min-width:0"><div style="font-size:13.5px;font-weight:'+(n.unread?'900':'700')+';color:var(--green-950)">'+escHtml(n.title)+(n.unread?' <span style="display:inline-block;width:7px;height:7px;background:var(--red);border-radius:50%;margin-left:4px;vertical-align:middle"></span>':'')+'</div>'+
       '<div style="font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;line-height:1.5">'+escHtml(n.desc)+'</div>'+
@@ -4023,17 +4026,17 @@ function showViolDetail(filter) {
     <div style="padding:14px;background:var(--soft);border-radius:13px;border-left:3px solid ${v.st==='banned'?'var(--red)':v.st==='warning'?'var(--yellow)':'var(--green-700)'}">
       <div class="f ac jb m8">
         <div class="f ac g8">
-          <span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--green-950)">${v.id}</span>
-          <span class="tg ${v.type==='vắng mặt'?'tg-r':v.type==='đến muộn'?'tg-y':'tg-p'}">${v.type}</span>
+          <span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--green-950)">${escHtml(v.id)}</span>
+          <span class="tg ${v.type==='vắng mặt'?'tg-r':v.type==='đến muộn'?'tg-y':'tg-p'}">${escHtml(v.type)}</span>
         </div>
         <span class="tg ${v.st==='applied'?'tg-o':v.st==='warning'?'tg-y':'tg-r'}">${v.st==='applied'?'Đã phạt':v.st==='warning'?'Cảnh cáo':'Khóa'}</span>
       </div>
-      <div style="font-size:12.5px;font-weight:700;color:var(--green-950);font-family:'Plus Jakarta Sans';margin-bottom:5px">${v.user}</div>
-      <div style="font-size:11.5px;color:var(--ink-soft);font-weight:500;line-height:1.5;margin-bottom:6px">${v.desc}</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--green-950);font-family:'Plus Jakarta Sans';margin-bottom:5px">${escHtml(v.user)}</div>
+      <div style="font-size:11.5px;color:var(--ink-soft);font-weight:500;line-height:1.5;margin-bottom:6px">${escHtml(v.desc)}</div>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);font-weight:600">
-        <span><i class="ti ti-clock"></i> ${v.time}</span>
-        <span><i class="ti ti-repeat"></i> Lần ${v.count}</span>
-        <span><i class="ti ti-gavel"></i> ${v.penalty}</span>
+        <span><i class="ti ti-clock"></i> ${escHtml(v.time)}</span>
+        <span><i class="ti ti-repeat"></i> Lần ${escHtml(v.count)}</span>
+        <span><i class="ti ti-gavel"></i> ${escHtml(v.penalty)}</span>
       </div>
     </div>
   `).join('') + '</div>';
@@ -4059,18 +4062,18 @@ function pComplaints() {
   <div class="card m12" style="background:linear-gradient(135deg,var(--green-50),#fff);border-color:var(--green-200)"><div class="f ac g14"><i class="ti ti-info-circle" style="font-size:30px;color:var(--green-700)"></i><div class="f1"><div style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950);margin-bottom:4px">Tiêu chuẩn xử lý khiếu nại</div><div style="font-size:12px;color:var(--ink-soft);font-weight:500;line-height:1.6">Phản hồi trong <strong>24 giờ</strong> · Giải quyết trong <strong>72 giờ</strong> · Tự động hoàn tiền nếu lỗi từ cửa hàng. Vi phạm xử lý chậm → giảm rating + có thể bị MIO can thiệp.</div></div></div></div>
 
   ${open.length ? `<div class="card m12" style="border-left:4px solid var(--red);background:linear-gradient(135deg,var(--red-50,#fef2f2),#fff)"><div class="st" style="color:var(--red-600)"><i class="ti ti-alert-triangle"></i> Khiếu nại đang chờ xử lý <span class="tg tg-r" style="margin-left:auto">${open.length} đơn</span></div>
-  ${open.map(c=>`<div style="padding:16px;background:#fff;border-radius:13px;margin-bottom:10px;border-left:3px solid ${c.priority==='high'?'var(--red)':'var(--yellow)'}">
-    <div class="f ac jb m10"><div class="f ac g12"><span style="font-size:30px">${c.img}</span><div><div class="f ac g6"><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950)">${c.code||c.id}</span><span class="tg ${c.priority==='high'?'tg-r':c.priority==='medium'?'tg-y':'tg-o'}">${c.priority==='high'?'Khẩn cấp':c.priority==='medium'?'Bình thường':'Thấp'}</span></div><div style="font-size:12px;color:var(--muted);font-weight:600;margin-top:2px">${c.user} · Đơn ${c.order} · ${c.time}</div></div></div></div>
-    <div style="padding:11px 13px;background:var(--soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);font-weight:500;line-height:1.6;margin-bottom:10px"><strong>Sản phẩm:</strong> ${c.product}<br><strong>Vấn đề:</strong> ${c.issue}</div>
-    <div class="f g8"><button class="btn btn-green btn-sm" onclick="resolveComplaint('${c.id}','refund')"><i class="ti ti-receipt-refund"></i> Hoàn tiền</button><button class="btn btn-bl btn-sm" onclick="resolveComplaint('${c.id}','voucher')"><i class="ti ti-gift"></i> Voucher bồi thường</button><button class="btn btn-o btn-sm" onclick="resolveComplaint('${c.id}','explain')"><i class="ti ti-message"></i> Giải thích</button><button class="btn btn-o btn-sm" onclick="resolveComplaint('${c.id}','escalate')" style="color:var(--red)"><i class="ti ti-arrow-up"></i> Chuyển MIO</button></div>
-  </div>`).join('')}</div>` : `<div class="card m12 empty-state"><div class="empty-state-ic"><i class="ti ti-shield-check"></i></div><div class="empty-state-title">Không có khiếu nại nào</div><div class="empty-state-desc">Tuyệt vời! Cửa hàng đang được khách hàng yêu thích.</div></div>`}
+  ${open.map(c=>{const ci=COMPLAINTS.indexOf(c);return`<div style="padding:16px;background:#fff;border-radius:13px;margin-bottom:10px;border-left:3px solid ${c.priority==='high'?'var(--red)':'var(--yellow)'}">
+    <div class="f ac jb m10"><div class="f ac g12"><span style="font-size:30px">${escHtml(c.img)}</span><div><div class="f ac g6"><span style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950)">${escHtml(c.code||c.id)}</span><span class="tg ${c.priority==='high'?'tg-r':c.priority==='medium'?'tg-y':'tg-o'}">${c.priority==='high'?'Khẩn cấp':c.priority==='medium'?'Bình thường':'Thấp'}</span></div><div style="font-size:12px;color:var(--muted);font-weight:600;margin-top:2px">${escHtml(c.user)} · Đơn ${escHtml(c.order)} · ${escHtml(c.time)}</div></div></div></div>
+    <div style="padding:11px 13px;background:var(--soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);font-weight:500;line-height:1.6;margin-bottom:10px"><strong>Sản phẩm:</strong> ${escHtml(c.product)}<br><strong>Vấn đề:</strong> ${escHtml(c.issue)}</div>
+    <div class="f g8"><button class="btn btn-green btn-sm" onclick="resolveComplaint(COMPLAINTS[${ci}].id,'refund')"><i class="ti ti-receipt-refund"></i> Hoàn tiền</button><button class="btn btn-bl btn-sm" onclick="resolveComplaint(COMPLAINTS[${ci}].id,'voucher')"><i class="ti ti-gift"></i> Voucher bồi thường</button><button class="btn btn-o btn-sm" onclick="resolveComplaint(COMPLAINTS[${ci}].id,'explain')"><i class="ti ti-message"></i> Giải thích</button><button class="btn btn-o btn-sm" onclick="resolveComplaint(COMPLAINTS[${ci}].id,'escalate')" style="color:var(--red)"><i class="ti ti-arrow-up"></i> Chuyển MIO</button></div>
+  </div>`;}).join('')}</div>` : `<div class="card m12 empty-state"><div class="empty-state-ic"><i class="ti ti-shield-check"></i></div><div class="empty-state-title">Không có khiếu nại nào</div><div class="empty-state-desc">Tuyệt vời! Cửa hàng đang được khách hàng yêu thích.</div></div>`}
 
   ${inReview.length ? `<div class="card m12"><div class="st"><i class="ti ti-eye"></i> Đang xem xét</div>
-  ${inReview.map(c=>`<div class="oc"><div class="pi" style="background:var(--yellow-100);color:var(--yellow-600);font-size:24px">${c.img}</div><div class="f1"><div style="font-size:13px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${c.code||c.id} · ${c.user}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${c.product} · ${c.time}</div><div style="font-size:11px;color:var(--ink-soft);font-weight:500;margin-top:4px;line-height:1.5">${c.issue}</div></div><span class="tg tg-y">Đang xem xét</span></div>`).join('')}
+  ${inReview.map(c=>`<div class="oc"><div class="pi" style="background:var(--yellow-100);color:var(--yellow-600);font-size:24px">${escHtml(c.img)}</div><div class="f1"><div style="font-size:13px;font-weight:900;color:var(--green-950);font-family:'Plus Jakarta Sans'">${escHtml(c.code||c.id)} · ${escHtml(c.user)}</div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(c.product)} · ${escHtml(c.time)}</div><div style="font-size:11px;color:var(--ink-soft);font-weight:500;margin-top:4px;line-height:1.5">${escHtml(c.issue)}</div></div><span class="tg tg-y">Đang xem xét</span></div>`).join('')}
   </div>` : ''}
 
   ${resolved.length ? `<div class="card"><div class="st"><i class="ti ti-circle-check"></i> Đã giải quyết</div>
-  ${resolved.map(c=>`<div style="padding:14px;background:var(--green-100);border-radius:12px;margin-bottom:8px;border-left:3px solid var(--green-700)"><div class="f ac jb m6"><div class="f ac g8"><span style="font-size:22px">${c.img}</span><span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--green-950)">${c.code||c.id} · ${c.user}</span></div><span class="tg tg-g"><i class="ti ti-check"></i> ${c.time}</span></div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${c.issue}</div><div style="font-size:11.5px;color:var(--green-800);font-weight:700;margin-top:6px"><i class="ti ti-bulb"></i> Cách giải quyết: ${c.resolution}</div></div>`).join('')}
+  ${resolved.map(c=>`<div style="padding:14px;background:var(--green-100);border-radius:12px;margin-bottom:8px;border-left:3px solid var(--green-700)"><div class="f ac jb m6"><div class="f ac g8"><span style="font-size:22px">${escHtml(c.img)}</span><span style="font-family:'Plus Jakarta Sans';font-size:13px;font-weight:900;color:var(--green-950)">${escHtml(c.code||c.id)} · ${escHtml(c.user)}</span></div><span class="tg tg-g"><i class="ti ti-check"></i> ${escHtml(c.time)}</span></div><div style="font-size:11.5px;color:var(--muted);font-weight:500">${escHtml(c.issue)}</div><div style="font-size:11.5px;color:var(--green-800);font-weight:700;margin-top:6px"><i class="ti ti-bulb"></i> Cách giải quyết: ${escHtml(c.resolution)}</div></div>`).join('')}
   </div>` : ''}
   `;
 }

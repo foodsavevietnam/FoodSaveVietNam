@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { authRateLimiter } from "../middlewares/rateLimiter";
 import { volunteerAuth } from "../middlewares/volunteerAuth";
 import { validateRequest } from "../middlewares/validateRequest";
 import { uuidParamSchema } from "../schemas/commonSchemas";
@@ -47,23 +48,23 @@ const completeStageBodySchema = z.object({ stage: stageSchema }).strict();
 export const volunteerRoutes = Router();
 
 // Tình nguyện viên đăng nhập chỉ bằng số điện thoại (do tổ chức đăng ký) - dùng cho bản demo
-volunteerRoutes.post("/login", validateRequest({ body: loginBodySchema }), asyncHandler(async (req, res) => {
+volunteerRoutes.post("/login", authRateLimiter, validateRequest({ body: loginBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as { phone: string };
   sendSuccess(res, await volunteerService.login(body.phone));
 }));
 
 // Đăng nhập OTP email (dùng được ở production): gửi mã → xác minh → (nếu email thuộc nhiều tổ chức) chọn tổ chức
-volunteerRoutes.post("/otp/request", validateRequest({ body: otpRequestBodySchema }), asyncHandler(async (req, res) => {
+volunteerRoutes.post("/otp/request", authRateLimiter, validateRequest({ body: otpRequestBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as z.infer<typeof otpRequestBodySchema>;
   sendSuccess(res, await volunteerService.requestOtp(body.email));
 }));
 
-volunteerRoutes.post("/otp/verify", validateRequest({ body: otpVerifyBodySchema }), asyncHandler(async (req, res) => {
+volunteerRoutes.post("/otp/verify", authRateLimiter, validateRequest({ body: otpVerifyBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as z.infer<typeof otpVerifyBodySchema>;
   sendSuccess(res, await volunteerService.verifyOtp(body.email, body.code));
 }));
 
-volunteerRoutes.post("/otp/select", validateRequest({ body: otpSelectBodySchema }), asyncHandler(async (req, res) => {
+volunteerRoutes.post("/otp/select", authRateLimiter, validateRequest({ body: otpSelectBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as z.infer<typeof otpSelectBodySchema>;
   sendSuccess(res, await volunteerService.selectVolunteer(body.selection_token, body.volunteer_id));
 }));

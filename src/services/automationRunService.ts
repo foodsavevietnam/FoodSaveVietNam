@@ -49,31 +49,110 @@ export const automationRunService = {
     }
   },
 
-  /** Mỗi tác vụ: lần chạy gần nhất + lần lỗi gần nhất + 5 lần chạy cuối (7 ngày) */
+  /** Xóa an toàn nhật ký chạy cũ hơn retentionDays ngày theo lô để giữ dung lượng bảng automation_runs */
+  async purgeOldRuns(retentionDays = 30, batchLimit = 1000): Promise<number> {
+    const days = Math.max(1, Math.floor(retentionDays));
+    const limit = Math.max(1, Math.min(5000, Math.floor(batchLimit)));
+    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+    try {
+      const { data: oldRows, error: selectError } = await supabaseAdmin
+        .from("automation_runs")
+        .select("id")
+        .lt("started_at", cutoff)
+        .order("started_at", { ascending: true })
+        .limit(limit);
+      if (selectError) {
+        logger.warn("Không đọc được nhật ký tự động hóa cũ để dọn", { error: selectError });
+        return 0;
+      }
+      const ids = ((oldRows ?? []) as Array<{ id: string }>).map((row) => row.id).filter(Boolean);
+      if (ids.length === 0) return 0;
+
+      let deletedTotal = 0;
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data: deleted, error: deleteError } = await supabaseAdmin
+          .from("automation_runs")
+          .delete()
+          .in("id", chunk)
+          .select("id");
+        if (deleteError) {
+          logger.warn("Không xóa được lô nhật ký tự động hóa cũ", { error: deleteError, chunkSize: chunk.length });
+          break;
+        }
+        deletedTotal += (deleted ?? []).length;
+      }
+      return deletedTotal;
+    } catch (error) {
+      logger.warn("Lỗi khi dọn nhật ký tự động hóa cũ", { error });
+      return 0;
+    }
+  },
+
+  /** Mỗi tác vụ: lần chạy gần nhất + lần lỗi gần nhất + 5 lần chạy cuối + thống kê đầy đủ 7 ngày */
   async overview(): Promise<Array<Record<string, unknown>>> {
     const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const { data, error } = await supabaseAdmin
-      .from("automation_runs")
-      .select("id,job,trigger,started_at,finished_at,ok,summary,error")
-      .gte("started_at", since)
-      .order("started_at", { ascending: false })
-      .limit(400);
-    if (error) handleSupabaseError(error, "Failed to load automation runs");
-    const rows = (data ?? []) as Array<{ job: string; trigger: string; started_at: string; finished_at: string | null; ok: boolean; summary: unknown; error: string | null }>;
-    return AUTOMATION_JOBS.map((job) => {
-      const runs = rows.filter((row) => row.job === job);
-      const last = runs[0] ?? null;
-      const lastFail = runs.find((row) => !row.ok) ?? null;
-      return {
-        job,
-        name: JOB_LABEL[job].name,
-        schedule: JOB_LABEL[job].every,
-        last_run: last,
-        last_failure: lastFail ? { started_at: lastFail.started_at, error: lastFail.error } : null,
-        runs_7d: runs.length,
-        failures_7d: runs.filter((row) => !row.ok).length,
-        recent: runs.slice(0, 5)
-      };
-    });
+    type RunRow = {
+      id: string;
+      job: string;
+      trigger: string;
+      started_at: string;
+      finished_at: string | null;
+      ok: boolean;
+      summary: unknown;
+      error: string | null;
+    };
+
+    return Promise.all(
+      AUTOMATION_JOBS.map(async (job) => {
+        const [recentRes, lastFailRes, totalRes, failRes] = await Promise.all([
+          supabaseAdmin
+            .from("automation_runs")
+            .select("id,job,trigger,started_at,finished_at,ok,summary,error")
+            .eq("job", job)
+            .gte("started_at", since)
+            .order("started_at", { ascending: false })
+            .limit(5),
+          supabaseAdmin
+            .from("automation_runs")
+            .select("started_at,error")
+            .eq("job", job)
+            .eq("ok", false)
+            .gte("started_at", since)
+            .order("started_at", { ascending: false })
+            .limit(1),
+          supabaseAdmin
+            .from("automation_runs")
+            .select("id", { count: "exact", head: true })
+            .eq("job", job)
+            .gte("started_at", since),
+          supabaseAdmin
+            .from("automation_runs")
+            .select("id", { count: "exact", head: true })
+            .eq("job", job)
+            .eq("ok", false)
+            .gte("started_at", since)
+        ]);
+
+        const firstError = recentRes.error ?? lastFailRes.error ?? totalRes.error ?? failRes.error;
+        if (firstError) handleSupabaseError(firstError, "Failed to load automation runs");
+
+        const recent = (recentRes.data ?? []) as RunRow[];
+        const last = recent[0] ?? null;
+        const lastFailRow = ((lastFailRes.data ?? []) as Array<{ started_at: string; error: string | null }>)[0] ?? null;
+
+        return {
+          job,
+          name: JOB_LABEL[job].name,
+          schedule: JOB_LABEL[job].every,
+          last_run: last,
+          last_failure: lastFailRow ? { started_at: lastFailRow.started_at, error: lastFailRow.error } : null,
+          runs_7d: totalRes.count ?? recent.length,
+          failures_7d: failRes.count ?? recent.filter((row) => !row.ok).length,
+          recent
+        };
+      })
+    );
   }
 };

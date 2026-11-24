@@ -18,7 +18,9 @@
     return origGo.apply(this, arguments);
   };
 
-  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var escJsAttr = function (s) { return esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n')); };
+  var safeImgUrl = function (u) { var s = String(u == null ? '' : u).trim(); return /^(https?:\/\/|\/)/i.test(s) ? s : ''; };
   function toast(m) { var t = document.createElement('div'); t.className = 'v2toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
   var K = function (l, v, n, c) { return '<div class="K"><div class="K-l">' + l + '</div><div class="K-v" style="color:' + (c || 'var(--text)') + '">' + v + '</div><div class="K-n">' + (n || '') + '</div></div>'; };
   var Pn = function (t, body, act) { return '<div class="P"><div class="P-h"><div class="P-t">' + t + '</div><div class="P-a">' + (act || '') + '</div></div>' + body + '</div>'; };
@@ -295,7 +297,7 @@
   window.CMP_OPEN = function (id) {
     var c = (CMP.rows || []).filter(function (x) { return x.id === id; })[0]; if (!c) return;
     CMP.form = { decision: 'refund_full', amount: '', falseClaim: false, note: '' };
-    var imgs = function (list) { return (list || []).map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="Ảnh" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);margin:2px"></a>'; }).join(''); };
+    var imgs = function (list) { return (list || []).map(function (u) { var su = safeImgUrl(u); return su ? '<a href="' + esc(su) + '" target="_blank" rel="noopener"><img src="' + esc(su) + '" alt="Ảnh" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);margin:2px"></a>' : ''; }).join(''); };
     var h = '<p><b>' + cmpCode(c) + '</b> · đơn <b>#' + esc(c.order_number || '—') + '</b> · giá trị ' + vnd(c.order_total) + '<br><b>Người mua:</b> ' + esc(c.customer_name || '—') + ' · <b>Cửa hàng:</b> ' + esc(c.store_name || '—') + '<br>' + stBadge(c) + ' · Ưu tiên ' + (CMP_PRI[c.priority] || '') + '</p>' +
       '<p><b>Lý do:</b> ' + esc(CMP_REASON[c.reason_code] || 'Khiếu nại cũ (không có lý do/ảnh bắt buộc)') + '<br><span style="white-space:pre-wrap">' + esc(c.issue) + '</span></p>' +
       (c.image_urls && c.image_urls.length ? '<p><b>Ảnh người mua gửi (' + c.image_urls.length + '):</b><br>' + imgs(c.image_urls) + '</p>' : '<p style="color:var(--t3)">Không có ảnh (khiếu nại cũ).</p>');
@@ -404,8 +406,6 @@
     }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:18px">Không có hồ sơ phù hợp.</td></tr>';
     return strip + dash + Pn('Danh sách tranh chấp' + (CMP.filter ? ' (đang lọc)' : ''), Tb(['Mã', 'Đơn', 'Người mua', 'Cửa hàng', 'Trạng thái', 'Lý do', 'Ưu tiên', 'Hạn / kết quả', ''], trs), '<button class="bt bt-s" onclick="CMP_RELOAD()">Tải lại</button>');
   };
-  // Số trên menu lấy từ dữ liệu thật ngay khi vào trang quản trị
-  setTimeout(function () { try { if (typeof foodsaveAdminSupabase !== 'undefined') cmpLoad(); } catch (e) {} }, 4000);
 
   var oldReputation = pg.reputation;
   pg.reputation = function () {
@@ -642,7 +642,7 @@
       var trs = list.map(function (a) {
         var sv = FR_SEV[a.severity] || ['b-m', a.severity];
         var st = a.status === 'open' ? '<span class="b b-w">Chưa xử lý</span>' : a.status === 'handled' ? '<span class="b b-ok">Đã xử lý</span>' : '<span class="b b-m">Đã bỏ qua</span>';
-        var btns = a.status === 'open' ? '<button class="bt bt-s bt-p" onclick="FR_HANDLE(\'' + esc(a.key) + '\',\'handled\')">Xử lý</button> <button class="bt bt-s" onclick="FR_HANDLE(\'' + esc(a.key) + '\',\'dismissed\')">Bỏ qua</button>' : '<small style="color:var(--t3)">' + dt(a.handled_at) + (a.note ? ' · ' + esc(a.note) : '') + '</small>';
+        var btns = a.status === 'open' ? '<button class="bt bt-s bt-p" onclick="FR_HANDLE(\'' + escJsAttr(a.key) + '\',\'handled\')">Xử lý</button> <button class="bt bt-s" onclick="FR_HANDLE(\'' + escJsAttr(a.key) + '\',\'dismissed\')">Bỏ qua</button>' : '<small style="color:var(--t3)">' + dt(a.handled_at) + (a.note ? ' · ' + esc(a.note) : '') + '</small>';
         return '<tr><td>' + esc(FR_TYPE[a.type] || a.type) + '</td><td><b>' + esc(a.subject_name) + '</b></td><td>' + esc(a.description) + '</td><td><span class="b ' + sv[0] + '">' + sv[1] + '</span></td><td>' + st + '</td><td>' + btns + '</td></tr>';
       }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:18px">Không có cảnh báo trong mục này.</td></tr>';
       return note('<b>Cảnh báo tự tính từ dữ liệu có sẵn</b> (đơn 60 ngày, nhật ký đăng nhập 7 ngày). "Xử lý" ghi trạng thái và người xử lý vào Nhật ký hoạt động; không tự khóa ai. Muốn hạn chế khách hãy dùng mục Uy tín.') +

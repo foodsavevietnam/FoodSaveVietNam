@@ -6,10 +6,30 @@
  */
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
+import { env } from "../config/env";
 import { AppError } from "../utils/appError";
 import { googleMapsDirectionsUrl, haversineKm, roadKm, travelMinutes } from "../core/routing";
 import { logger } from "../utils/logger";
 import { handleSupabaseError, supabaseAdmin } from "./supabaseService";
+
+const MIGRATION_PENDING_CODES = new Set(["42883", "42P01", "PGRST202", "PGRST205"]);
+const warnedMissingRpcs = new Set<string>();
+
+const isMigrationPendingError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && MIGRATION_PENDING_CODES.has(code);
+};
+
+const warnMissingRpcOnce = (rpcName: string, error: unknown): void => {
+  if (warnedMissingRpcs.has(rpcName)) return;
+  warnedMissingRpcs.add(rpcName);
+  logger.warn(`RPC ${rpcName} chưa sẵn sàng (chưa áp dụng SQL 042); tự động chuyển về luồng JS dự phòng`, {
+    rpc: rpcName,
+    code: (error as { code?: string } | null)?.code,
+    message: (error as { message?: string } | null)?.message
+  });
+};
 
 export type LocationActor = { kind: "volunteer" | "customer"; id: string };
 export type LocationContext = { kind: "donation" | "order"; id: string };
@@ -17,6 +37,8 @@ export interface LocationReportInput {
   lat: number;
   lng: number;
   accuracy_m?: number | undefined;
+  heading?: number | undefined;
+  speed_mps?: number | undefined;
   recorded_at?: string | undefined;
   context: LocationContext;
 }
@@ -260,6 +282,52 @@ export const locationService = {
 
   async report(actor: LocationActor, input: LocationReportInput): Promise<{ stored: boolean; throttled: boolean }> {
     return serialize(actorKey(actor), async () => {
+      if (env.LOCATION_RPC_ENABLED) {
+        const active = await locationService.isActiveTask(actor, input.context);
+        if (!active) {
+          const consent = await locationService.consentStatus(actor);
+          await clearNow(actor);
+          if (consent === "revoked") {
+            throw new AppError("Bạn đã tắt chia sẻ vị trí.", HTTP_STATUS.FORBIDDEN, ERROR_CODES.LOCATION_CONSENT_REVOKED);
+          }
+          if (consent !== "granted") {
+            throw new AppError("Bạn chưa đồng ý chia sẻ vị trí.", HTTP_STATUS.FORBIDDEN, ERROR_CODES.LOCATION_CONSENT_REQUIRED);
+          }
+          throw new AppError("Hiện không có nhiệm vụ đang hoạt động để chia sẻ vị trí.", HTTP_STATUS.CONFLICT, ERROR_CODES.NO_ACTIVE_TASK);
+        }
+
+        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc("fs_report_live_location", {
+          p_actor_kind: actor.kind,
+          p_actor_id: actor.id,
+          p_latitude: input.lat,
+          p_longitude: input.lng,
+          p_accuracy_m: input.accuracy_m ?? null,
+          p_heading: input.heading ?? null,
+          p_speed_mps: input.speed_mps ?? null,
+          p_min_interval_sec: Math.round(THROTTLE_MS / 1000),
+          p_context_kind: input.context.kind,
+          p_context_id: input.context.id,
+          p_recorded_at: input.recorded_at ?? null
+        });
+
+        if (!rpcError) {
+          const outcome = (rpcData ?? {}) as { stored?: boolean; throttled?: boolean; reason?: string };
+          if (outcome.reason === "consent_revoked") {
+            throw new AppError("Bạn đã tắt chia sẻ vị trí.", HTTP_STATUS.FORBIDDEN, ERROR_CODES.LOCATION_CONSENT_REVOKED);
+          }
+          if (outcome.reason === "consent_required") {
+            throw new AppError("Bạn chưa đồng ý chia sẻ vị trí.", HTTP_STATUS.FORBIDDEN, ERROR_CODES.LOCATION_CONSENT_REQUIRED);
+          }
+          return { stored: Boolean(outcome.stored), throttled: Boolean(outcome.throttled) };
+        }
+
+        if (isMigrationPendingError(rpcError)) {
+          warnMissingRpcOnce("fs_report_live_location", rpcError);
+        } else {
+          handleSupabaseError(rpcError, "Không lưu được vị trí qua RPC");
+        }
+      }
+
       const consent = await locationService.consentStatus(actor);
       if (consent !== "granted") {
         await clearNow(actor);
@@ -341,7 +409,13 @@ export const locationService = {
     let query = supabaseAdmin.from("live_locations").select("*").gte("updated_at", new Date(Date.now() - VISIBLE_WINDOW_MS).toISOString());
     if (filter.kind === "volunteer" || filter.kind === "customer") query = query.eq("actor_kind", filter.kind);
     const { data, error } = await query.order("updated_at", { ascending: false }).limit(LIST_LIMIT);
-    if (error) handleSupabaseError(error, "Không đọc được danh sách vị trí");
+    if (error) {
+      if (error.code === "42P01" || error.code === "PGRST205") {
+        logger.warn("Bảng live_locations chưa tồn tại (chưa áp dụng SQL 039); trả danh sách rỗng", { code: error.code, message: error.message });
+        return [];
+      }
+      handleSupabaseError(error, "Không đọc được danh sách vị trí");
+    }
     return toViews((data ?? []) as LiveRow[]);
   },
 

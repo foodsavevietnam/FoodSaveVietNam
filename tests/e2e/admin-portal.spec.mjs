@@ -12,6 +12,9 @@ import alerts from '../../public/admin/demo/fixtures/alerts.js';
 import policy from '../../public/admin/demo/fixtures/policy.js';
 import vouchers from '../../public/admin/demo/fixtures/vouchers.js';
 import verify, { accounts as payoutAccounts } from '../../public/admin/demo/fixtures/verify.js';
+import * as fxCustomers from '../../public/admin/demo/fixtures/customers.js';
+import * as fxStores from '../../public/admin/demo/fixtures/stores.js';
+import * as fxCharities from '../../public/admin/demo/fixtures/charities.js';
 
 // Cổng quản trị mới (/admin/index.html). Auth Supabase và API đều được stub.
 const PAGE = '/admin/index.html';
@@ -65,7 +68,7 @@ function makeApi(state) {
     if (bare === '/admin/fraud-alerts') return route.fulfill(ok(state.alerts || alerts));
     if (bare === '/admin/fraud-alerts/handle') return route.fulfill(ok({ key: 'x', status: 'handled' }));
     if (bare === '/admin/withdrawals') {
-      // Như API thật: chỉ lọc được requested/approved/rejected
+      // Hỗ trợ lọc đủ 6 trạng thái ở server
       const status = new URLSearchParams(path.split('?')[1] || '').get('status');
       return route.fulfill(ok(status ? payouts.filter((w) => w.status === status) : payouts));
     }
@@ -98,6 +101,23 @@ function makeApi(state) {
       if (state.audit === 'xss') return route.fulfill(ok(XSS_AUDIT));
       if (state.audit === 'money') return route.fulfill(ok(MONEY_AUDIT));
       return route.fulfill(ok(audit));
+    }
+    if (bare === '/admin/search') {
+      const q = (new URLSearchParams(path.split('?')[1] || '').get('q') || '').trim().toLowerCase();
+      const hit = (vals) => q.length >= 2 && vals.some((v) => String(v || '').toLowerCase().includes(q));
+      return route.fulfill(ok({
+        query: q,
+        accounts: fxCustomers.accounts.filter((a) => hit([a.full_name, a.email, a.phone])).slice(0, 5),
+        stores: fxStores.stores.filter((s) => hit([s.name, s.address])).slice(0, 5),
+        charities: fxCharities.charities.filter((c) => hit([c.name, c.address])).slice(0, 5),
+        orders: [],
+        complaints: [],
+      }));
+    }
+    const reqBody = method === 'GET' ? undefined : route.request().postDataJSON?.();
+    for (const fx of [fxCustomers, fxStores, fxCharities]) {
+      const hit = fx.resolve(method, bare, reqBody, path);
+      if (hit !== undefined) return route.fulfill(ok(hit));
     }
     return route.fulfill(fail(404, 'RESOURCE_NOT_FOUND', 'Không có'));
   };
@@ -597,13 +617,13 @@ test('payouts: Duyệt → PATCH {decision:approve}; Bắt đầu chi (tab appro
   expect(errors).toEqual([]);
 });
 
-test('payouts: tab processing lọc phía client; Đã chi cần mã GD 3..80; có mã → body {pay, bank_txn_ref}', async ({ page }) => {
+test('payouts: tab processing gọi ?status=processing; Đã chi cần mã GD 3..80; có mã → body {pay, bank_txn_ref}', async ({ page }) => {
   const { calls, errors } = await setup(page);
   await page.goto(`${PAGE}#/payouts?tab=processing`);
   const table = page.locator('[data-role="withdrawals-table"]');
   await expect(table).toContainText('Bếp Nhà Lan');
   await expect(table).not.toContainText('Tiệm bánh Hoa Sữa');
-  expect(calls.filter((c) => c.path.startsWith('/admin/withdrawals')).every((c) => c.path === '/admin/withdrawals')).toBe(true);
+  expect(calls.filter((c) => c.path.startsWith('/admin/withdrawals')).every((c) => c.path === '/admin/withdrawals?status=processing')).toBe(true);
   const panel = await openWd(page, 'Bếp Nhà Lan');
   const pay = panel.locator('[data-act="pay"]');
   await expect(pay).toBeDisabled();
@@ -692,10 +712,11 @@ test('payouts: lệnh approved có Hủy lệnh (lý do → {reject, note}) và 
   await expect(panel.locator('[data-act="start"]')).toBeVisible();
   await expect(panel.locator('[data-act="pay"]')).toBeDisabled();
   await panel.locator('[data-act="reject"]').click();
+  await expect(page.locator('#modal')).toContainText('Hủy lệnh rút');
   await expect(page.locator('#modal [data-role="ok"]')).toBeDisabled();
   await page.locator('#modal [data-role="reason"]').fill('Hủy theo yêu cầu cửa hàng');
   await page.click('#modal [data-role="ok"]');
-  await expect(page.locator('#toasts')).toContainText('Đã từ chối lệnh rút');
+  await expect(page.locator('#toasts')).toContainText('Đã hủy lệnh rút');
   panel = await openWd(page, 'Siêu thị Xanh');
   await panel.locator('[name="bank_txn_ref"]').fill('FT999');
   await panel.locator('[data-act="pay"]').click();
@@ -1260,7 +1281,7 @@ test('I5: Nhật ký hiện nhãn tiếng Việt cho rút tiền/khiếu nại/t
   expect(errors).toEqual([]);
 });
 
-test('I6: tab Chờ duyệt gọi status=requested; tab Đang chi gọi không status; ghi chú 100 lệnh chỉ ở tab lọc phía client', async ({ page }) => {
+test('I6: cả 6 tab rút tiền gọi lọc phía server (?status=...), không còn ghi chú lọc phía client 100 lệnh', async ({ page }) => {
   const { calls, errors } = await setup(page);
   await page.goto(`${PAGE}#/payouts`);
   await expect(page.locator('[data-role="withdrawals-table"]')).toContainText('Tiệm bánh Hoa Sữa');
@@ -1271,8 +1292,8 @@ test('I6: tab Chờ duyệt gọi status=requested; tab Đang chi gọi không s
   await expect(page.locator('#screen')).not.toContainText('Chỉ tính trong 100 lệnh rút mới nhất');
   await page.click('[data-act="tab"][data-tab="processing"]');
   await expect(page.locator('[data-role="withdrawals-table"]')).toContainText('Bếp Nhà Lan');
-  expect(wdListPaths(calls).at(-1)).toBe('/admin/withdrawals');
-  await expect(page.locator('#screen')).toContainText('Chỉ tính trong 100 lệnh rút mới nhất');
+  expect(wdListPaths(calls).at(-1)).toBe('/admin/withdrawals?status=processing');
+  await expect(page.locator('#screen')).toContainText('Hiện tối đa 100 lệnh mới nhất ở trạng thái này.');
   await expect(page.locator('[data-act="tab"][data-tab="requested"]')).toHaveText('Chờ duyệt');
   await page.click('[data-act="tab"][data-tab="rejected"]');
   await expect.poll(() => wdListPaths(calls).at(-1)).toBe('/admin/withdrawals?status=rejected');
@@ -1318,4 +1339,42 @@ test('Đợt 2 tạm: 10 màn từng trống không còn màn chờ "Chưa nối
     await expect(page.locator('#screen')).not.toContainText('Màn này chưa có trên cổng mới');
   }
   expect(errors.filter((e) => !/status of (404|500)/.test(e))).toEqual([]);
+});
+
+test('Wave 4A Đợt 2: tìm kiếm toàn cục, hồ sơ 360° người mua / cửa hàng / tổ chức & hành động trạng thái', async ({ page }) => {
+  const { calls, errors } = await setup(page);
+  await page.goto(`${PAGE}#/today`);
+
+  // 1. Tìm kiếm toàn cục: gõ >= 2 ký tự -> gọi GET /admin/search -> bấm kết quả cửa hàng mở thẳng drawer 360°
+  const searchInput = page.locator('#globalSearch');
+  await searchInput.fill('Tiệm bánh');
+  const storeOpt = page.locator('#globalSearchList [data-search-group="stores"]').first();
+  await expect(storeOpt).toBeVisible();
+  await storeOpt.click();
+  await expect(page).toHaveURL(/#\/stores\?id=/);
+  await expect(page.locator('#drawer [data-role="store"]')).toBeVisible();
+  await expect(page.locator('#drawer')).toContainText('Ví cửa hàng');
+  await expect(page.locator('#drawer')).toContainText('Tạm ngưng bán');
+  await page.click('#drawer [data-role="drawer-close"]');
+
+  // 2. Người mua: danh sách /admin/accounts, mở 360° drawer, bấm Tạm khóa tài khoản yêu cầu lý do >= 3 ký tự
+  await page.goto(`${PAGE}#/customers`);
+  await expect(page.locator('[data-screen="customers"] tbody tr').first()).toBeVisible();
+  await page.locator('[data-screen="customers"] [data-act="open"]').first().click();
+  await expect(page.locator('#drawer [data-role="profile"]')).toBeVisible();
+  await page.locator('#drawer [data-act="account-status"][data-status="suspended"]').click();
+  await expect(page.locator('#modal [data-role="ok"]')).toBeDisabled();
+  await page.locator('#modal [data-role="reason"]').fill('Vi phạm quy định đặt đơn');
+  await expect(page.locator('#modal [data-role="ok"]')).toBeEnabled();
+  await page.locator('#modal [data-role="ok"]').click();
+  await expect(page.locator('#toasts')).toContainText('Đã tạm khóa tài khoản');
+  expect(calls.some((c) => c.method === 'POST' && /^\/admin\/accounts\/[^/]+\/status$/.test(c.path))).toBe(true);
+  await page.click('#drawer [data-role="drawer-close"]');
+
+  // 3. Tổ chức & TNV: tab Tình nguyện viên gọi /admin/volunteers và có link sang Bản đồ theo dõi
+  await page.goto(`${PAGE}#/charities?tab=volunteers`);
+  await expect(page.locator('[data-screen="charities"] [data-role="volunteers-table"]')).toBeVisible();
+  await expect(page.locator('[data-screen="charities"] a[href="#/tracking"]')).toBeVisible();
+  expect(calls.some((c) => c.path.startsWith('/admin/volunteers'))).toBe(true);
+  expect(errors).toEqual([]);
 });

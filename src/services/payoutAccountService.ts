@@ -68,13 +68,40 @@ export const namesMatch = (holder: string, registered: string): boolean => {
   return a.length > 0 && a === b;
 };
 
+const loadRegisteredNames = async (storeIds: string[]): Promise<Map<string, string | null>> => {
+  const uniqueIds = [...new Set(storeIds.filter(Boolean))];
+  const result = new Map<string, string | null>();
+  if (uniqueIds.length === 0) return result;
+
+  const { data: profiles } = await supabaseAdmin
+    .from("partner_profiles")
+    .select("store_id,legal_name")
+    .in("store_id", uniqueIds);
+
+  for (const profile of (profiles ?? []) as Array<{ store_id?: string | null; legal_name?: string | null }>) {
+    const sid = profile.store_id ? String(profile.store_id) : "";
+    const legal = profile.legal_name?.trim();
+    if (sid && legal && !result.has(sid)) result.set(sid, legal);
+  }
+
+  const missingIds = uniqueIds.filter((id) => !result.has(id));
+  if (missingIds.length > 0) {
+    const { data: stores } = await supabaseAdmin
+      .from("stores")
+      .select("id,legal_name,name")
+      .in("id", missingIds);
+    for (const store of (stores ?? []) as Array<{ id?: string | null; legal_name?: string | null; name?: string | null }>) {
+      const sid = store.id ? String(store.id) : "";
+      if (sid) result.set(sid, store.legal_name?.trim() || store.name?.trim() || null);
+    }
+  }
+
+  return result;
+};
+
 const loadRegisteredName = async (storeId: string): Promise<string | null> => {
-  const { data: profile } = await supabaseAdmin.from("partner_profiles").select("legal_name").eq("store_id", storeId).maybeSingle();
-  const legal = (profile as { legal_name?: string | null } | null)?.legal_name?.trim();
-  if (legal) return legal;
-  const { data: store } = await supabaseAdmin.from("stores").select("legal_name,name").eq("id", storeId).maybeSingle();
-  const row = store as { legal_name?: string | null; name?: string | null } | null;
-  return row?.legal_name?.trim() || row?.name?.trim() || null;
+  const names = await loadRegisteredNames([storeId]);
+  return names.get(storeId) ?? null;
 };
 
 const notifyOwner = async (storeId: string, type: string, title: string, body: string): Promise<void> => {
@@ -127,11 +154,12 @@ export const payoutAccountService = {
     const { data, error } = await query;
     if (error) handleSupabaseError(error, "Failed to list payout accounts");
     const rows = (data ?? []) as unknown as Array<PayoutAccountView & { stores?: { name: string } | null }>;
-    const out: Array<PayoutAccountView & { store_name: string | null; registered_name: string | null }> = [];
-    for (const row of rows) {
-      out.push({ ...toView(row), store_name: row.stores?.name ?? null, registered_name: await loadRegisteredName(row.store_id) });
-    }
-    return out;
+    const registeredNames = await loadRegisteredNames(rows.map((row) => row.store_id));
+    return rows.map((row) => ({
+      ...toView(row),
+      store_name: row.stores?.name ?? null,
+      registered_name: registeredNames.get(row.store_id) ?? null
+    }));
   },
 
   /**

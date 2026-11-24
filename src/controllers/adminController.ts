@@ -36,6 +36,13 @@ export const adminController = {
   async approvePartner(req: Request, res: Response): Promise<void> {
     const params = req.validated?.params as AdminUserParams;
     const result = await adminService.approvePartner(params.userId);
+    await adminAuditService.log(
+      auditActor(req),
+      "partner.approve",
+      "partner",
+      params.userId,
+      definedOnly({ store_ids: Array.isArray(result?.stores) ? result.stores.map((s) => s.id) : undefined })
+    );
     sendSuccess(res, result, HTTP_STATUS.OK);
   },
 
@@ -43,6 +50,7 @@ export const adminController = {
     const params = req.validated?.params as AdminUserParams;
     const body = req.validated?.body as RejectPartnerBody;
     const result = await adminService.rejectPartner(params.userId, body.reason);
+    await adminAuditService.log(auditActor(req), "partner.reject", "partner", params.userId, definedOnly({ reason: body.reason }));
     sendSuccess(res, result, HTTP_STATUS.OK);
   },
 
@@ -149,9 +157,18 @@ export const adminController = {
   },
 
   // "Chạy đối soát ngay": bù bút toán còn thiếu rồi kiểm tra tổng số dư
-  async runReconcile(_req: Request, res: Response): Promise<void> {
+  async runReconcile(req: Request, res: Response): Promise<void> {
     const synced = await ledgerService.syncPendingOrders();
-    sendSuccess(res, { synced_orders: synced, ...(await ledgerService.reconcile()) });
+    const reconciled = await ledgerService.reconcile();
+    adminOpsService.clearWorkStripCache();
+    const actor = req.user && req.profile ? auditActor(req) : null;
+    await adminAuditService.log(actor, "finance.reconcile", "finance", null, {
+      synced_orders: synced,
+      ok: reconciled.ok,
+      mismatched_wallets: reconciled.mismatched_wallets,
+      entry_count: reconciled.entry_count
+    });
+    sendSuccess(res, { synced_orders: synced, ...reconciled });
   },
 
   async listLedger(req: Request, res: Response): Promise<void> {
@@ -160,8 +177,8 @@ export const adminController = {
   },
 
   async listWithdrawals(req: Request, res: Response): Promise<void> {
-    const q = req.validated?.query as { status?: string };
-    sendSuccess(res, await ledgerService.listAllWithdrawals(q.status));
+    const q = (req.validated?.query ?? {}) as { status?: string; store_id?: string; page?: number; limit?: number };
+    sendSuccess(res, await ledgerService.listAllWithdrawals(q));
   },
 
   async decideWithdrawal(req: Request, res: Response): Promise<void> {
@@ -169,7 +186,9 @@ export const adminController = {
     const params = req.validated?.params as { id: string };
     const body = req.validated?.body as { decision: "approve" | "reject" | "start" | "pay" | "fail"; note?: string | undefined; bank_txn_ref?: string | undefined };
     const result = await ledgerService.transitionWithdrawal(params.id, body.decision, actor.userId, { note: body.note, bank_txn_ref: body.bank_txn_ref });
-    await adminAuditService.log(auditActor(req), `withdrawal.${body.decision}`, "withdrawal", params.id, definedOnly({ note: body.note, bank_txn_ref: body.bank_txn_ref }));
+    if (result.changed !== false) {
+      await adminAuditService.log(auditActor(req), `withdrawal.${body.decision}`, "withdrawal", params.id, definedOnly({ note: body.note, bank_txn_ref: body.bank_txn_ref }));
+    }
     sendSuccess(res, result);
   },
 

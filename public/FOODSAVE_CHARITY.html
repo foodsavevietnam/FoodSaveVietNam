@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
-<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script defer src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{
@@ -2749,6 +2749,16 @@ async function charityUseCurrentLocation(){
 // ════════════════════════════════════════════════════
 // VOLUNTEERS
 // ════════════════════════════════════════════════════
+function safeVolAvatarUrl(u){
+  const s=String(u??'').trim();
+  if(!/^(https?:\/\/|\/)/i.test(s))return '';
+  if(/[\r\n"'()<>]/.test(s))return '';
+  return s;
+}
+function volAvatarStyle(url,extra){
+  const safe=safeVolAvatarUrl(url);
+  return (extra?extra+';':'')+(safe?"background:url('"+esc(safe)+"') center/cover no-repeat;color:transparent":'');
+}
 function pVol(){
   // Mới = chưa đăng nhập app lần nào; Đang hoạt động = đã bật nút hoạt động hôm nay; Tạm nghỉ = đã đăng nhập nhưng hôm nay không hoạt động
   const newV=VOLUNTEERS.filter(v=>v.isNew);
@@ -2762,37 +2772,38 @@ function pVol(){
   {l:"Tạm nghỉ",v:inactive.length,i:"ti-user-x",c:"var(--muted)",bg:"var(--soft)"}
   ].map(m=>`<div class="metric"><div class="f ac jb"><span class="metric-l">${m.l}</span><div class="metric-ic" style="background:${m.bg};color:${m.c}"><i class="ti ${m.i}"></i></div></div><div class="metric-v" style="color:${m.c}">${m.v}</div></div>`).join('')}</div>
   <div class="f ac jb m14"><div class="tabs"><button class="tab on">Tất cả (${VOLUNTEERS.length})</button><button class="tab"><i class="ti ti-check"></i> Hoạt động (${active.length})</button><button class="tab"><i class="ti ti-user-plus"></i> Mới (${newV.length})</button></div><button class="btn btn-primary" onclick="showAddVolModal()"><i class="ti ti-user-plus"></i> Mời TNV mới</button></div>
-  <div class="grid-3">${VOLUNTEERS.map(v=>`<div class="volunteer-card" onclick="showVolDetail('${v.id}')">
-  <div class="f ac g12 m10"><div class="v-av" style="${v.avatarUrl?"background:url('"+v.avatarUrl+"') center/cover no-repeat;color:transparent":""}">${v.av}</div><div class="f1"><div style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950)">${v.name}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${DUTY_LABEL[v.dutyRole]||'Cả hai'} · <span style="color:${v.activeToday?'var(--green-700)':'var(--muted)'}">${v.activeToday?'● Đang hoạt động':'○ Tạm nghỉ'}</span></div></div>${v.isNew?'<span class="tg tg-rose">Mới</span>':!v.activeToday||v.status==='inactive'?'<span class="tg tg-o">Nghỉ</span>':'<span class="tg tg-g">Active</span>'}</div>
+  <div class="grid-3">${VOLUNTEERS.map((v,idx)=>`<div class="volunteer-card" onclick="showVolDetail(VOLUNTEERS[${idx}].id)">
+  <div class="f ac g12 m10"><div class="v-av" style="${volAvatarStyle(v.avatarUrl)}">${esc(v.av)}</div><div class="f1"><div style="font-family:'Plus Jakarta Sans';font-size:14px;font-weight:900;color:var(--green-950)">${esc(v.name)}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${esc(DUTY_LABEL[v.dutyRole]||'Cả hai')} · <span style="color:${v.activeToday?'var(--green-700)':'var(--muted)'}">${v.activeToday?'● Đang hoạt động':'○ Tạm nghỉ'}</span></div></div>${v.isNew?'<span class="tg tg-rose">Mới</span>':!v.activeToday||v.status==='inactive'?'<span class="tg tg-o">Nghỉ</span>':'<span class="tg tg-g">Active</span>'}</div>
   <div class="grid-3 g8 m10">
-    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Đơn</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--green-950)">${v.runs}</div></div>
-    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Kg</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--rose)">${v.kg}</div></div>
-    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Rating</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--yellow-600)"><i class="ti ti-star-filled" style="color:var(--yellow);font-size:13px"></i>${v.rating}</div></div>
+    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Đơn</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--green-950)">${esc(v.runs)}</div></div>
+    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Kg</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--rose)">${esc(v.kg)}</div></div>
+    <div style="padding:8px;background:var(--soft);border-radius:8px;text-align:center"><div style="font-size:9.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">Rating</div><div style="font-family:'Plus Jakarta Sans';font-size:15px;font-weight:900;color:var(--yellow-600)"><i class="ti ti-star-filled" style="color:var(--yellow);font-size:13px"></i>${esc(v.rating)}</div></div>
   </div>
-  <div style="font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px"><i class="ti ti-car" style="color:var(--green-700)"></i>${v.vehicle}</div>
-  <div style="font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;margin-top:4px"><i class="ti ti-map-pin" style="color:var(--rose)"></i>${v.zones.join(', ')}</div>
+  <div style="font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px"><i class="ti ti-car" style="color:var(--green-700)"></i>${esc(v.vehicle)}</div>
+  <div style="font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;margin-top:4px"><i class="ti ti-map-pin" style="color:var(--rose)"></i>${esc((v.zones||[]).join(', '))}</div>
   </div>`).join('')}</div>`;
 }
 
-function showVolDetail(id){const v=VOLUNTEERS.find(x=>x.id===id);if(!v)return;modal(v.name,`<div class="f ac g14 m14"><div class="v-av" style="width:64px;height:64px;font-size:18px;${v.avatarUrl?"background:url('"+v.avatarUrl+"') center/cover no-repeat;color:transparent":""}">${v.av}</div><div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:var(--green-950)">${v.name}</div><div style="font-size:12px;color:var(--muted);font-weight:700">${v.role}</div><div style="font-size:11px;color:var(--green-800);font-weight:700;margin-top:3px"><i class="ti ti-calendar"></i> Tham gia ${v.joined}</div></div></div><div class="grid-3 g10 m14">${[{l:"Tổng đơn",v:v.runs,c:"var(--green-950)"},{l:"Tổng kg",v:v.kg,c:"var(--rose)"},{l:"Rating",v:'★'+v.rating,c:"var(--yellow-600)"}].map(m=>`<div style="padding:14px;background:var(--soft);border-radius:12px;text-align:center"><div style="font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${m.l}</div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:${m.c};margin-top:4px">${m.v}</div></div>`).join('')}</div><div class="grid-2 g10 m14">${[{l:"Điện thoại",v:v.phone,i:"ti-phone"},{l:"Email",v:v.email,i:"ti-mail"},{l:"Phương tiện",v:v.vehicle,i:"ti-car"},{l:"Lịch trực",v:v.schedule,i:"ti-clock"}].map(f=>`<div style="padding:11px;background:var(--soft);border-radius:11px"><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em"><i class="ti ${f.i}"></i> ${f.l}</div><div style="font-size:12.5px;font-weight:800;color:var(--green-950);margin-top:3px;font-family:'Plus Jakarta Sans'">${f.v}</div></div>`).join('')}</div><div style="padding:11px 14px;background:var(--green-100);border-radius:11px;font-size:12px;color:var(--green-800);font-weight:700"><i class="ti ti-map-pin"></i> Khu vực: <strong>${v.zones.join(' · ')}</strong></div><div class="f g8" style="margin-top:14px"><button class="btn btn-primary btn-lg" style="flex:1;justify-content:center"><i class="ti ti-phone"></i> Gọi</button><button class="btn btn-o btn-lg" style="flex:1;justify-content:center" onclick="showEditVolModal('${v.id}')"><i class="ti ti-edit"></i> Chỉnh sửa</button></div>`);}
+function showVolDetail(id){const idx=VOLUNTEERS.findIndex(x=>x.id===id);const v=idx>=0?VOLUNTEERS[idx]:null;if(!v)return;modal(esc(v.name),`<div class="f ac g14 m14"><div class="v-av" style="${volAvatarStyle(v.avatarUrl,'width:64px;height:64px;font-size:18px')}">${esc(v.av)}</div><div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:var(--green-950)">${esc(v.name)}</div><div style="font-size:12px;color:var(--muted);font-weight:700">${esc(v.role)}</div><div style="font-size:11px;color:var(--green-800);font-weight:700;margin-top:3px"><i class="ti ti-calendar"></i> Tham gia ${esc(v.joined)}</div></div></div><div class="grid-3 g10 m14">${[{l:"Tổng đơn",v:esc(v.runs),c:"var(--green-950)"},{l:"Tổng kg",v:esc(v.kg),c:"var(--rose)"},{l:"Rating",v:'★'+esc(v.rating),c:"var(--yellow-600)"}].map(m=>`<div style="padding:14px;background:var(--soft);border-radius:12px;text-align:center"><div style="font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${m.l}</div><div style="font-family:'Plus Jakarta Sans';font-size:20px;font-weight:900;color:${m.c};margin-top:4px">${m.v}</div></div>`).join('')}</div><div class="grid-2 g10 m14">${[{l:"Điện thoại",v:esc(v.phone),i:"ti-phone"},{l:"Email",v:esc(v.email),i:"ti-mail"},{l:"Phương tiện",v:esc(v.vehicle),i:"ti-car"},{l:"Lịch trực",v:esc(v.schedule),i:"ti-clock"}].map(f=>`<div style="padding:11px;background:var(--soft);border-radius:11px"><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em"><i class="ti ${f.i}"></i> ${f.l}</div><div style="font-size:12.5px;font-weight:800;color:var(--green-950);margin-top:3px;font-family:'Plus Jakarta Sans'">${f.v}</div></div>`).join('')}</div><div style="padding:11px 14px;background:var(--green-100);border-radius:11px;font-size:12px;color:var(--green-800);font-weight:700"><i class="ti ti-map-pin"></i> Khu vực: <strong>${esc((v.zones||[]).join(' · '))}</strong></div><div class="f g8" style="margin-top:14px"><button class="btn btn-primary btn-lg" style="flex:1;justify-content:center"><i class="ti ti-phone"></i> Gọi</button><button class="btn btn-o btn-lg" style="flex:1;justify-content:center" onclick="showEditVolModal(VOLUNTEERS[${idx}].id)"><i class="ti ti-edit"></i> Chỉnh sửa</button></div>`);}
 
 // Tổ chức chỉnh sửa TNV. Chỉ tổ chức mới đổi được số điện thoại (TNV tự sửa các thông tin khác trong trang riêng).
 function showEditVolModal(id){
-  const v=VOLUNTEERS.find(x=>x.id===id);
+  const idx=VOLUNTEERS.findIndex(x=>x.id===id);
+  const v=idx>=0?VOLUNTEERS[idx]:null;
   if(!v)return;
   const vehicles=['Xe máy','Xe máy + thùng giữ nhiệt','Xe bán tải','Xe đạp + giỏ','Đi bộ'];
   if(v.vehicle&&!vehicles.includes(v.vehicle))vehicles.push(v.vehicle);
   const autoMail=/@tnv\.foodsave\.vn$/.test(v.email||'');
   modal('Chỉnh sửa tình nguyện viên',`<p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.6;font-weight:500">Tình nguyện viên có thể tự sửa tên, phương tiện, khu vực... trong trang riêng của họ. <strong>Số điện thoại chỉ tổ chức được đổi</strong>, và đó là số TNV dùng để đăng nhập.</p>
-<div class="field"><label>Họ tên</label><input id="ev-name" class="inp" value="${v.name.replace(/"/g,'&quot;')}"></div>
-<div class="field"><label>Số điện thoại (dùng để đăng nhập)</label><input id="ev-phone" class="inp" type="tel" value="${(v.phone||'').replace(/"/g,'&quot;')}"></div>
-<div class="field"><label>Email</label><input id="ev-email" class="inp" type="email" value="${autoMail?'':(v.email||'').replace(/"/g,'&quot;')}" placeholder="Không bắt buộc"></div>
+<div class="field"><label>Họ tên</label><input id="ev-name" class="inp" value="${esc(v.name||'')}"></div>
+<div class="field"><label>Số điện thoại (dùng để đăng nhập)</label><input id="ev-phone" class="inp" type="tel" value="${esc(v.phone||'')}"></div>
+<div class="field"><label>Email</label><input id="ev-email" class="inp" type="email" value="${autoMail?'':esc(v.email||'')}" placeholder="Không bắt buộc"></div>
 <div class="field"><label>Khu vực hoạt động</label>${zonePickerHtml('ev',v.zones)}</div>
 <div class="field"><label>Vai trò (TNV cũng tự đổi được trong app)</label><select id="ev-duty" class="inp">${dutyOptions(v.dutyRole)}</select></div>
-<div class="field"><label>Phương tiện</label><select id="ev-vehicle" class="inp">${vehicles.map(x=>'<option'+(x===v.vehicle?' selected':'')+'>'+x+'</option>').join('')}</select></div>
-<div class="field"><label>Lịch trực</label><input id="ev-schedule" class="inp" value="${(v.schedule||'').replace(/"/g,'&quot;')}" placeholder="Linh hoạt"></div>
+<div class="field"><label>Phương tiện</label><select id="ev-vehicle" class="inp">${vehicles.map(x=>'<option'+(x===v.vehicle?' selected':'')+'>'+esc(x)+'</option>').join('')}</select></div>
+<div class="field"><label>Lịch trực</label><input id="ev-schedule" class="inp" value="${esc(v.schedule||'')}" placeholder="Linh hoạt"></div>
 <div class="field"><label>Trạng thái</label><select id="ev-status" class="inp"><option value="active"${v.status==='active'?' selected':''}>Đang hoạt động (nhận việc)</option><option value="inactive"${v.status==='inactive'?' selected':''}>Tạm ngưng (không đăng nhập được)</option><option value="new"${v.status==='new'?' selected':''}>Mới (chờ kích hoạt)</option></select></div>
-<button id="ev-submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="submitVolunteerEdit('${v.id}')"><i class="ti ti-check"></i> Lưu thay đổi</button>`);
+<button id="ev-submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="submitVolunteerEdit(VOLUNTEERS[${idx}].id)"><i class="ti ti-check"></i> Lưu thay đổi</button>`);
 }
 let volunteerEditing=false;
 async function submitVolunteerEdit(id){

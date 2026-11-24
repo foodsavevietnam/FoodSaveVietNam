@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Mã xác thực MIO</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f6f1;-webkit-text-size-adjust:100%;">
+  <!-- Dòng xem trước trong hộp thư (ẩn khi mở email) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f3f6f1;">
+    Mã đăng nhập MIO của bạn là {{ .Token }}. Mã có hiệu lực trong 10 phút.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f6f1;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e3eadf;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 32px 8px;">
+              <img src="https://makeitorganized.netlify.app/icons/mio-logo-square.png" width="88" height="88" alt="MIO" style="display:block;border:0;width:88px;height:88px;">
+            </td>
+          </tr>
+
+          <!-- Lời chào -->
+          <tr>
+            <td style="padding:8px 32px 0;font-family:Arial,Helvetica,sans-serif;color:#1d2b1f;">
+              <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;color:#175d25;text-align:center;">
+                Mã xác thực của bạn
+              </h1>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#3d4a3f;text-align:center;">
+                Bạn vừa yêu cầu đăng nhập vào MIO bằng email<br>
+                <strong style="color:#1d2b1f;">{{ .Email }}</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Mã OTP -->
+          <tr>
+            <td align="center" style="padding:24px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background:#f0f7ec;border:2px dashed #175d25;border-radius:12px;padding:18px 28px;font-family:'Courier New',Courier,monospace;font-size:34px;line-height:1;font-weight:700;letter-spacing:10px;color:#175d25;">
+                    {{ .Token }}
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#3d4a3f;">
+                Mã có hiệu lực trong <strong style="color:#ff9818;">10 phút</strong> và chỉ dùng được một lần.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Lưu ý bảo mật -->
+          <tr>
+            <td style="padding:0 32px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7ec;border-radius:10px;">
+                <tr>
+                  <td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#6b4a14;">
+                    <strong>Lưu ý bảo mật:</strong> MIO không bao giờ hỏi mã này qua điện thoại, tin nhắn hay mạng xã hội. Không chia sẻ mã cho bất kỳ ai.
+                    Nếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này, tài khoản của bạn vẫn an toàn.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Chân email -->
+          <tr>
+            <td style="border-top:1px solid #e3eadf;padding:20px 32px 28px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#7a857b;text-align:center;">
+              <strong style="color:#175d25;">MIO</strong> · Manage More. Waste Less.<br>
+              Cần hỗ trợ? Gọi <a href="tel:0909952120" style="color:#175d25;text-decoration:none;">090 995 2120</a>
+              hoặc truy cập <a href="https://makeitorganized.netlify.app" style="color:#175d25;text-decoration:none;">makeitorganized.netlify.app</a><br>
+              Email này được gửi tự động, vui lòng không trả lời.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

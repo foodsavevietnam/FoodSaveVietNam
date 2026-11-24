@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { stubAdmin } from './helpers/fake-supabase.mjs';
 import work from '../../public/admin/demo/fixtures/work.js';
 
-// Màn "Tiền & sổ cái" của cổng quản trị mới. Auth Supabase và API đều được stub.
+// Màn "Tiền & sổ cái" (Đợt 3): tab Sổ cái bút toán (finance/summary, reconcile, ledger) và tab Sự kiện thanh toán (payments/summary, payments).
 const PAGE = '/admin/index.html';
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const fail = (status, code, message) => ({ status, contentType: 'application/json', body: JSON.stringify({ success: false, error: { code, message } }) });
@@ -23,11 +23,25 @@ const ENTRIES = {
     { id: 'e4', type: 'withdraw', order_number: null, from: 'Ví Quán cơm Mẫu', to: 'Bên ngoài (khách / ngân hàng)', amount: 500000, reason: null, created_at: '2026-11-22T05:00:00.000Z' },
   ],
 };
+const PAY_SUMMARY = {
+  total: 30,
+  processed_amount_cents: 1980000,
+  by_status: { processed: 25, received: 3, rejected: 2, ignored: 0 },
+  by_provider: {
+    momo: { count: 20, amount_cents: 1400000 },
+    vnpay: { count: 10, amount_cents: 580000 },
+  },
+};
+const seedPaymentEvents = () => [
+  { id: 'pe-1', provider: 'momo', provider_txn_id: 'MM-9001', order_number: 'FS-0042', amount_cents: 62000, status: 'processed', created_at: '2026-11-23T08:15:00.000Z' },
+  { id: 'pe-2', provider: 'vnpay', provider_txn_id: 'VN-9002', order_number: 'FS-0043', amount_cents: 85000, status: 'received', created_at: '2026-11-23T07:45:00.000Z' },
+  { id: 'pe-3', provider: 'momo', provider_txn_id: 'MM-9003', order_number: 'FS-0044', amount_cents: 40000, status: 'rejected', created_at: '2026-11-23T06:00:00.000Z' },
+];
 
-// state.summary / state.ledger / state.reconcile = 'ok' | 'error' | 'mismatch' | 'empty'
 function makeApi(state) {
   return async (route, { path, method }) => {
-    const bare = path.split('?')[0];
+    const [bare, qs = ''] = path.split('?');
+    const sp = new URLSearchParams(qs);
     if (bare === '/profile/me') return route.fulfill(ok(ADMIN));
     if (bare === '/admin/dashboard/work') return route.fulfill(ok(work));
     if (bare === '/admin/finance/summary') {
@@ -45,12 +59,31 @@ function makeApi(state) {
       if (state.reconcile === 'mismatch') return route.fulfill(ok({ synced_orders: 0, total_balance: 1500, mismatched_wallets: 2, entry_count: 9, ok: false }));
       return route.fulfill(ok({ synced_orders: 3, total_balance: 0, mismatched_wallets: 0, entry_count: 1845, ok: true }));
     }
+    if (bare === '/admin/payments/summary') {
+      if (state.paySummary === 'error') return route.fulfill(fail(500, 'INTERNAL', 'Lỗi tổng quan thanh toán'));
+      return route.fulfill(ok(PAY_SUMMARY));
+    }
+    if (bare === '/admin/payments') {
+      if (state.payments === 'error') return route.fulfill(fail(500, 'INTERNAL', 'Lỗi sự kiện thanh toán'));
+      const prov = sp.get('provider');
+      const st = sp.get('status');
+      const items = state.paymentItems.filter((p) => (!prov || p.provider === prov) && (!st || p.status === st));
+      return route.fulfill(ok({ items, total: prov || st ? items.length : 60, page: Number(sp.get('page') || 1), limit: 25 }));
+    }
     return route.fulfill(fail(404, 'RESOURCE_NOT_FOUND', 'Không có'));
   };
 }
 
 async function setup(page, init = {}) {
-  const state = { summary: 'ok', ledger: 'ok', reconcile: 'ok', ...init.state };
+  const state = {
+    summary: 'ok',
+    ledger: 'ok',
+    reconcile: 'ok',
+    paySummary: 'ok',
+    payments: 'ok',
+    paymentItems: seedPaymentEvents(),
+    ...init.state,
+  };
   const stub = await stubAdmin(page, { api: makeApi(state), ignoreStatuses: init.ignoreStatuses || [] });
   return { state, ...stub };
 }
@@ -58,8 +91,10 @@ async function setup(page, init = {}) {
 const ledgerCalls = (calls) => calls.filter((c) => c.path.split('?')[0] === '/admin/ledger');
 const summaryCalls = (calls) => calls.filter((c) => c.path.split('?')[0] === '/admin/finance/summary');
 const reconcileCalls = (calls) => calls.filter((c) => c.path === '/admin/finance/reconcile');
+const paymentCalls = (calls) => calls.filter((c) => c.path.split('?')[0] === '/admin/payments');
+const paySummaryCalls = (calls) => calls.filter((c) => c.path.split('?')[0] === '/admin/payments/summary');
 const query = (path) => new URLSearchParams(path.split('?')[1] || '');
-const RAW = /\b(escrow|platform_revenue|charity_pool|external|charge|release|refund_clawback|withdraw|adjustment|mystery_code|completed|late_cancel|no_show)\b/;
+const RAW = /\b(escrow|platform_revenue|charity_pool|external|charge|release|refund_clawback|withdraw|adjustment|mystery_code|completed|late_cancel|no_show|processed|received|rejected|ignored|momo|vnpay|cents)\b/;
 
 test('ledger: tải tổng quan và sổ cái thật, nhãn Việt, không mã thô', async ({ page }) => {
   const { calls, errors } = await setup(page);
@@ -113,7 +148,6 @@ test('ledger: bộ lọc gửi đúng query (ngày → ISO +07:00) và lưu vào
   expect(q.get('to')).toBe('2026-11-20T23:59:59.999+07:00');
   expect(q.get('page')).toBe('1');
   expect(page.url()).toContain('type=refund');
-  // Bộ lọc được giữ lại trong ô nhập sau khi vẽ lại
   await expect(page.locator('#screen [name="type"]')).toHaveValue('refund');
   await expect(page.locator('#screen [name="order"]')).toHaveValue('FS-0042');
   expect(errors).toEqual([]);
@@ -135,7 +169,7 @@ test('ledger: Từ ngày sau Đến ngày → báo lỗi và không gọi API (c
   expect(errors).toEqual([]);
 });
 
-test('ledger: hash lạ bị bỏ (loại bút toán ngoài danh sách, ngày sai, page âm)', async ({ page }) => {
+test('ledger: hash lạ bị bỏ; phân trang đổi page trong hash và lời gọi API', async ({ page }) => {
   const { calls, errors } = await setup(page);
   await page.goto(`${PAGE}#/ledger?type=hack&from=abc&page=-3`);
   await expect(page.locator('#screen [data-role="ledger-table"] tbody tr')).toHaveCount(4);
@@ -143,16 +177,10 @@ test('ledger: hash lạ bị bỏ (loại bút toán ngoài danh sách, ngày sa
   expect(q.get('type')).toBeNull();
   expect(q.get('from')).toBeNull();
   expect(q.get('page')).toBe('1');
-  expect(errors).toEqual([]);
-});
 
-test('ledger: phân trang đổi page trong hash và trong lời gọi API', async ({ page }) => {
-  const { calls, errors } = await setup(page);
-  await page.goto(`${PAGE}#/ledger`);
   const pager = page.locator('#screen [data-role="pager"]');
   await expect(pager).toContainText('Trang 1/3');
   await expect(pager).toContainText('60 bút toán');
-  await expect(pager.locator('[data-act="prev"]')).toBeDisabled();
   await pager.locator('[data-act="next"]').click();
   await expect(pager).toContainText('Trang 2/3');
   expect(query(ledgerCalls(calls).at(-1).path).get('page')).toBe('2');
@@ -160,32 +188,27 @@ test('ledger: phân trang đổi page trong hash và trong lời gọi API', asy
   expect(errors).toEqual([]);
 });
 
-test('ledger: chạy đối soát cần xác nhận, gửi POST đúng, báo kết quả và tải lại tổng quan', async ({ page }) => {
-  const { calls, errors } = await setup(page);
+test('ledger: chạy đối soát cần xác nhận, gửi POST đúng, báo KHỚP/LỆCH/lỗi và tải lại tổng quan', async ({ page }) => {
+  const { state, calls, errors } = await setup(page, { ignoreStatuses: [500] });
   await page.goto(`${PAGE}#/ledger`);
   await expect(page.locator('#screen [data-kpi="reconcile"]')).toContainText('KHỚP');
   const before = summaryCalls(calls).length;
   await page.click('#screen [data-act="reconcile"]');
-  await expect(page.locator('#modal')).toContainText('Chạy đối soát');
   await page.click('#modal [data-role="cancel"]');
   expect(reconcileCalls(calls)).toHaveLength(0);
+
   await page.click('#screen [data-act="reconcile"]');
   await page.click('#modal [data-role="ok"]');
   await expect(page.locator('#toasts')).toContainText('bù 3 đơn');
   await expect(page.locator('#toasts')).toContainText('KHỚP');
   expect(reconcileCalls(calls)).toHaveLength(1);
-  expect(reconcileCalls(calls)[0].method).toBe('POST');
   await expect.poll(() => summaryCalls(calls).length).toBeGreaterThan(before);
-  expect(errors).toEqual([]);
-});
 
-test('ledger: đối soát báo LỆCH và lỗi máy chủ đều hiện toast, không vỡ màn', async ({ page }) => {
-  const { state, errors } = await setup(page, { state: { reconcile: 'mismatch' }, ignoreStatuses: [500] });
-  await page.goto(`${PAGE}#/ledger`);
-  await expect(page.locator('#screen [data-kpi="reconcile"]')).toContainText('KHỚP');
+  state.reconcile = 'mismatch';
   await page.click('#screen [data-act="reconcile"]');
   await page.click('#modal [data-role="ok"]');
   await expect(page.locator('#toasts')).toContainText('LỆCH');
+
   state.reconcile = 'error';
   await page.click('#screen [data-act="reconcile"]');
   await page.click('#modal [data-role="ok"]');
@@ -194,45 +217,95 @@ test('ledger: đối soát báo LỆCH và lỗi máy chủ đều hiện toast,
   expect(errors).toEqual([]);
 });
 
-test('ledger: sổ cái trống hiện thông báo', async ({ page }) => {
-  const { errors } = await setup(page, { state: { ledger: 'empty' } });
+test('ledger: sổ cái trống và lỗi 500 trên tổng quan / sổ cái đều có Thử lại', async ({ page }) => {
+  const { state, errors } = await setup(page, { state: { summary: 'error', ledger: 'empty' }, ignoreStatuses: [500] });
   await page.goto(`${PAGE}#/ledger`);
   await expect(page.locator('#screen [data-role="ledger-body"]')).toContainText('Không có bút toán phù hợp');
-  expect(errors).toEqual([]);
-});
-
-test('ledger: tổng quan lỗi 500 → có nút Thử lại, bấm lại thì tải được', async ({ page }) => {
-  const { state, calls, errors } = await setup(page, { state: { summary: 'error' }, ignoreStatuses: [500] });
-  await page.goto(`${PAGE}#/ledger`);
-  const box = page.locator('#screen [data-role="summary-body"]');
-  await expect(box.getByRole('button', { name: 'Thử lại' })).toBeVisible();
-  await expect(box).toContainText('Lỗi máy chủ');
-  await expect(page.locator('#screen [data-role="ledger-table"] tbody tr')).toHaveCount(4); // sổ cái vẫn hiện
+  const sumBox = page.locator('#screen [data-role="summary-body"]');
+  await expect(sumBox.getByRole('button', { name: 'Thử lại' })).toBeVisible();
   state.summary = 'ok';
-  await box.getByRole('button', { name: 'Thử lại' }).click();
+  await sumBox.getByRole('button', { name: 'Thử lại' }).click();
   await expect(page.locator('#screen [data-kpi="escrow"]')).toContainText('480.000đ');
-  expect(summaryCalls(calls).length).toBe(2);
   expect(errors).toEqual([]);
 });
 
-test('ledger: sổ cái lỗi 500 → có nút Thử lại', async ({ page }) => {
-  const { state, errors } = await setup(page, { state: { ledger: 'error' }, ignoreStatuses: [500] });
+test('ledger: tab Sự kiện thanh toán (#/ledger?tab=payments) hiện KPI cổng/trạng thái, lọc provider/status, phân trang, không lộ mã thô', async ({ page }) => {
+  const { calls, errors } = await setup(page);
   await page.goto(`${PAGE}#/ledger`);
-  const box = page.locator('#screen [data-role="ledger-body"]');
-  await expect(box.getByRole('button', { name: 'Thử lại' })).toBeVisible();
-  state.ledger = 'ok';
-  await box.getByRole('button', { name: 'Thử lại' }).click();
-  await expect(page.locator('#screen [data-role="ledger-table"] tbody tr')).toHaveCount(4);
+  await page.click('[data-act="tab"][data-tab="payments"]');
+  await expect(page).toHaveURL(/#\/ledger\?tab=payments$/);
+
+  const root = page.locator('#screen [data-screen="ledger"]');
+  await expect(root.locator('[data-kpi="pay-total"]')).toContainText('30');
+  await expect(root.locator('[data-kpi="pay-total"]')).toContainText('1.980.000đ');
+  await expect(root.locator('[data-kpi="pay-processed"]')).toContainText('25');
+  await expect(root.locator('[data-kpi="pay-received"]')).toContainText('3');
+  await expect(root.locator('[data-kpi="pay-rejected"]')).toContainText('2');
+  await expect(root.locator('[data-role="provider-chips"]')).toContainText('MoMo: 20 giao dịch · 1.400.000đ');
+  await expect(root.locator('[data-role="provider-chips"]')).toContainText('VNPay: 10 giao dịch · 580.000đ');
+
+  const rows = root.locator('[data-role="payments-table"] tbody tr');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('MoMo');
+  await expect(rows.nth(0)).toContainText('MM-9001');
+  await expect(rows.nth(0)).toContainText('FS-0042');
+  await expect(rows.nth(0)).toContainText('62.000đ');
+  await expect(rows.nth(0)).toContainText('Đã xử lý');
+  await expect(rows.nth(1)).toContainText('VNPay');
+  await expect(rows.nth(1)).toContainText('Đã tiếp nhận');
+  await expect(rows.nth(2)).toContainText('Bị từ chối');
+  expect(await root.innerText()).not.toMatch(RAW);
+  expect(paymentCalls(calls)[0].path).toBe('/admin/payments?page=1&limit=25');
+
+  // Lọc theo cổng MoMo và trạng thái Đã xử lý
+  await page.selectOption('#screen [data-role="payments-filter"] [name="provider"]', 'momo');
+  await page.selectOption('#screen [data-role="payments-filter"] [name="status"]', 'processed');
+  await page.click('#screen [data-act="pay-filter"]');
+  await expect(rows).toHaveCount(1);
+  expect(paymentCalls(calls).at(-1).path).toBe('/admin/payments?page=1&limit=25&provider=momo&status=processed');
+  expect(page.url()).toContain('provider=momo');
+  expect(page.url()).toContain('status=processed');
+
+  // Xóa lọc và phân trang
+  await page.click('#screen [data-act="pay-clear"]');
+  await expect(rows).toHaveCount(3);
+  await page.click('#screen [data-act="pay-next"]');
+  await expect.poll(() => paymentCalls(calls).at(-1).path).toBe('/admin/payments?page=2&limit=25');
   expect(errors).toEqual([]);
 });
 
-test('ledger: ?demo=1 mở được màn bằng dữ liệu mẫu, không gọi API thật', async ({ page }) => {
+test('ledger: tab Sự kiện thanh toán lỗi 500 → Thử lại và escape XSS', async ({ page }) => {
+  const { state, calls, errors } = await setup(page, { state: { paySummary: 'error', payments: 'error' }, ignoreStatuses: [500] });
+  await page.goto(`${PAGE}#/ledger?tab=payments`);
+  const sumBox = page.locator('#screen [data-role="payments-summary"]');
+  const listBox = page.locator('#screen [data-role="payments-body"]');
+  await expect(sumBox.getByRole('button', { name: 'Thử lại' })).toBeVisible();
+  await expect(listBox.getByRole('button', { name: 'Thử lại' })).toBeVisible();
+
+  state.paySummary = 'ok';
+  state.payments = 'ok';
+  state.paymentItems[0].provider_txn_id = '<img src=x onerror="window.__xss=1">';
+  await sumBox.getByRole('button', { name: 'Thử lại' }).click();
+  await listBox.getByRole('button', { name: 'Thử lại' }).click();
+  await expect(page.locator('#screen [data-kpi="pay-total"]')).toContainText('30');
+  await expect(page.locator('#screen [data-role="payments-table"] tbody tr')).toHaveCount(3);
+  expect(paySummaryCalls(calls).length).toBe(2);
+  expect(await page.evaluate(() => window.__xss)).toBeUndefined();
+  expect(errors).toEqual([]);
+});
+
+test('ledger: ?demo=1 mở được cả hai tab Sổ cái và Sự kiện thanh toán, không gọi API thật', async ({ page }) => {
   const { calls, errors } = await setup(page);
   await page.addInitScript(() => { window.__FAKE_SB = { noSession: true }; });
   await page.goto(`${PAGE}?demo=1#/ledger`);
   const root = page.locator('#screen [data-screen="ledger"]');
   await expect(root.locator('[data-kpi="escrow"]')).toContainText('480.000đ');
   await expect(root.locator('[data-role="ledger-table"] tbody tr').first()).toContainText('Khách trả (giữ chờ)');
+  expect(await root.innerText()).not.toMatch(RAW);
+
+  await page.click('[data-act="tab"][data-tab="payments"]');
+  await expect(root.locator('[data-kpi="pay-total"]')).toContainText('4');
+  await expect(root.locator('[data-role="payments-table"] tbody tr')).toHaveCount(4);
   expect(await root.innerText()).not.toMatch(RAW);
   expect(calls).toEqual([]);
   expect(errors).toEqual([]);

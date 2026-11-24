@@ -8,6 +8,21 @@ const optionalNonEmptyString = z.preprocess(
   z.string().trim().min(1).optional()
 );
 
+const optionalUrlString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().url().optional()
+);
+
+const optionalSecret32 = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(32).optional()
+);
+
+const optionalLogFormat = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.enum(["json", "text"]).optional()
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
@@ -24,7 +39,18 @@ const envSchema = z.object({
   SOCKET_CORS_ORIGINS: z.string().min(1).default("http://localhost:3000,http://localhost:5173,http://localhost:8081,http://10.0.2.2:8081"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_REDIS_URL: optionalUrlString,
+  RATE_LIMIT_REDIS_TOKEN: optionalNonEmptyString,
+  VOLUNTEER_TOKEN_SECRET: optionalSecret32,
+  NEON_ACTIVITY_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  // Định dạng log: "json" (1 dòng chuẩn cho log aggregator) hoặc "text" (dễ đọc ở dev/test). Mặc định json khi production.
+  LOG_FORMAT: optionalLogFormat,
+  // Sentry DSN tùy chọn để gửi cảnh báo lỗi 5xx bất đồng bộ (best-effort, không chặn response)
+  SENTRY_DSN: optionalUrlString,
   // Chu kỳ chạy tác vụ đổi nhãn khi chạy backend ở máy (npm run dev). 0 = tắt. Trên Netlify dùng Scheduled Function.
   LABEL_AUTOMATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300000),
   AUTOMATION_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
@@ -41,6 +67,8 @@ const envSchema = z.object({
   // Khóa mã hóa số tài khoản nhận tiền (AES-256-GCM): 32 byte dạng base64 hoặc hex 64 ký tự. KHÔNG ghi vào repo.
   // Sinh khóa: node scripts/generate-payout-key.js
   PAYOUT_ENCRYPTION_KEY: optionalNonEmptyString,
+  // Danh sách đa khóa xoay vòng dạng "v2:<64hex>,v1:<64hex>". Khóa đầu dùng để mã hóa mới; các khóa sau dùng để giải mã dữ liệu cũ.
+  PAYOUT_ENCRYPTION_KEYS: optionalNonEmptyString,
   // Web Push (người mua + tình nguyện viên). Sinh khóa: npm run gen:vapid. Thiếu thì thông báo đẩy tự tắt (thông báo trong app vẫn chạy).
   VAPID_PUBLIC_KEY: optionalNonEmptyString,
   VAPID_PRIVATE_KEY: optionalNonEmptyString,
@@ -84,7 +112,31 @@ const envSchema = z.object({
   DATABASE_SSL_REJECT_UNAUTHORIZED: z
     .enum(["true", "false"])
     .default("true")
-    .transform((value) => value === "true")
+    .transform((value) => value === "true"),
+  // Cờ tính năng mở rộng Wave 4B (mặc định tắt để giữ nguyên hành vi trước khi áp dụng SQL 041/042)
+  ORDER_ATOMIC_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SELLER_REPUTATION_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  LOCATION_RPC_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  OUTBOX_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  AUTH_LOCAL_JWT_VERIFY: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SUPABASE_JWT_SECRET: optionalNonEmptyString,
+  // Bucket lưu ảnh minh chứng khiếu nại (mặc định partner-assets; có thể chuyển sang complaint-evidence sau khi chạy SQL 043b)
+  COMPLAINT_STORAGE_BUCKET: z.string().trim().min(1).default("partner-assets")
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

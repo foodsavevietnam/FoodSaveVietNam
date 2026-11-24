@@ -14,6 +14,7 @@ import type { Coordinates } from "../utils/geoDistance";
 import { distanceKmBetween, formatDistanceText, geoBoundingBox, isValidCoordinates, roundDistanceKm } from "../utils/geoDistance";
 import { computeProductLabelState, foodGroupFromCategory } from "../utils/productExpiryLabel";
 import { labelAutomationService } from "./labelAutomationService";
+import { sanitizeSearch } from "../schemas/commonSchemas";
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
 import { AppError } from "../utils/appError";
@@ -22,7 +23,9 @@ import { assertOwnerOrAdmin, getRange, handleSupabaseError, requireRecord, supab
 import { voucherAnnounceService } from "./voucherAnnounceService";
 
 const productSelect = "*, stores!inner(id,name,slug,owner_id,emoji,logo_url,address,district,city,latitude,longitude,rating,is_verified,is_open,opening_hours,opening_schedule,status)";
-const storeSelect = "*";
+export const PUBLIC_STORE_SELECT =
+  "id,name,slug,logo_url,cover_url,emoji,description,hashtags,public_hotline,address,district,city,latitude,longitude,rating,is_verified,is_open,opening_hours,opening_schedule,status,created_at";
+const storeSelect = PUBLIC_STORE_SELECT;
 const proximityCandidateLimit = 1000;
 
 const queryLocation = (query: ProductListQuery | StoreListQuery): Coordinates | null => {
@@ -74,11 +77,12 @@ interface ProductStore {
   id: string;
   owner_id: string;
   opening_schedule: unknown;
+  status: string;
 }
 
 // Cửa hàng của người đăng: đối tác chỉ đăng cho cửa hàng mình sở hữu (stores.owner_id), không cần gửi store_id
 const resolveProductStore = async (actorId: string, actorRole: UserRole, storeId?: string): Promise<ProductStore> => {
-  let request = supabaseAdmin.from("stores").select("id,owner_id,opening_schedule");
+  let request = supabaseAdmin.from("stores").select("id,owner_id,opening_schedule,status");
   if (storeId) {
     request = request.eq("id", storeId);
   } else if (actorRole === "admin") {
@@ -138,7 +142,10 @@ export const catalogService = {
       .eq("stores.status", "active");
 
     if (query.search) {
-      request = request.or(`name.ilike.%${query.search}%,description.ilike.%${query.search}%`);
+      const cleanSearch = sanitizeSearch(query.search);
+      if (cleanSearch) {
+        request = request.or(`name.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`);
+      }
     }
     if (query.category) request = request.eq("category", query.category);
     if (query.label) request = request.eq("label", query.label);
@@ -201,10 +208,15 @@ export const catalogService = {
       .eq("id", productId)
       .eq("is_active", true)
       .gte("expires_at", new Date().toISOString())
+      .eq("stores.status", "active")
       .single();
 
     if (error) handleSupabaseError(error, "Failed to load product");
-    return data as Product;
+    const product = data as Product;
+    if (product.stores?.status && product.stores.status !== "active") {
+      throw new AppError("Product was not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
+    return product;
   },
 
   async listStores(query: StoreListQuery): Promise<PaginatedResponse<Store>> {
@@ -215,7 +227,12 @@ export const catalogService = {
       .select(storeSelect, { count: "exact" })
       .eq("status", "active");
 
-    if (query.search) request = request.or(`name.ilike.%${query.search}%,address.ilike.%${query.search}%`);
+    if (query.search) {
+      const cleanSearch = sanitizeSearch(query.search);
+      if (cleanSearch) {
+        request = request.or(`name.ilike.%${cleanSearch}%,address.ilike.%${cleanSearch}%`);
+      }
+    }
     if (query.district) request = request.eq("district", query.district);
     if (query.verified !== undefined) request = request.eq("is_verified", query.verified);
     if (query.open !== undefined) request = request.eq("is_open", query.open);
@@ -238,7 +255,7 @@ export const catalogService = {
     if (error) handleSupabaseError(error, "Failed to list stores");
 
     if (userLocation) {
-      const nearbyStores = ((data ?? []) as Store[])
+      const nearbyStores = ((data ?? []) as unknown as Store[])
         .map((store) => storeDistance(store, userLocation))
         .filter((store) => store.distance_km !== null && store.distance_km !== undefined && store.distance_km <= query.radius_km)
         .sort((a, b) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY));
@@ -250,7 +267,7 @@ export const catalogService = {
     }
 
     return {
-      items: (data ?? []) as Store[],
+      items: (data ?? []) as unknown as Store[],
       pagination: toPagination(query.page, query.limit, count ?? 0)
     };
   },
@@ -260,10 +277,11 @@ export const catalogService = {
       .from("stores")
       .select(storeSelect)
       .eq("id", storeId)
+      .eq("status", "active")
       .single();
 
     if (error) handleSupabaseError(error, "Failed to load store");
-    return data as Store;
+    return data as unknown as Store;
   },
 
   async createStore(actorId: string, body: CreateStoreBody): Promise<Store> {
@@ -305,6 +323,28 @@ export const catalogService = {
 
   async createProduct(actorId: string, actorRole: UserRole, body: CreateProductBody): Promise<Product> {
     const store = await resolveProductStore(actorId, actorRole, body.store_id);
+    if (actorRole !== "admin") {
+      if (store.status !== "active") {
+        throw new AppError(
+          "Cửa hàng chưa được duyệt hoặc đang tạm ngưng, không thể đăng bán",
+          HTTP_STATUS.FORBIDDEN,
+          ERROR_CODES.AUTH_FORBIDDEN
+        );
+      }
+      const { data: reputation, error: reputationError } = await supabaseAdmin
+        .from("seller_reputation")
+        .select("status")
+        .eq("seller_id", store.id)
+        .maybeSingle();
+      if (reputationError) handleSupabaseError(reputationError, "Failed to load seller reputation");
+      if ((reputation as { status?: string | null } | null)?.status === "Banned") {
+        throw new AppError(
+          "Cửa hàng đã bị khóa uy tín, không thể đăng bán",
+          HTTP_STATUS.FORBIDDEN,
+          ERROR_CODES.AUTH_FORBIDDEN
+        );
+      }
+    }
     const foodGroup: FoodGroup = body.food_group ?? foodGroupFromCategory(body.category);
     const imageUrls = body.image_urls ?? (body.image_url ? [body.image_url] : []);
     // Giá bán do hệ thống tính theo nhãn, không lấy giá từ trình duyệt
@@ -349,11 +389,19 @@ export const catalogService = {
   },
 
   async updateProduct(actorId: string, actorRole: UserRole, productId: string, body: UpdateProductBody): Promise<Product> {
-    const { data: product, error: loadError } = await supabaseAdmin
+    let { data: product, error: loadError } = await supabaseAdmin
       .from("products")
-      .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,stores!inner(owner_id,opening_schedule)")
+      .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,blocked_reason,admin_hidden_at,stores!inner(owner_id,opening_schedule)")
       .eq("id", productId)
       .single();
+
+    if (loadError && (loadError.code === "42703" || loadError.code === "PGRST204")) {
+      ({ data: product, error: loadError } = await supabaseAdmin
+        .from("products")
+        .select("id,store_id,expires_at,category,food_group,original_price_cents,is_donation,blocked_reason,stores!inner(owner_id,opening_schedule)")
+        .eq("id", productId)
+        .single());
+    }
 
     if (loadError) handleSupabaseError(loadError, "Failed to load product");
     const loaded = requireRecord(
@@ -363,11 +411,25 @@ export const catalogService = {
         food_group: FoodGroup | null;
         original_price_cents: number;
         is_donation: boolean;
+        blocked_reason?: string | null;
+        admin_hidden_at?: string | null;
         stores: { owner_id: string; opening_schedule: unknown };
       } | null,
       "Product was not found"
     );
     assertOwnerOrAdmin(loaded.stores.owner_id, actorId, actorRole);
+
+    if (
+      actorRole !== "admin" &&
+      body.is_active === true &&
+      (Boolean(loaded.admin_hidden_at) || String(loaded.blocked_reason || "").startsWith("[Admin]"))
+    ) {
+      throw new AppError(
+        "Sản phẩm đã bị Quản trị viên ẩn, không thể tự bật bán lại.",
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODES.RESOURCE_CONFLICT
+      );
+    }
 
     const { price_cents: _ignoredPrice, label: _ignoredLabel, ...productFields } = body;
     const update: Record<string, unknown> = { ...productFields };

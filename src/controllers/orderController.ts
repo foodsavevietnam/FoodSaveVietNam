@@ -8,6 +8,7 @@ import type {
   ChatMessageBody,
   ConfirmPaymentBody,
   CreateComplaintBody,
+  ComplaintUploadBody,
   CreateMomoPaymentBody,
   CreateOrderBody,
   CreateReviewBody,
@@ -17,11 +18,12 @@ import type {
   UpdateComplaintBody,
   UpdateOrderStatusBody
 } from "../schemas/orderSchemas";
+import { adminAuditService } from "../services/adminAuditService";
 import { complaintService } from "../services/complaintService";
 import { orderChatService } from "../services/orderChatService";
 import { orderService } from "../services/orderService";
 import { recordActivityBestEffort } from "../neon/activityService";
-import { getActor } from "../utils/requestContext";
+import { auditActor, getActor } from "../utils/requestContext";
 import { sendSuccess } from "../utils/response";
 
 type UuidParams = { id: string };
@@ -111,7 +113,15 @@ export const orderController = {
   async listMessages(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
     const params = req.validated?.params as UuidParams;
-    sendSuccess(res, await orderChatService.list(params.id, actor.userId, actor.role));
+    const result = await orderChatService.list(params.id, actor.userId, actor.role);
+    if (actor.role === "admin") {
+      try {
+        await adminAuditService.log(auditActor(req), "order.chat_view", "order", params.id, {});
+      } catch {
+        // Best-effort: không làm lỗi trả tin nhắn
+      }
+    }
+    sendSuccess(res, result);
   },
 
   async sendMessage(req: Request, res: Response): Promise<void> {
@@ -166,7 +176,7 @@ export const orderController = {
 
   async complaintUploadUrl(req: Request, res: Response): Promise<void> {
     const actor = getActor(req);
-    const body = req.validated?.body as { content_type: string };
-    sendSuccess(res, await complaintService.createUploadUrl(actor.userId, actor.role, body.content_type), HTTP_STATUS.CREATED);
+    const body = req.validated?.body as ComplaintUploadBody;
+    sendSuccess(res, await complaintService.createUploadUrl(actor.userId, actor.role, body.content_type, body.order_id), HTTP_STATUS.CREATED);
   }
 };

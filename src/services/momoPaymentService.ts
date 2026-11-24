@@ -78,10 +78,26 @@ const postMomo = async <T>(path: string, body: Record<string, unknown>): Promise
   return payload;
 };
 
-// Thanh toán thành công đi qua đúng một đường với nút mô phỏng: orderService.markPaid (hạn thanh toán, hạn lấy hàng, sổ cái...)
-const markOrderPaid = async (orderId: string): Promise<Order> => {
-  const { orderService } = await import("./orderService.js");
-  return orderService.markPaidBySystem(orderId);
+export type MarkOrderPaidHandler = (orderId: string) => Promise<Order>;
+
+let registeredMarkOrderPaidHandler: MarkOrderPaidHandler | null = null;
+
+// Cho phép orderService đăng ký hàm đánh dấu đã thanh toán một chiều, loại bỏ vòng lặp import.
+export const registerMomoOrderPaidHandler = (handler: MarkOrderPaidHandler): void => {
+  registeredMarkOrderPaidHandler = handler;
+};
+
+// Thanh toán thành công đi qua đúng một đường với nút mô phỏng: callback markPaidBySystem từ orderService.
+const markOrderPaid = async (orderId: string, onOrderPaid?: MarkOrderPaidHandler): Promise<Order> => {
+  const handler = onOrderPaid ?? registeredMarkOrderPaidHandler;
+  if (!handler) {
+    throw new AppError(
+      "MoMo order payment handler is not registered",
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.INTERNAL_SERVER_ERROR
+    );
+  }
+  return handler(orderId);
 };
 
 const markOrderFailed = async (orderId: string): Promise<Order> => {
@@ -136,7 +152,7 @@ export const momoPaymentService = {
     return payload;
   },
 
-  async queryPayment(order: Order): Promise<{ payment: MomoQueryPaymentResponse; order: Order }> {
+  async queryPayment(order: Order, onOrderPaid?: MarkOrderPaidHandler): Promise<{ payment: MomoQueryPaymentResponse; order: Order }> {
     if (order.payment_method !== "momo") {
       throw new AppError("Payment polling is only available for MoMo orders", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
@@ -152,11 +168,14 @@ export const momoPaymentService = {
       lang: "vi"
     });
 
-    const syncedOrder = payment.resultCode === 0 ? await markOrderPaid(order.id) : order;
+    const syncedOrder = payment.resultCode === 0 ? await markOrderPaid(order.id, onOrderPaid) : order;
     return { payment, order: syncedOrder };
   },
 
-  async applyMockWebhook(input: { order_id?: string | undefined; orderId?: string | undefined; resultCode: number }): Promise<Order> {
+  async applyMockWebhook(
+    input: { order_id?: string | undefined; orderId?: string | undefined; resultCode: number },
+    onOrderPaid?: MarkOrderPaidHandler
+  ): Promise<Order> {
     let query = supabaseAdmin.from("orders").select("*");
     query = input.order_id ? query.eq("id", input.order_id) : query.eq("order_number", input.orderId ?? "");
 
@@ -167,7 +186,7 @@ export const momoPaymentService = {
       throw new AppError("Order was not found", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
     }
 
-    if (input.resultCode === 0) return markOrderPaid(order.id);
+    if (input.resultCode === 0) return markOrderPaid(order.id, onOrderPaid);
     return markOrderFailed(order.id);
   }
 };

@@ -26,3 +26,6 @@ export const optionalPaginationQuerySchema = z.object({
 
 export const nonEmptyString = z.string().trim().min(1);
 export const optionalTrimmedString = z.string().trim().optional();
+
+/** Làm sạch chuỗi tìm kiếm trước khi ghép vào `.or()` của PostgREST: bỏ `,()%*\` để không vỡ cú pháp / không chèn filter. */
+export const sanitizeSearch = (q: string): string => q.replace(/[,()%*\\]/g, " ").trim().slice(0, 80);

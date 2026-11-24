@@ -324,22 +324,19 @@ function tick() {
 setInterval(tick, 1000);
 
 /* ---------- vòng đời dữ liệu (foodsave-live-data.js gọi các hàm này sau khi thay mảng) ---------- */
+function syncCatalogNetErr() {
+  const err = window.FS && FS.sync && typeof FS.sync.catalogLoadError === 'function' ? FS.sync.catalogLoadError() : '';
+  S.netErr = PRODUCTS.length ? '' : err;
+}
 window.foodsaveAfterProductsReplace = function () {
   S.loaded = true;
-  if (PRODUCTS.length) S.netErr = '';
-  else probeNet();
+  syncCatalogNetErr();
   softRefresh();
 };
 /* tải đơn lỗi (danh sách rỗng giả) thì giữ nguyên trạng thái theo dõi, không dừng nhầm */
 window.foodsaveAfterOrdersReplace = function () { S.authedData = true; if (!(window.FS && FS.sync && typeof FS.sync.ordersLoadFailed === 'function' && FS.sync.ordersLoadFailed())) syncLocationTask(); softRefresh(); };
 window.foodsaveAfterNotifsReplace = function () { onNotifs(); softRefresh(); };
-let _probing = false;
-function probeNet() {   // Danh sách rỗng: do chưa có hàng hay do lỗi mạng? Hỏi nhanh để phân biệt.
-  if (_probing) return; _probing = true;
-  API('/catalog/products?limit=1').then(() => { S.netErr = ''; }).catch(e => { S.netErr = errMsg(e); })
-    .then(() => { _probing = false; softRefresh(); });
-}
-function reloadAll() { S.loaded = false; S.netErr = ''; draw(); return (window.FS && FS.sync ? FS.sync.hydratePage() : Promise.resolve()).catch(() => { }).then(() => { S.loaded = true; probeNet(); loadFav(); softRefresh(); }); }
+function reloadAll() { S.loaded = false; S.netErr = ''; draw(); return (window.FS && FS.sync ? FS.sync.hydratePage() : Promise.resolve()).catch(() => { }).then(() => { S.loaded = true; syncCatalogNetErr(); loadFav(); softRefresh(); }); }
 let _lastNotifIds = null;
 function onNotifs() {   // thông báo mới đến khi app đang mở -> banner đầu màn hình
   const ids = new Set(NOTIFS.map(n => n.id));
@@ -357,7 +354,7 @@ function notifTarget(n) {
 window.addEventListener('online', () => { toast('Đã có mạng trở lại'); reloadAll(); });
 window.addEventListener('offline', () => toast('Bạn đang mất kết nối mạng'));
 
-async function loadPolicy() { try { S.policy = await API('/catalog/policy'); } catch (e) { /* không có thì ẩn số cụ thể */ } }
+async function loadPolicy() { try { S.policy = await API('/catalog/policy', { noAuth: true }); } catch (e) { /* không có thì ẩn số cụ thể */ } }
 async function loadTrust() { try { S.trust = await API('/customers/me/trust'); } catch (e) { S.trust = null; } }
 async function loadFav() {
   if (!S.user) return;
@@ -400,16 +397,21 @@ async function enterApp() {
   tab('home');
   loadPolicy(); loadTrust(); loadFav();
   if (!S.authedData) { try { await FS.sync.hydratePage(); } catch (e) { /* hydratePage bắt lỗi từng phần */ } }
-  S.loaded = true; if (!PRODUCTS.length) probeNet();
+  S.loaded = true; syncCatalogNetErr();
   softRefresh();
   if (window.FSPwa) FSPwa.sync();   // đã bật thông báo từ trước: gửi lại thiết bị lên máy chủ (không trùng)
   startNotifPolling();
   openDeep();
 }
-/* Thông báo mới khi app đang mở: kiểm tra mỗi 20 giây (như web) -> banner đầu màn hình */
+function pollAllowed() {
+  if (document.hidden || window.MIO_DEMO_MODE) return false;
+  if (window.FS && FS.poll && typeof FS.poll.isIdle === 'function' && FS.poll.isIdle()) return false;
+  return true;
+}
+/* Thông báo mới khi app đang mở: kiểm tra định kỳ khi tab đang hoạt động và chưa rảnh 15 phút */
 function startNotifPolling() {
   if (S._notifPoll) return;
-  S._notifPoll = setInterval(() => { if (!document.hidden && S.user) FS.sync.refreshNotifications().catch(() => { }); }, 20000);
+  S._notifPoll = setInterval(() => { if (pollAllowed() && S.user) FS.sync.refreshNotifications().catch(() => { }); }, 45000);
 }
 /* Mở đúng màn khi bấm thông báo đẩy: #order=<id> | #chat=<id> | #complaint=<id> | #voucher */
 async function openDeep() {
@@ -1211,7 +1213,10 @@ SCRH.order = id => {
   const os = orderStore(o); if (document.getElementById('omap')) mountMap('omap', { stores: [os], interactive: false });
   refreshOrder(id).then(() => { if (orderChanged && curScreen() === 'order') softRefresh(); }).catch(() => { });
   if (isPaid(o)) loadUnread();
-  if (isActive(o)) timers.ord = setInterval(() => { refreshOrder(id).then(() => { if (orderChanged && curScreen() === 'order') softRefresh(); }).catch(() => { }); }, 8000);
+  if (isActive(o)) timers.ord = setInterval(() => {
+    if (!pollAllowed()) return;
+    refreshOrder(id).then(() => { if (orderChanged && curScreen() === 'order') softRefresh(); }).catch(() => { });
+  }, 15000);
 };
 SCRH.paying = id => {
   const o = orderOf(id);
@@ -1219,6 +1224,7 @@ SCRH.paying = id => {
     API('/orders/' + encodeURIComponent(id) + '/payments/momo/refresh', { method: 'POST' }).then(r => { S.payInit = S.payInit || {}; S.payInit[id] = r.payment || {}; if (curScreen() === 'paying') { const y = V.scrollTop; draw(); V.scrollTop = y; } }).catch(() => { });
   }
   timers.pay = setInterval(async () => {
+    if (!pollAllowed()) return;
     try {
       const x = await refreshOrder(id);
       if (x && isPaid(x)) { afterPaid(id); }
@@ -1228,7 +1234,7 @@ SCRH.paying = id => {
 };
 SCRH.chat = id => {
   loadChat(id);
-  timers.chat = setInterval(() => loadChat(id), 6000);   // polling 6 giây theo spec
+  timers.chat = setInterval(() => { if (pollAllowed()) loadChat(id); }, 10000);
 };
 SCRH.notifs = () => { };
 async function loadUnread() { try { S.unreadChat = await API('/orders/chat/unread'); } catch (e) { /* bỏ qua */ } }
@@ -1381,14 +1387,23 @@ async function cpSend() {
   } catch (e) { c.sending = false; toast(errMsg(e)); if (e && (e.code === 'COMPLAINT_WINDOW_CLOSED' || e.code === 'COMPLAINT_ALREADY_EXISTS')) { S.cp = null; closeSheet(); FS.sync.hydratePage().catch(() => { }); } }
 }
 
-/* ---------- chat theo đơn (order_messages): polling 6 giây ---------- */
+/* ---------- chat theo đơn (order_messages): chỉ đánh dấu đã đọc khi có tin nhắn mới chưa đọc từ cửa hàng ---------- */
+const _chatMarkedRead = {};
 async function loadChat(id) {
   try {
     const r = await API('/orders/' + encodeURIComponent(id) + '/messages');
     const old = S.chat[id], key = m => (m.messages || []).map(x => x.id).join(',') + '|' + m.can_send;
     S.chat[id] = r;
+    const msgs = r.messages || [];
+    const unreadStore = msgs.filter(m => m && m.sender_role && m.sender_role !== 'customer' && m.sender_role !== 'system' && !m.read_at);
+    const latestUnreadId = unreadStore.length ? String(unreadStore[unreadStore.length - 1].id || '') : '';
     if (curScreen() === 'chat' && (!old || key(old) !== key(r))) { const ae = document.activeElement, typed = ae && ae.id === 'cm' ? ae.value : ''; draw(); const el = document.getElementById('cm'); if (el && typed) { el.value = typed; el.focus(); } const m = document.getElementById('msgs'); if (m) m.scrollTop = 1e6; }
-    API('/orders/' + encodeURIComponent(id) + '/messages/read', { method: 'POST' }).catch(() => { });
+    if (latestUnreadId && _chatMarkedRead[id] !== latestUnreadId) {
+      _chatMarkedRead[id] = latestUnreadId;
+      API('/orders/' + encodeURIComponent(id) + '/messages/read', { method: 'POST' }).catch(() => {
+        if (_chatMarkedRead[id] === latestUnreadId) delete _chatMarkedRead[id];
+      });
+    }
   } catch (e) { if (!S.chat[id]) { S.chat[id] = { messages: [], can_send: false }; if (curScreen() === 'chat') draw(); toast(errMsg(e)); } }
 }
 async function sendChat(id, txt) {

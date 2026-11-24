@@ -351,6 +351,7 @@ small.lock{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px
 </div>
 
 <script src="frontend/foodsave-location.js?v=20261122c"></script>
+<script src="frontend/foodsave-pwa.js?v=20261030a"></script>
 <script>
 (function () {
 'use strict';
@@ -776,8 +777,11 @@ function loadNotifs() { S.data.notifications = readNotifs().map(function (n) { r
 
 function applyData(me, rows) {
   var prev = {}; S.data.tasks.forEach(function (t) { prev[t.id] = t; });
-  S.data.volunteer = { id: me.id, full_name: me.full_name, phone: me.phone, email: me.email || '', charity_name: me.charity_name || '', vehicle: me.vehicle || '', zones: me.zones || [], schedule: me.schedule || '', duty_role: me.duty_role || 'both', active_today: !!me.active_today, avatar_url: me.avatar_url || '', demo_mode: !!me.demo_mode };
-  S.data.stats = { trips: me.runs || 0, kg: Number(me.kg_collected) || 0, rating: Number(me.rating) || 5 };
+  if (me) {
+    S.data.volunteer = { id: me.id, full_name: me.full_name, phone: me.phone, email: me.email || '', charity_name: me.charity_name || '', vehicle: me.vehicle || '', zones: me.zones || [], schedule: me.schedule || '', duty_role: me.duty_role || 'both', active_today: !!me.active_today, avatar_url: me.avatar_url || '', demo_mode: !!me.demo_mode };
+    S.data.stats = { trips: me.runs || 0, kg: Number(me.kg_collected) || 0, rating: Number(me.rating) || 5 };
+    lsSet(INFO_KEY, JSON.stringify({ id: me.id, full_name: me.full_name, charity_name: me.charity_name }));
+  }
   var tasks = rows.map(mapTask);
   if (!firstLoad) {
     tasks.forEach(function (t) {
@@ -798,7 +802,6 @@ function applyData(me, rows) {
     var t = it.t;
     return { id: t.id + ':' + it.kind, emoji: t.stores.emoji, items: (it.kind === 'distribute' ? 'Phát ' + t.my_distribute.share + ' suất · ' : '') + t.items + (t.amount_text ? ' · ' + t.amount_text : ''), store: t.stores.name, when: fmtWhen(it.kind === 'distribute' ? t.my_distribute.done_at : t.completed_at), kg: t.weight_kg };
   });
-  lsSet(INFO_KEY, JSON.stringify({ id: me.id, full_name: me.full_name, charity_name: me.charity_name }));
   loadNotifs();
 }
 
@@ -809,10 +812,21 @@ function forceLogout(message) {
   render();
 }
 
-/* Tải thông tin cá nhân + nhiệm vụ. silent = tải ngầm (không hiện khung chờ). */
+var VOL_IDLE_MS = 15 * 60 * 1000;
+var VOL_ACTIVE_POLL_MS = 30000;
+var VOL_EMPTY_POLL_MS = 120000;
+var VOL_RESUME_GAP_MS = 10000;
+var lastVolInteractionAt = Date.now();
+var lastTasksPollAt = 0;
+
+function markVolInteraction() { lastVolInteractionAt = Date.now(); }
+function isVolIdle() { return Date.now() - lastVolInteractionAt >= VOL_IDLE_MS; }
+
+/* Tải thông tin cá nhân + nhiệm vụ (chỉ dùng lúc boot, đăng nhập, thử lại, hoặc sau khi hoàn tất chuyến để cập nhật thống kê). */
 function loadAll(silent) {
   if (pollBusy) return Promise.resolve();
   pollBusy = true;
+  lastTasksPollAt = Date.now();
   var gen = sessionGen;
   function stale() { return gen !== sessionGen || S.screen !== 'app' || !lsGet(TOKEN_KEY); }
   return Promise.all([api('/volunteer/me'), api('/volunteer/tasks')]).then(function (r) {
@@ -826,11 +840,34 @@ function loadAll(silent) {
     if (!silent) S.load = 'error';
   }).then(function () { pollBusy = false; if (S.screen === 'app') render(); });
 }
-function poll() {
-  if (document.hidden || S.screen !== 'app') return;
+/* Tải nhẹ chỉ danh sách nhiệm vụ cho nhịp poll định kỳ (không gọi lại /volunteer/me). */
+function loadTasksOnly(silent) {
+  if (pollBusy) return Promise.resolve();
+  pollBusy = true;
+  lastTasksPollAt = Date.now();
+  var gen = sessionGen;
+  function stale() { return gen !== sessionGen || S.screen !== 'app' || !lsGet(TOKEN_KEY); }
+  return api('/volunteer/tasks').then(function (res) {
+    if (stale()) return;
+    applyData(null, (res && res.items) || []);
+    S.load = 'ok';
+    syncLocationTask();
+  }).catch(function (e) {
+    if (stale()) return;
+    if (endSession(e, true)) return;
+    if (!silent) S.load = 'error';
+  }).then(function () { pollBusy = false; if (S.screen === 'app') render(); });
+}
+function poll(isResume) {
+  if (document.hidden || S.screen !== 'app' || !lsGet(TOKEN_KEY)) return;
   if (S.sheet && S.sheet.type === 'edit') return;
   var a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
-  loadAll(true);
+  if (!isResume && isVolIdle()) return;
+  var interval = isResume
+    ? VOL_RESUME_GAP_MS
+    : (activeTasks().length > 0 ? VOL_ACTIVE_POLL_MS : VOL_EMPTY_POLL_MS);
+  if (Date.now() - lastTasksPollAt < interval) return;
+  loadTasksOnly(true);
 }
 
 /* ----- Vị trí khi làm nhiệm vụ (foodsave-location.js): mọi lỗi đều bị nuốt để luồng nhiệm vụ chạy bình thường ----- */
@@ -880,6 +917,7 @@ function finishLogin(data) {
   lsSet(TOKEN_KEY, data.token); lsSet(INFO_KEY, JSON.stringify(data.volunteer));
   sessionGen++; S.login = freshLogin(); S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; S.data = fresh(); S.data.volunteer.id = data.volunteer.id; firstLoad = true;
   try { if (window.FoodSaveLocation) window.FoodSaveLocation.syncConsent(); } catch (e) {}
+  try { if (window.FSPwa) window.FSPwa.sync(); } catch (e) {}
   render(); loadAll(); toast('Đăng nhập thành công');
 }
 function loginFail(e) { S.login.busy = false; S.login.error = e.message || 'Không đăng nhập được.'; render(); }
@@ -1369,7 +1407,16 @@ document.addEventListener('input', function (e) {
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.sheet) closeSheet(); });
 
 window.addEventListener('load', drawQr); /* vẽ lại QR nếu thư viện tải chậm */
-setInterval(poll, 10000);
+['pointerdown', 'keydown', 'touchstart'].forEach(function (evt) {
+  document.addEventListener(evt, markVolInteraction, { capture: true, passive: true });
+});
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden) {
+    markVolInteraction();
+    poll(true);
+  }
+});
+setInterval(function () { poll(false); }, 5000);
 initLocation();
 (function boot() {
   if (lsGet(TOKEN_KEY)) {
@@ -1377,12 +1424,9 @@ initLocation();
     S.screen = 'app'; S.tab = 'tasks'; S.load = 'loading'; render(); loadAll();
   } else render();
 })();
+// PWA: service worker, nút "Cài ứng dụng", nút "Bật thông báo" (token tình nguyện viên lấy từ phiên đăng nhập của trang)
+if (window.FSPwa) window.FSPwa.init({ role: 'volunteer', request: function (path, options) { return api(path, options); } });
 })();
-</script>
-<script src="frontend/foodsave-pwa.js?v=20261029a"></script>
-<script>
-  // PWA: service worker, nút "Cài ứng dụng", nút "Bật thông báo" (token tình nguyện viên lấy từ phiên đăng nhập của trang)
-  if (window.FSPwa) FSPwa.init({ role: 'volunteer', request: function (path, options) { return api(path, options); } });
 </script>
 </body>
 </html>

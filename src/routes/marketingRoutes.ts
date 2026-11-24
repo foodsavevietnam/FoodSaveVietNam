@@ -6,7 +6,7 @@ import { uuidParamSchema } from "../schemas/commonSchemas";
 import { marketingChannelSchema as channelEnum, marketingSettingsBodySchema as settingsBodySchema } from "../schemas/marketingSchemas";
 import { marketingService } from "../services/marketingService";
 import { asyncHandler } from "../utils/asyncHandler";
-import { getActor } from "../utils/requestContext";
+import { auditActor, getActor } from "../utils/requestContext";
 import { sendSuccess } from "../utils/response";
 
 const promoteBodySchema = z.object({
@@ -48,7 +48,7 @@ marketingRoutes.get("/admin/overview", authMiddleware, requireRoles("admin"), as
 
 marketingRoutes.patch("/admin/settings", authMiddleware, requireRoles("admin"), validateRequest({ body: adminSettingsBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as z.infer<typeof adminSettingsBodySchema>;
-  sendSuccess(res, await marketingService.adminSetSettings(body));
+  sendSuccess(res, await marketingService.adminSetSettings(body, auditActor(req)));
 }));
 
 marketingRoutes.post("/admin/preview", authMiddleware, requireRoles("admin"), validateRequest({ body: adminRunBodySchema }), asyncHandler(async (req, res) => {
@@ -58,7 +58,7 @@ marketingRoutes.post("/admin/preview", authMiddleware, requireRoles("admin"), va
 
 marketingRoutes.post("/admin/run", authMiddleware, requireRoles("admin"), validateRequest({ body: adminRunBodySchema }), asyncHandler(async (req, res) => {
   const body = req.validated?.body as z.infer<typeof adminRunBodySchema>;
-  sendSuccess(res, await marketingService.adminRun(body.product_ids));
+  sendSuccess(res, await marketingService.adminRun(body.product_ids, auditActor(req)));
 }));
 
 // ───── Dành cho cửa hàng

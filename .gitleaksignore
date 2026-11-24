@@ -1,0 +1,3 @@
+# Synthetic redaction fixture in logger PII redaction unit test
+8cf233f27e1fdd9ab16f5133c0e991f1187c0c19:tests/wave3-observability-crypto.test.mjs:generic-api-key:88
+e275f4d7f11a9aca760a0451179137531bee5fca:.gitleaksignore:generic-api-key:1

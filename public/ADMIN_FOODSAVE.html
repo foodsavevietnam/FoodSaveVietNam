@@ -5,8 +5,10 @@
 <meta charset="UTF-8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  const supabaseUrl = 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
-  const supabaseKey = 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
+  const supabaseUrl = (typeof window.FOODSAVE_SUPABASE_URL === 'string' && window.FOODSAVE_SUPABASE_URL.trim())
+    || 'https://idhpydhlgnxjjtyrgfkj.supabase.co';
+  const supabaseKey = (typeof window.FOODSAVE_SUPABASE_ANON_KEY === 'string' && window.FOODSAVE_SUPABASE_ANON_KEY.trim())
+    || 'sb_publishable_kBjao9fkPwim7sJKZfWf_Q_JGRZuUOf';
 
   // Phiên Admin lưu riêng (storageKey) để không dùng chung với phiên của trang người mua/cửa hàng trên cùng trình duyệt.
   const foodsaveAdminSupabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
@@ -443,12 +445,20 @@ tr.ag-on{background:var(--ac-l)}
 <script>
 // ===== HELPERS =====
 const B=(c,t)=>`<span class="b ${c}">${t}</span>`;
+const escHtml=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const val=v=>v===undefined||v===null||v===''?'—':esc(v);
+const obj=v=>v&&typeof v==='object'?v:{};
+const jsQ=v=>String(v||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n');
+const escJsAttr=v=>escHtml(jsQ(v));
+const safeAdminImgUrl=u=>{const s=String(u??'').trim();return /^(https?:\/\/|\/)/i.test(s)?s:'';};
+const ADMIN_DEMO_MODE=/[?&]demo=1(?:&|$)/.test(window.location.search);
 const sB=s=>{const m={active:'b-ok',approved:'b-ok',captured:'b-ok',paid:'b-ok',completed:'b-ok',picked_up:'b-ok',pending:'b-w',confirmed:'b-b',authorized:'b-b',pending_payment:'b-w',suspended:'b-o',under_review:'b-w',awaiting_evidence:'b-w',banned:'b-e',rejected:'b-e',cancelled:'b-e',expired:'b-e',failed:'b-e',refunded:'b-o',disputed:'b-e',open:'b-e',frozen:'b-e',resolved_user:'b-ok',resolved_seller:'b-b',resolved_split:'b-p',escalated:'b-e',partially_sold:'b-w',sold_out:'b-ok',donated:'b-p',recalled:'b-e',discarded:'b-e',probation:'b-e'};
 const labels={active:'Hoạt động',approved:'Đã duyệt',captured:'Đã thu',paid:'Đã thanh toán',completed:'Hoàn tất',picked_up:'Đã nhận',pending:'Chờ xử lý',confirmed:'Đã xác nhận',authorized:'Đã ủy quyền',pending_payment:'Chờ thanh toán',suspended:'Tạm ngưng',under_review:'Đang xem xét',awaiting_evidence:'Chờ bằng chứng',banned:'Cấm vĩnh viễn',rejected:'Từ chối',cancelled:'Đã hủy',expired:'Hết hạn nhận',failed:'Thất bại',refunded:'Đã hoàn tiền',disputed:'Đang tranh chấp',open:'Đang mở',frozen:'Đóng băng',resolved_user:'Hoàn người mua',resolved_seller:'Không vi phạm',resolved_split:'Chia đều',escalated:'Chuyển cấp trên',partially_sold:'Đang bán',sold_out:'Hết hàng',donated:'Đã tặng',recalled:'Thu hồi',discarded:'Tiêu hủy',probation:'Thử thách'};
-return B(m[s]||'b-m',labels[s]||s)};
-const rB=r=>{const m={super_admin:'b-e',ops_admin:'b-b',finance_admin:'b-p',support_admin:'b-ok'};const l={super_admin:'Cấp cao',ops_admin:'Vận hành',finance_admin:'Tài chính',support_admin:'Hỗ trợ'};return B(m[r]||'b-m',l[r]||r)};
-const tB=t=>{const m={enterprise:'b-ok',premium:'b-b',standard:'b-w',probation:'b-e',trusted:'b-ok',restricted:'b-o',blocked:'b-e'};const l={enterprise:'Doanh nghiệp',premium:'Cao cấp',standard:'Tiêu chuẩn',probation:'Thử thách',trusted:'Tin cậy',restricted:'Hạn chế',blocked:'Chặn'};return B(m[t]||'b-m',l[t]||t)};
-const scH=s=>{const c=s>=85?'background:var(--ok-bg);color:var(--ok);border:2px solid var(--ok-bd)':s>=40?'background:var(--warn-bg);color:var(--warn);border:2px solid var(--warn-bd)':'background:var(--err-bg);color:var(--err);border:2px solid var(--err-bd)';return`<span class="sc" style="${c}">${s}</span>`};
+return B(m[s]||'b-m',esc(labels[s]||s))};
+const rB=r=>{const m={super_admin:'b-e',ops_admin:'b-b',finance_admin:'b-p',support_admin:'b-ok'};const l={super_admin:'Cấp cao',ops_admin:'Vận hành',finance_admin:'Tài chính',support_admin:'Hỗ trợ'};return B(m[r]||'b-m',esc(l[r]||r))};
+const tB=t=>{const m={enterprise:'b-ok',premium:'b-b',standard:'b-w',probation:'b-e',trusted:'b-ok',restricted:'b-o',blocked:'b-e'};const l={enterprise:'Doanh nghiệp',premium:'Cao cấp',standard:'Tiêu chuẩn',probation:'Thử thách',trusted:'Tin cậy',restricted:'Hạn chế',blocked:'Chặn'};return B(m[t]||'b-m',esc(l[t]||t))};
+const scH=s=>{const n=Number(s)||0;const c=n>=85?'background:var(--ok-bg);color:var(--ok);border:2px solid var(--ok-bd)':n>=40?'background:var(--warn-bg);color:var(--warn);border:2px solid var(--warn-bd)':'background:var(--err-bg);color:var(--err);border:2px solid var(--err-bd)';return`<span class="sc" style="${c}">${esc(s)}</span>`};
 const mn=v=>`<span class="mn">${v}</span>`;
 const payLabel=m=>({momo:'MoMo',Momo:'MoMo',zalopay:'ZaloPay',vnpay:'VNPay',card:'Visa/Mastercard',vietqr:'VietQR',cash:'COD','Tiền mặt':'COD','Đặt cọc':'Đặt cọc'}[m]||m||'—');
 const payStatus=s=>({captured:'paid',authorized:'pending',pending_payment:'pending'}[s]||s||'pending');
@@ -456,10 +466,6 @@ const orderPaymentStatus=o=>o[8]&&['pending','paid','refunded','failed'].include
 // Các cột *_cents lưu thẳng số tiền VND
 const moneyFromCents=c=>(Math.round(Number(c)||0)).toLocaleString('vi-VN')+'đ';
 const timeText=v=>v?new Date(v).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'—';
-const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const val=v=>v===undefined||v===null||v===''?'—':esc(v);
-const obj=v=>v&&typeof v==='object'?v:{};
-const jsQ=v=>String(v||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
 // ===== DETAIL =====
 function oD(t,h){document.getElementById('dT').textContent=t;document.getElementById('dB').innerHTML=h;document.getElementById('dO').classList.add('open');document.getElementById('dP').classList.add('open')}
@@ -485,19 +491,19 @@ const U=[
 ];
 
 // ===== DETAIL OPENERS =====
-function oA(i){const a=A[i];oD(a[1],Sec('Thông tin cơ bản',R([['Mã',mn(a[0])],['Họ tên','<strong>'+a[1]+'</strong>'],['Biệt danh',mn(a[2])],['Vai trò',rB(a[3])],['Quyền hạn',a[4]],['Loại',a[5]?B('b-b','Hệ thống'):B('b-m','Tùy chỉnh')],['Trạng thái',a[6]?sB('active'):sB('suspended')],['Ngày tạo',mn(a[7])]]))+Sec('Ghi chú',R([['Mô tả',a[8]]]))+ Sec('Lịch sử hành động','<div style="padding:10px 18px;color:var(--t3);font-size:.75rem">Lọc theo quản trị viên này trong mục Nhật ký hoạt động để xem chi tiết đầy đủ.</div>',false))}
+function oA(i){const a=A[i];if(!a)return;oD(String(a[1]??'—'),Sec('Thông tin cơ bản',R([['Mã',mn(esc(a[0]))],['Họ tên','<strong>'+esc(a[1])+'</strong>'],['Biệt danh',mn(esc(a[2]))],['Vai trò',rB(a[3])],['Quyền hạn',esc(a[4])],['Loại',a[5]?B('b-b','Hệ thống'):B('b-m','Tùy chỉnh')],['Trạng thái',a[6]?sB('active'):sB('suspended')],['Ngày tạo',mn(esc(a[7]))]]))+Sec('Ghi chú',R([['Mô tả',esc(a[8])]]))+ Sec('Lịch sử hành động','<div style="padding:10px 18px;color:var(--t3);font-size:.75rem">Lọc theo quản trị viên này trong mục Nhật ký hoạt động để xem chi tiết đầy đủ.</div>',false))}
 
-function oU(i){const u=U[i];oD(u[0],Sec('Thông tin tài khoản',R([['Họ tên','<strong>'+u[0]+'</strong>'],['Email',u[1]],['Số điện thoại',mn(u[2])],['Trạng thái',sB(u[3])],['Đăng nhập qua',B('b-m',u[4])],['Ngày đăng ký',mn(u[5])]]))+Sec('Điểm uy tín',R([['Điểm',scH(u[6])],['Hạng',tB(u[7])],['Đơn hoàn tất','<strong style="color:var(--ok)">'+u[8]+'</strong>'],['Đơn đã hủy','<strong style="color:'+(u[9]>0?'var(--err)':'var(--t3)')+'">'+u[9]+'</strong>']]))+Sec('Nhận xét vận hành',R([['Ghi chú',u[10]]]),false))}
+function oU(i){const u=U[i];if(!u)return;oD(String(u[0]??'—'),Sec('Thông tin tài khoản',R([['Họ tên','<strong>'+esc(u[0])+'</strong>'],['Email',esc(u[1])],['Số điện thoại',mn(esc(u[2]))],['Trạng thái',sB(u[3])],['Đăng nhập qua',B('b-m',esc(u[4]))],['Ngày đăng ký',mn(esc(u[5]))]]))+Sec('Điểm uy tín',R([['Điểm',scH(u[6])],['Hạng',tB(u[7])],['Đơn hoàn tất','<strong style="color:var(--ok)">'+esc(u[8])+'</strong>'],['Đơn đã hủy','<strong style="color:'+(u[9]>0?'var(--err)':'var(--t3)')+'">'+esc(u[9])+'</strong>']]))+Sec('Nhận xét vận hành',R([['Ghi chú',esc(u[10])]]),false))}
 
 const MR=[];
 const DN=[]; /* Lô tặng từ thiện (thật, lấy từ bảng donations) */
 const DN_STATUS={open:'Chờ tổ chức nhận',accepted:'Đã có tổ chức nhận',in_route:'Đang đi lấy',completed:'Hoàn thành',cancelled:'Đã hủy/hết hạn',rejected:'Bị từ chối'};
 function showDonationDetail(i){
 const d=DN[i];if(!d)return;
-const photos=d.photos.map(u=>'<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="Ảnh minh chứng" style="width:100%;border-radius:10px;border:1px solid var(--bd);margin-bottom:8px"></a>').join('');
+const photos=d.photos.map(u=>safeAdminImgUrl(u)).filter(Boolean).map(u=>'<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="Ảnh minh chứng" style="width:100%;border-radius:10px;border:1px solid var(--bd);margin-bottom:8px"></a>').join('');
 oD(d.code,Sec('Thông tin lô',R([['Mã lô',mn(esc(d.code))],['Cửa hàng',esc(d.store)],['Tổ chức nhận',esc(d.charity)],['Thực phẩm',esc(d.items)],['Trạng thái',esc(DN_STATUS[d.status]||d.status)],['Tạo lúc',esc(d.created)],['Hoàn thành',esc(d.completed||'—')]]))+
-Sec('Đội TNV',(d.team.length?d.team.map(m=>'<div style="padding:6px 12px;font-size:12.5px"><b>'+esc(m.name)+'</b> · '+(m.stage==='pickup'?'lấy '+m.share+' sản phẩm':'phát '+m.share+' suất')+(m.done?' ✓':'')+'</div>').join(''):'<div style="padding:14px 12px;font-size:12.5px;color:var(--t3)">Chưa giao đội.</div>')+(d.distDone?'<div style="padding:6px 12px 10px;font-size:11.5px;color:var(--t3)">Hoàn tất phát hàng lúc '+esc(d.distDone)+'</div>':''))+
-Sec('Ảnh TNV chụp ('+d.tphotos.length+')',d.tphotos.length?d.tphotos.map(p=>'<div style="padding:0 12px 10px"><a href="'+esc(p.photo_url)+'" target="_blank" rel="noopener"><img src="'+esc(p.photo_url)+'" alt="" style="width:100%;border-radius:10px;border:1px solid var(--bd)"></a><div style="font-size:11.5px;color:var(--t3);margin-top:4px">'+esc(p.volunteers?.full_name||'TNV')+' · '+(p.stage==='pickup'?'nhận hàng':'phát hàng')+' · '+esc({pending:'chờ duyệt',approved:'đã duyệt',auto_approved:'tự động gửi'}[p.status]||p.status)+(p.is_demo?' · ảnh demo':'')+(p.gps_flag?' · lệch vị trí':'')+'</div></div>').join(''):'<div style="padding:14px 12px;font-size:12.5px;color:var(--t3)">Chưa có ảnh từ TNV.</div>')+
+Sec('Đội TNV',(d.team.length?d.team.map(m=>'<div style="padding:6px 12px;font-size:12.5px"><b>'+esc(m.name)+'</b> · '+(m.stage==='pickup'?'lấy '+esc(m.share)+' sản phẩm':'phát '+esc(m.share)+' suất')+(m.done?' ✓':'')+'</div>').join(''):'<div style="padding:14px 12px;font-size:12.5px;color:var(--t3)">Chưa giao đội.</div>')+(d.distDone?'<div style="padding:6px 12px 10px;font-size:11.5px;color:var(--t3)">Hoàn tất phát hàng lúc '+esc(d.distDone)+'</div>':''))+
+Sec('Ảnh TNV chụp ('+d.tphotos.length+')',d.tphotos.length?d.tphotos.map(p=>{const pu=safeAdminImgUrl(p.photo_url);return'<div style="padding:0 12px 10px">'+(pu?'<a href="'+esc(pu)+'" target="_blank" rel="noopener"><img src="'+esc(pu)+'" alt="" style="width:100%;border-radius:10px;border:1px solid var(--bd)"></a>':'')+'<div style="font-size:11.5px;color:var(--t3);margin-top:4px">'+esc(p.volunteers?.full_name||'TNV')+' · '+(p.stage==='pickup'?'nhận hàng':'phát hàng')+' · '+esc({pending:'chờ duyệt',approved:'đã duyệt',auto_approved:'tự động gửi'}[p.status]||p.status)+(p.is_demo?' · ảnh demo':'')+(p.gps_flag?' · lệch vị trí':'')+'</div></div>';}).join(''):'<div style="padding:14px 12px;font-size:12.5px;color:var(--t3)">Chưa có ảnh từ TNV.</div>')+
 Sec('Ảnh minh chứng ('+d.photos.length+')',d.photos.length?photos+(d.note?'<div style="padding:10px 12px;font-size:12.5px;font-style:italic">“'+esc(d.note)+'”</div>':'')+'<div style="padding:6px 12px 12px;font-size:11.5px;color:var(--t3)">Gửi lúc '+esc(d.proofAt)+'</div>':'<div style="padding:14px 12px;font-size:12.5px;color:var(--t3)">Tổ chức chưa gửi ảnh minh chứng.</div>'));
 }
 
@@ -506,7 +512,7 @@ const CR = [];
 let partnerApprovalBusy = false;
 let charityApprovalBusy = false;
 
-const IV=[
+const DEMO_IV=[
 ['B-2209','Sữa tươi WinMart','WinMart Nguyễn Trãi',180,'35.000đ','2026-05-08 21:00','partially_sold','Cận hạn','Giảm 42%'],
 ['B-2210','Bánh mì sandwich','Bánh Mì Sài Gòn 365',24,'0đ','2026-05-07 22:00','donated','Sắp hết hạn','Chuyển quyên góp tự động'],
 ['B-2211','Cơm chay hộp','Nhà Hàng Chay An Lạc',42,'19.000đ','2026-05-08 12:00','partially_sold','Sắp hết hạn','Ưu tiên hiển thị'],
@@ -516,7 +522,7 @@ const IV=[
 ['B-2215','Combo rau sạch','Bếp Nhà Mây',38,'22.000đ','2026-05-09 10:30','sold_out','Cận hạn','Đã bán hết'],
 ['B-2216','Yogurt Hy Lạp','ABC Market Cầu Giấy',90,'18.000đ','2026-05-08 08:00','frozen','Đóng băng','Chờ điều tra chất lượng']
 ];
-const OR=[
+const DEMO_OR=[
 ['O-9001','Nguyễn Thị Hoa','WinMart Nguyễn Trãi','Sữa tươi WinMart',2,'70.000đ','picked_up','Momo','2026-05-07 09:12'],
 ['O-9002','Phan Thị Mỹ Linh','Bánh Mì Sài Gòn 365','Bánh mì sandwich',4,'0đ','confirmed','Đặt cọc','2026-05-07 09:35'],
 ['O-9003','Cao Đức Huy','Co.op Food Thảo Điền','Salad rau củ',1,'25.000đ','completed','ZaloPay','2026-05-07 10:04'],
@@ -526,7 +532,7 @@ const OR=[
 ['O-9007','Đặng Quang Vinh','Nhà Hàng Chay An Lạc','Cơm chay hộp',3,'57.000đ','confirmed','Momo','2026-05-07 11:18'],
 ['O-9008','Lý Thị Ngọc Bích','Fresh Bakery Cần Thơ','Bánh ngọt mix',2,'30.000đ','pending','ZaloPay','2026-05-07 11:42']
 ];
-const PAY=[
+const DEMO_PAY=[
 ['P-7001','O-9001','Momo','captured','70.000đ','1.050đ','68.950đ','2026-05-07 09:13'],
 ['P-7002','O-9002','Đặt cọc','authorized','40.000đ','0đ','40.000đ','2026-05-07 09:36'],
 ['P-7003','O-9003','ZaloPay','captured','25.000đ','375đ','24.625đ','2026-05-07 10:05'],
@@ -536,6 +542,9 @@ const PAY=[
 ['P-7007','O-9007','Momo','captured','57.000đ','855đ','56.145đ','2026-05-07 11:19'],
 ['P-7008','O-9008','ZaloPay','failed','30.000đ','0đ','0đ','2026-05-07 11:43']
 ];
+const IV = ADMIN_DEMO_MODE ? DEMO_IV.map(r => [...r]) : [];
+const OR = ADMIN_DEMO_MODE ? DEMO_OR.map(r => [...r]) : [];
+const PAY = ADMIN_DEMO_MODE ? DEMO_PAY.map(r => [...r]) : [];
 
 async function syncOrdersFromSupabase(){
 try{
@@ -546,7 +555,7 @@ const {data,error}=await foodsaveAdminSupabase
 .limit(100);
 if(error)throw error;
 const rows=data||[];
-if(!rows.length)return;
+if(ADMIN_DEMO_MODE&&!rows.length)return;
 OR.splice(0,OR.length,...rows.map(o=>{
 const items=Array.isArray(o.order_items)?o.order_items:[];
 const product=items.map(i=>i.product_name).filter(Boolean).join(', ')||'—';
@@ -1018,7 +1027,7 @@ return`${usersNotice()}<div class="G G4">
 </div>
 <div class="P"><div class="P-h"><div class="P-t">Danh sách người dùng</div></div>
 <div class="W" style="max-height:550px;overflow-y:auto"><table><thead><tr><th>STT</th><th>Họ tên</th><th>Email</th><th>Điện thoại</th><th>Trạng thái</th><th>Điểm</th><th>Hạng</th><th>Đơn hoàn tất</th><th>Đơn đã hủy</th></tr></thead><tbody>
-${U.map((u,i)=>`<tr onclick="oU(${i})"><td style="color:var(--t3)">${i+1}</td><td><strong class="lk">${u[0]}</strong></td><td style="font-size:.73rem">${u[1]}</td><td>${mn(u[2])}</td><td>${sB(u[3])}</td><td>${scH(u[6])}</td><td>${tB(u[7])}</td><td class="mn" style="color:var(--ok)">${u[8]}</td><td class="mn" style="color:${u[9]>0?'var(--err)':'var(--t3)'}">${u[9]}</td></tr>`).join('')}
+${U.map((u,i)=>`<tr onclick="oU(${i})"><td style="color:var(--t3)">${i+1}</td><td><strong class="lk">${esc(u[0])}</strong></td><td style="font-size:.73rem">${esc(u[1])}</td><td>${mn(esc(u[2]))}</td><td>${sB(u[3])}</td><td>${scH(u[6])}</td><td>${tB(u[7])}</td><td class="mn" style="color:var(--ok)">${esc(u[8])}</td><td class="mn" style="color:${u[9]>0?'var(--err)':'var(--t3)'}">${esc(u[9])}</td></tr>`).join('')}
 </tbody></table></div></div>`};
 
 pg.reputation=()=>{
@@ -1031,7 +1040,7 @@ return`<div class="G G4">
 </div>
 <div class="P"><div class="P-h"><div class="P-t">Bảng xếp hạng uy tín người dùng</div></div>
 <div class="W" style="max-height:550px;overflow-y:auto"><table><thead><tr><th>Hạng</th><th>Họ tên</th><th>Điểm</th><th>Cấp bậc</th><th>Đơn hoàn tất</th><th>Đơn đã hủy</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
-${sorted.map((u,i)=>{const oi=U.indexOf(u);return`<tr onclick="oU(${oi})"><td style="color:var(--t3)">${i+1}</td><td><strong class="lk">${u[0]}</strong></td><td>${scH(u[6])}</td><td>${tB(u[7])}</td><td class="mn" style="color:var(--ok)">${u[8]}</td><td class="mn" style="color:${u[9]>0?'var(--err)':'var(--t3)'}">${u[9]}</td><td>${sB(u[3])}</td><td style="font-size:.7rem;color:var(--t3);max-width:180px;white-space:normal">${u[10]}</td></tr>`}).join('')}
+${sorted.map((u,i)=>{const oi=U.indexOf(u);return`<tr onclick="oU(${oi})"><td style="color:var(--t3)">${i+1}</td><td><strong class="lk">${esc(u[0])}</strong></td><td>${scH(u[6])}</td><td>${tB(u[7])}</td><td class="mn" style="color:var(--ok)">${esc(u[8])}</td><td class="mn" style="color:${u[9]>0?'var(--err)':'var(--t3)'}">${esc(u[9])}</td><td>${sB(u[3])}</td><td style="font-size:.7rem;color:var(--t3);max-width:180px;white-space:normal">${esc(u[10])}</td></tr>`}).join('')}
 </tbody></table></div></div>`};
 
 pg.config=()=>`
@@ -1073,7 +1082,7 @@ pg.merchants=()=>`<div class="G G4">
 <div class="K"><div class="K-l">Chờ duyệt</div><div class="K-v" style="color:var(--warn)">${MR.filter(m=>m[5]=='pending').length}</div></div>
 <div class="K"><div class="K-l">Tạm ngưng</div><div class="K-v" style="color:var(--err)">${MR.filter(m=>m[5]=='suspended').length}</div></div>
 </div><div class="P"><div class="P-h"><div class="P-t">Danh sách cửa hàng</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Cửa hàng</th><th>Loại</th><th>Khu vực</th><th>Hạng</th><th>Trạng thái</th><th>Điểm đánh giá</th><th>Đơn</th><th>Doanh thu</th><th>Hủy</th></tr></thead><tbody>
-${MR.map(m=>`<tr onclick="oG('${m[1]}',[[ 'Mã',mn('${m[0]}') ],['Loại','${m[2]}'],['Khu vực','${m[3]}'],['Hạng',tB('${m[4]}')],['Trạng thái',sB('${m[5]}')],['Đánh giá','${m[6]} sao'],['Đơn 30 ngày','${m[7]}'],['Doanh thu','${m[8]}'],['Tỷ lệ hủy','${m[9]}'],['Ghi chú','${m[10]}']])"><td>${mn(m[0])}</td><td><strong class="lk">${m[1]}</strong></td><td>${m[2]}</td><td>${m[3]}</td><td>${tB(m[4])}</td><td>${sB(m[5])}</td><td>${m[6]}</td><td>${m[7]}</td><td>${mn(m[8])}</td><td>${m[9]}</td></tr>`).join('')}
+${MR.map((m,idx)=>`<tr onclick="openPartnerDetail(${idx})"><td>${mn(esc(m[0]))}</td><td><strong class="lk">${esc(m[1])}</strong></td><td>${esc(m[2])}</td><td>${esc(m[3])}</td><td>${tB(m[4])}</td><td>${sB(m[5])}</td><td>${esc(m[6])}</td><td>${esc(m[7])}</td><td>${mn(esc(m[8]))}</td><td>${esc(m[9])}</td></tr>`).join('')}
 </tbody></table></div></div>`;
 
 pg.charities = () => `<div class="G G4">
@@ -1086,13 +1095,44 @@ pg.charities = () => `<div class="G G4">
   ${CR.length?CR.map((c,i) => `<tr onclick="openCharityDetail(${i})"><td>${mn(val(c[0]))}</td><td><strong class="lk">${val(c[1])}</strong></td><td>${val(c[2])}</td><td>${mn(val(c[3]))}</td><td>${sB(c[4])}</td><td style="color:var(--pur);font-weight:bold">${val(c[5])}</td><td><button class="bt" onclick="event.stopPropagation();openCharityDetail(${i})">Xem chi tiết</button></td></tr>`).join(''):`<tr><td colspan="7" style="color:var(--t3);text-align:center;padding:20px">Chưa có hồ sơ tổ chức từ thiện.</td></tr>`}
 </tbody></table></div></div>`;
 
+function openInventoryDrawer(idx){
+const i=IV[idx];if(!i)return;
+oG(String(i[1]??'—'),[['Mã lô',mn(esc(i[0]))],['Cửa hàng',esc(i[2])],['Số lượng',esc(i[3])],['Giá bán',esc(i[4])],['Hạn sử dụng',mn(esc(i[5]))],['Trạng thái',sB(i[6])],['Nhãn',esc(i[7])],['Ghi chú',esc(i[8])]]);
+}
+function openOrderDrawer(idx){
+const o=OR[idx];if(!o)return;
+const ps=orderPaymentStatus(o),tm=o[9]||o[8],ch=payLabel(o[7]);
+oG(String(o[0]??'—'),[['Người dùng',esc(o[1])],['Cửa hàng',esc(o[2])],['Sản phẩm',esc(o[3])],['Số lượng',esc(o[4])],['Tổng tiền',mn(esc(o[5]))],['Trạng thái đơn',sB(o[6])],['Trạng thái thanh toán',sB(ps)],['Kênh thu tiền',esc(ch)],['Thời gian',mn(esc(tm))]]);
+}
+function openPaymentDrawer(idx){
+const p=PAY[idx];if(!p)return;
+const ps=payStatus(p[3]),ch=payLabel(p[2]);
+oG(String(p[0]??'—'),[['Đơn hàng',mn(esc(p[1]))],['Kênh thu tiền',esc(ch)],['Trạng thái',sB(ps)],['Số tiền',mn(esc(p[4]))],['Phí giao dịch',mn(esc(p[5]))],['Số tiền ròng',mn(esc(p[6]))],['Thời gian',mn(esc(p[7]))]]);
+}
+function openPayoutDrawer(idx){
+const p=POUT[idx];if(!p)return;
+oG(String(p[0]??'—'),[['Đối tác',esc(p[1])],['Chu kỳ',esc(chuKy(p[2]))],['Trạng thái',sB(p[3])],['Doanh thu',mn(esc(p[4]))],['Hoa hồng',mn(esc(p[5]))],['Thực chi',mn(esc(p[6]))],['Ngày chi',esc(p[7])]]);
+}
+function openDisputeDrawer(idx){
+const d=DIS[idx];if(!d)return;
+oG(String(d[0]??'—'),[['Đơn hàng',mn(esc(d[1]))],['Người dùng',esc(d[2])],['Cửa hàng',esc(d[3])],['Trạng thái',sB(d[4])],['Lý do',esc(d[5])],['Phụ trách',esc(d[6])],['Ưu tiên',esc(d[7])]]);
+}
+function openRiskDrawer(idx){
+const r=RK[idx];if(!r)return;
+oG(String(r[0]??'—'),[['Đối tượng',esc(r[1])],['Loại cảnh báo',esc(loaiRuiRo(r[2]))],['Trạng thái',sB(r[3])],['Điểm rủi ro',scH(r[4])],['Mô tả',esc(r[5])],['Phụ trách',esc(r[6])]]);
+}
+function openAuditDrawer(idx){
+const a=AUD[idx];if(!a)return;
+oG(String(a[2]??'—'),[['Thời gian',mn(esc(a[0]))],['Người thực hiện',esc(a[1])],['Hành động',esc(a[2])],['Đối tượng',mn(esc(a[3]))],['Ghi chú',esc(a[4])]]);
+}
+
 pg.inventory=()=>`<div class="G G4">
 <div class="K"><div class="K-l">Tổng lô hàng</div><div class="K-v">${IV.length}</div></div>
 <div class="K"><div class="K-l">Đang bán</div><div class="K-v" style="color:var(--warn)">${IV.filter(i=>i[6]=='partially_sold').length}</div></div>
 <div class="K"><div class="K-l">Đã bán hết</div><div class="K-v" style="color:var(--ok)">${IV.filter(i=>i[6]=='sold_out').length}</div></div>
 <div class="K"><div class="K-l">Đóng băng</div><div class="K-v" style="color:var(--err)">${IV.filter(i=>i[6]=='frozen').length}</div></div>
 </div>${labelRunPanel()}<div class="P"><div class="P-h"><div class="P-t">Danh sách lô hàng tồn kho</div><div class="P-a"><button type="button" class="bt bt-p" id="adminRunLabelsBtn" onclick="runLabelAutomationNow()" title="Tính lại nhãn/giá, gửi thông báo vàng/đỏ, chia hàng đỏ cho từ thiện">Cập nhật nhãn ngay</button></div></div><div class="W"><table><thead><tr><th>Mã lô</th><th>Sản phẩm</th><th>Cửa hàng</th><th>Số lượng</th><th>Giá</th><th>Hạn dùng</th><th>Nhãn</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
-${IV.map(i=>`<tr onclick="oG('${i[1]}',[[ 'Mã lô',mn('${i[0]}') ],['Cửa hàng','${i[2]}'],['Số lượng','${i[3]}'],['Giá bán','${i[4]}'],['Hạn sử dụng',mn('${i[5]}')],['Trạng thái',sB('${i[6]}')],['Nhãn','${i[7]}'],['Ghi chú','${i[8]}']])"><td>${mn(i[0])}</td><td><strong class="lk">${i[1]}</strong>${i[9]?' '+B('b-ok','Thật'):''}</td><td>${i[2]}</td><td>${i[3]}</td><td>${mn(i[4])}</td><td>${mn(i[5])}</td><td>${B(i[7]=='Sắp hết hạn'?'b-e':i[7]=='Cận hạn'?'b-w':'b-ok',i[7])}</td><td>${sB(i[6])}</td><td>${i[8]}</td></tr>`).join('')}
+${IV.length?IV.map((i,idx)=>`<tr onclick="openInventoryDrawer(${idx})"><td>${mn(esc(i[0]))}</td><td><strong class="lk">${esc(i[1])}</strong>${i[9]?' '+B('b-ok','Thật'):''}</td><td>${esc(i[2])}</td><td>${esc(i[3])}</td><td>${mn(esc(i[4]))}</td><td>${mn(esc(i[5]))}</td><td>${B(i[7]=='Sắp hết hạn'?'b-e':i[7]=='Cận hạn'?'b-w':'b-ok',esc(i[7]))}</td><td>${sB(i[6])}</td><td>${esc(i[8])}</td></tr>`).join(''):`<tr><td colspan="9" style="color:var(--t3);text-align:center;padding:20px">Chưa có lô hàng tồn kho nào.</td></tr>`}
 </tbody></table></div></div>`;
 
 pg.orders=()=>`<div class="G G4">
@@ -1101,7 +1141,7 @@ pg.orders=()=>`<div class="G G4">
 <div class="K"><div class="K-l">Đang xử lý</div><div class="K-v" style="color:var(--warn)">${OR.filter(o=>['pending','confirmed','pending_payment'].includes(o[6])).length}</div></div>
 <div class="K"><div class="K-l">Đã hủy</div><div class="K-v" style="color:var(--err)">${OR.filter(o=>o[6]=='cancelled').length}</div></div>
 </div><div class="P"><div class="P-h"><div class="P-t">Danh sách đơn hàng</div></div><div class="W"><table><thead><tr><th>Mã đơn</th><th>Người dùng</th><th>Cửa hàng</th><th>Sản phẩm</th><th>Số lượng</th><th>Tổng tiền</th><th>Trạng thái</th><th>Trạng thái TT</th><th>Kênh thu tiền</th><th>Thời gian</th></tr></thead><tbody>
-${OR.map(o=>{const ps=orderPaymentStatus(o);const tm=o[9]||o[8];const ch=payLabel(o[7]);return`<tr onclick="oG('${o[0]}',[[ 'Người dùng','${o[1]}' ],['Cửa hàng','${o[2]}'],['Sản phẩm','${o[3]}'],['Số lượng','${o[4]}'],['Tổng tiền',mn('${o[5]}')],['Trạng thái đơn',sB('${o[6]}')],['Trạng thái thanh toán',sB('${ps}')],['Kênh thu tiền','${ch}'],['Thời gian',mn('${tm}')]])"><td>${mn(o[0])}</td><td><strong class="lk">${o[1]}</strong></td><td>${o[2]}</td><td>${o[3]}</td><td>${o[4]}</td><td>${mn(o[5])}</td><td>${sB(o[6])}</td><td>${sB(ps)}</td><td>${ch}</td><td>${mn(tm)}</td></tr>`}).join('')}
+${OR.length?OR.map((o,idx)=>{const ps=orderPaymentStatus(o);const tm=o[9]||o[8];const ch=payLabel(o[7]);return`<tr onclick="openOrderDrawer(${idx})"><td>${mn(esc(o[0]))}</td><td><strong class="lk">${esc(o[1])}</strong></td><td>${esc(o[2])}</td><td>${esc(o[3])}</td><td>${esc(o[4])}</td><td>${mn(esc(o[5]))}</td><td>${sB(o[6])}</td><td>${sB(ps)}</td><td>${esc(ch)}</td><td>${mn(esc(tm))}</td></tr>`}).join(''):`<tr><td colspan="10" style="color:var(--t3);text-align:center;padding:20px">Chưa có đơn hàng nào.</td></tr>`}
 </tbody></table></div></div>`;
 
 pg.payments=()=>`<div class="G G4">
@@ -1110,23 +1150,23 @@ pg.payments=()=>`<div class="G G4">
 <div class="K"><div class="K-l">Chờ xử lý</div><div class="K-v" style="color:var(--warn)">${PAY.filter(p=>payStatus(p[3])=='pending').length}</div></div>
 <div class="K"><div class="K-l">Lỗi/hoàn</div><div class="K-v" style="color:var(--err)">${PAY.filter(p=>['failed','refunded'].includes(p[3])).length}</div></div>
 </div><div class="P"><div class="P-h"><div class="P-t">Danh sách thanh toán</div></div><div class="W"><table><thead><tr><th>Mã giao dịch</th><th>Đơn</th><th>Kênh thu tiền</th><th>Trạng thái</th><th>Số tiền</th><th>Phí</th><th>Thực thu</th><th>Thời gian</th></tr></thead><tbody>
-${PAY.map(p=>{const ps=payStatus(p[3]);const ch=payLabel(p[2]);return`<tr onclick="oG('${p[0]}',[[ 'Đơn hàng',mn('${p[1]}') ],['Kênh thu tiền','${ch}'],['Trạng thái',sB('${ps}')],['Số tiền',mn('${p[4]}')],['Phí giao dịch',mn('${p[5]}')],['Số tiền ròng',mn('${p[6]}')],['Thời gian',mn('${p[7]}')]])"><td>${mn(p[0])}</td><td>${mn(p[1])}</td><td>${ch}</td><td>${sB(ps)}</td><td>${mn(p[4])}</td><td>${mn(p[5])}</td><td>${mn(p[6])}</td><td>${mn(p[7])}</td></tr>`}).join('')}
+${PAY.length?PAY.map((p,idx)=>{const ps=payStatus(p[3]);const ch=payLabel(p[2]);return`<tr onclick="openPaymentDrawer(${idx})"><td>${mn(esc(p[0]))}</td><td>${mn(esc(p[1]))}</td><td>${esc(ch)}</td><td>${sB(ps)}</td><td>${mn(esc(p[4]))}</td><td>${mn(esc(p[5]))}</td><td>${mn(esc(p[6]))}</td><td>${mn(esc(p[7]))}</td></tr>`}).join(''):`<tr><td colspan="8" style="color:var(--t3);text-align:center;padding:20px">Chưa có giao dịch thanh toán nào.</td></tr>`}
 </tbody></table></div></div>`;
 
 pg.payouts=()=>`<div class="P"><div class="P-h"><div class="P-t">Danh sách chi trả đối tác</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Đối tác</th><th>Chu kỳ</th><th>Trạng thái</th><th>Doanh thu</th><th>Hoa hồng</th><th>Thực chi</th><th>Ngày chi</th></tr></thead><tbody>
-${POUT.map(p=>`<tr onclick="oG('${p[0]}',[[ 'Đối tác','${p[1]}' ],['Chu kỳ',chuKy('${p[2]}')],['Trạng thái',sB('${p[3]}')],['Doanh thu',mn('${p[4]}')],['Hoa hồng',mn('${p[5]}')],['Thực chi',mn('${p[6]}')],['Ngày chi','${p[7]}']])"><td>${mn(p[0])}</td><td><strong class="lk">${p[1]}</strong></td><td>${chuKy(p[2])}</td><td>${sB(p[3])}</td><td>${mn(p[4])}</td><td>${mn(p[5])}</td><td>${mn(p[6])}</td><td>${p[7]}</td></tr>`).join('')}
+${POUT.map((p,idx)=>`<tr onclick="openPayoutDrawer(${idx})"><td>${mn(esc(p[0]))}</td><td><strong class="lk">${esc(p[1])}</strong></td><td>${esc(chuKy(p[2]))}</td><td>${sB(p[3])}</td><td>${mn(esc(p[4]))}</td><td>${mn(esc(p[5]))}</td><td>${mn(esc(p[6]))}</td><td>${esc(p[7])}</td></tr>`).join('')}
 </tbody></table></div></div>`;
 
 pg.disputes=()=>`<div class="P"><div class="P-h"><div class="P-t">Danh sách tranh chấp</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Đơn</th><th>Người dùng</th><th>Cửa hàng</th><th>Trạng thái</th><th>Lý do</th><th>Phụ trách</th><th>Ưu tiên</th></tr></thead><tbody>
-${DIS.map(d=>`<tr onclick="oG('${d[0]}',[[ 'Đơn hàng',mn('${d[1]}') ],['Người dùng','${d[2]}'],['Cửa hàng','${d[3]}'],['Trạng thái',sB('${d[4]}')],['Lý do','${d[5]}'],['Phụ trách','${d[6]}'],['Ưu tiên','${d[7]}']])"><td>${mn(d[0])}</td><td>${mn(d[1])}</td><td><strong class="lk">${d[2]}</strong></td><td>${d[3]}</td><td>${sB(d[4])}</td><td style="white-space:normal">${d[5]}</td><td>${d[6]}</td><td>${d[7]}</td></tr>`).join('')}
+${DIS.map((d,idx)=>`<tr onclick="openDisputeDrawer(${idx})"><td>${mn(esc(d[0]))}</td><td>${mn(esc(d[1]))}</td><td><strong class="lk">${esc(d[2])}</strong></td><td>${esc(d[3])}</td><td>${sB(d[4])}</td><td style="white-space:normal">${esc(d[5])}</td><td>${esc(d[6])}</td><td>${esc(d[7])}</td></tr>`).join('')}
 </tbody></table></div></div>`;
 
 pg.risks=()=>`<div class="P"><div class="P-h"><div class="P-t">Danh sách cảnh báo gian lận</div></div><div class="W"><table><thead><tr><th>Mã</th><th>Đối tượng</th><th>Loại</th><th>Trạng thái</th><th>Điểm rủi ro</th><th>Mô tả</th><th>Phụ trách</th></tr></thead><tbody>
-${RK.map(r=>`<tr onclick="oG('${r[0]}',[[ 'Đối tượng','${r[1]}' ],['Loại cảnh báo',loaiRuiRo('${r[2]}')],['Trạng thái',sB('${r[3]}')],['Điểm rủi ro',scH(${r[4]})],['Mô tả','${r[5]}'],['Phụ trách','${r[6]}']])"><td>${mn(r[0])}</td><td><strong class="lk">${r[1]}</strong></td><td>${loaiRuiRo(r[2])}</td><td>${sB(r[3])}</td><td>${scH(r[4])}</td><td style="white-space:normal">${r[5]}</td><td>${r[6]}</td></tr>`).join('')}
+${RK.map((r,idx)=>`<tr onclick="openRiskDrawer(${idx})"><td>${mn(esc(r[0]))}</td><td><strong class="lk">${esc(r[1])}</strong></td><td>${esc(loaiRuiRo(r[2]))}</td><td>${sB(r[3])}</td><td>${scH(r[4])}</td><td style="white-space:normal">${esc(r[5])}</td><td>${esc(r[6])}</td></tr>`).join('')}
 </tbody></table></div></div>`;
 
 pg.audits=()=>`<div class="P"><div class="P-h"><div class="P-t">Nhật ký hoạt động</div></div><div class="W"><table><thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Hành động</th><th>Đối tượng</th><th>Ghi chú</th></tr></thead><tbody>
-${AUD.map(a=>`<tr onclick="oG('${a[2]}',[[ 'Thời gian',mn('${a[0]}') ],['Người thực hiện','${a[1]}'],['Hành động','${a[2]}'],['Đối tượng',mn('${a[3]}')],['Ghi chú','${a[4]}']])"><td>${mn(a[0])}</td><td><strong class="lk">${a[1]}</strong></td><td>${a[2]}${a[5]?' '+B('b-ok','Thật'):''}</td><td>${mn(a[3])}</td><td style="white-space:normal">${a[4]}</td></tr>`).join('')}
+${AUD.map((a,idx)=>`<tr onclick="openAuditDrawer(${idx})"><td>${mn(esc(a[0]))}</td><td><strong class="lk">${esc(a[1])}</strong></td><td>${esc(a[2])}${a[5]?' '+B('b-ok','Thật'):''}</td><td>${mn(esc(a[3]))}</td><td style="white-space:normal">${esc(a[4])}</td></tr>`).join('')}
 </tbody></table></div></div>`;
 
 // ===== PARTNER ADMIN APPROVAL FLOW =====
@@ -1225,131 +1265,25 @@ async function syncPartnersFromSupabase() {
     }
 }
 
-async function updatePartnerApprovalStatus(profileId, status, reason = '') {
-    if (partnerApprovalBusy) return;
-    if (!profileId) {
-        alert('Không tìm thấy ID hồ sơ partner để cập nhật.');
-        return;
-    }
+function redirectToAdminVerificationPortal(kind, targetId) {
+    const query = targetId ? `?type=${encodeURIComponent(kind || '')}&id=${encodeURIComponent(targetId)}` : '';
+    window.location.href = `/admin/#/verify${query}`;
+}
 
-    partnerApprovalBusy = true;
-    try {
-        const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-        const metadata = {
-            ...partnerMeta(current),
-            onboarding_status: status,
-            admin_review: {
-                status,
-                reason,
-                reviewed_at: new Date().toISOString(),
-                reviewer: currentAdmin?.email || currentAdmin?.id || 'admin'
-            }
-        };
-
-        const { error } = await foodsaveAdminSupabase
-            .from('partner_profiles')
-            .update({ onboarding_status: status, metadata })
-            .eq('profile_id', profileId);
-
-        if (error) throw error;
-
-        await syncPartnersFromSupabase();
-        const nextIndex = MR.findIndex(m => m[11]?.profile_id === profileId);
-        if (nextIndex >= 0) openPartnerDetail(nextIndex);
-        else xD();
-    } catch (error) {
-        console.error('Lỗi cập nhật trạng thái partner_profiles:', error);
-        alert(error.message || 'Không thể cập nhật trạng thái cửa hàng.');
-    } finally {
-        partnerApprovalBusy = false;
-    }
+async function updatePartnerApprovalStatus(profileId) {
+    redirectToAdminVerificationPortal('store', profileId);
 }
 
 async function approvePartner(profileId) {
-    if (partnerApprovalBusy) return;
-    if (!profileId) {
-        alert('Không tìm thấy ID hồ sơ partner để duyệt.');
-        return;
-    }
-
-    partnerApprovalBusy = true;
-    try {
-        const supabase = foodsaveAdminSupabase;
-        const { data, error } = await supabase
-            .from('partner_profiles')
-            .update({ onboarding_status: 'active' })
-            .eq('profile_id', profileId)
-            .select('*')
-            .maybeSingle();
-
-        console.log("=== KẾT QUẢ DUYỆT PARTNER ===", { profileId, data, error });
-        if (error) throw error;
-
-        await syncPartnersFromSupabase();
-        const nextIndex = MR.findIndex(m => m[11]?.profile_id === profileId);
-        if (nextIndex >= 0) openPartnerDetail(nextIndex);
-        else xD();
-    } catch (error) {
-        console.error('Lỗi duyệt partner_profiles:', error);
-        alert(error.message || 'Không thể duyệt cửa hàng.');
-    } finally {
-        partnerApprovalBusy = false;
-    }
+    redirectToAdminVerificationPortal('store', profileId);
 }
 
 function rejectPartner(profileId) {
-    const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-    const store = partnerStore(current);
-    const storeMeta = partnerStoreMeta(current);
-    const title = store.name || storeMeta.name || current.legal_name || 'cửa hàng này';
-    oD('Từ chối cửa hàng', Sec('Lý do từ chối', `<div style="padding:12px 18px;display:grid;gap:10px">
-<div style="font-size:.78rem;color:var(--t2)">Nhập lý do từ chối hồ sơ <strong>${val(title)}</strong>. Lý do sẽ được lưu vào metadata.admin_review.</div>
-<textarea id="partnerRejectReason" rows="5" style="width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit;resize:vertical" placeholder="Ví dụ: Giấy phép kinh doanh không rõ thông tin pháp nhân"></textarea>
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bt" onclick="xD()">Hủy</button><button class="bt bt-p" onclick="confirmRejectPartner('${jsQ(profileId)}')">Xác nhận từ chối</button></div>
-</div>`));
+    redirectToAdminVerificationPortal('store', profileId);
 }
 
 function confirmRejectPartner(profileId) {
-    const reason = String(document.getElementById('partnerRejectReason')?.value || '').trim();
-    if (!reason) {
-        alert('Vui lòng nhập lý do từ chối.');
-        return;
-    }
-    updatePartnerApprovalStatus(profileId, 'rejected', reason);
-}
-
-function rejectPartner(profileId) {
-    const current = MR.find(m => m[11]?.profile_id === profileId)?.[11] || {};
-    const store = partnerStore(current);
-    const storeMeta = partnerStoreMeta(current);
-    const title = store.name || storeMeta.name || current.legal_name || 'cửa hàng này';
-    const body = partnerOpenDomModal('Từ chối cửa hàng');
-    const section = partnerSection(body, 'Lý do từ chối');
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'padding:12px 18px;display:grid;gap:10px';
-    const note = document.createElement('div');
-    note.style.cssText = 'font-size:.78rem;color:var(--t2)';
-    note.textContent = `Nhập lý do từ chối hồ sơ ${title}. Lý do sẽ được lưu vào metadata.admin_review.`;
-    const textarea = document.createElement('textarea');
-    textarea.id = 'partnerRejectReason';
-    textarea.rows = 5;
-    textarea.style.cssText = 'width:100%;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit;resize:vertical';
-    textarea.placeholder = 'Ví dụ: Giấy phép kinh doanh không rõ thông tin pháp nhân';
-    const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
-    const cancel = document.createElement('button');
-    cancel.className = 'bt';
-    cancel.type = 'button';
-    cancel.textContent = 'Hủy';
-    cancel.addEventListener('click', xD);
-    const confirm = document.createElement('button');
-    confirm.className = 'bt bt-p';
-    confirm.type = 'button';
-    confirm.textContent = 'Xác nhận từ chối';
-    confirm.addEventListener('click', () => confirmRejectPartner(profileId));
-    actions.append(cancel, confirm);
-    wrap.append(note, textarea, actions);
-    section.appendChild(wrap);
+    redirectToAdminVerificationPortal('store', profileId);
 }
 
 async function syncCharitiesFromSupabase() {
@@ -1400,45 +1334,16 @@ async function syncCharitiesFromSupabase() {
     }
 }
 
-async function updateCharityApprovalStatus(charityId, status) {
-    if (charityApprovalBusy) return;
-    if (!charityId) {
-        alert('Không tìm thấy ID hồ sơ charity để cập nhật.');
-        return;
-    }
-
-    charityApprovalBusy = true;
-    try {
-        const payload = status === 'active'
-            ? { status: 'active', approved_by: currentAdmin?.email || currentAdmin?.id || 'admin' }
-            : { status: 'rejected' };
-        const { error } = await foodsaveAdminSupabase
-            .from('charity_profiles')
-            .update(payload)
-            .eq('id', charityId);
-
-        if (error) throw error;
-
-        await syncCharitiesFromSupabase();
-        const nextIndex = CR.findIndex(c => c[7]?.id === charityId);
-        if (nextIndex >= 0) openCharityDetail(nextIndex);
-        else xD();
-    } catch (error) {
-        console.error('Lỗi cập nhật trạng thái charity_profiles:', error);
-        alert(error.message || 'Không thể cập nhật trạng thái tổ chức từ thiện.');
-    } finally {
-        charityApprovalBusy = false;
-    }
+async function updateCharityApprovalStatus(charityId) {
+    redirectToAdminVerificationPortal('charity', charityId);
 }
 
 function approveCharity(charityId) {
-    updateCharityApprovalStatus(charityId, 'active');
+    redirectToAdminVerificationPortal('charity', charityId);
 }
 
 function rejectCharity(charityId) {
-    if (confirm('Từ chối hồ sơ tổ chức từ thiện này?')) {
-        updateCharityApprovalStatus(charityId, 'rejected');
-    }
+    redirectToAdminVerificationPortal('charity', charityId);
 }
 
 // ===== NAV =====
@@ -1967,6 +1872,10 @@ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d
 const vnd=n=>`${Math.round(Number(n)||0).toLocaleString('vi-VN')}đ`;
 const safeText=v=>String(v??'').replace(/[`'"\\<>]/g,' ').trim();
 function replaceRealRows(list,rows,flagIndex){
+if(!ADMIN_DEMO_MODE){
+list.splice(0,list.length,...rows);
+return;
+}
 for(let i=list.length-1;i>=0;i--){if(list[i][flagIndex])list.splice(i,1);}
 list.unshift(...rows);
 }
@@ -2121,7 +2030,7 @@ const rows=[['Người mua','customers','var(--ok)','Tài khoản khách hàng �
 const total=c?rows.reduce((n,r)=>n+Number(c[r[1]]||0),0):0;
 const breakdown=c?rows.map(r=>{const n=Number(c[r[1]]||0),pc=total?Math.round(n/total*100):0;return`<div style="padding:9px 0;border-bottom:1px solid var(--bg3)"><div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px"><span><strong>${r[0]}</strong> <span style="color:var(--t3)">· ${r[3]}</span></span><span class="mn">${n.toLocaleString('vi-VN')} (${pc}%)</span></div><div style="height:7px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${r[2]};border-radius:4px"></div></div></div>`}).join(''):'<div class="al al-w">'+(SYS_USERS.err?'Chưa lấy được dữ liệu: '+esc(SYS_USERS.err):'Đang tải…')+'</div>';
 const recent=U.filter(u=>u[11]).slice(0,6);
-const recentRows=recent.length?recent.map(u=>`<tr><td><strong>${u[0]}</strong></td><td style="font-size:.73rem">${u[1]}</td><td>${B('b-m',u[4])}</td><td class="mn">${u[5]}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--t3);padding:18px">Chưa có dữ liệu</td></tr>';
+const recentRows=recent.length?recent.map(u=>`<tr><td><strong>${esc(u[0])}</strong></td><td style="font-size:.73rem">${esc(u[1])}</td><td>${B('b-m',esc(u[4]))}</td><td class="mn">${esc(u[5])}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--t3);padding:18px">Chưa có dữ liệu</td></tr>';
 return`${sysCountsHtml()}
 <div class="P"><div class="P-h"><div class="P-t">Phân bổ theo vai trò</div></div><div class="P-b">${breakdown}</div></div>
 <div class="P"><div class="P-h"><div class="P-t">Người mua đăng ký gần đây</div><div class="P-a"><button class="bt bt-s" onclick="go('users')">Xem danh sách người mua</button></div></div><div class="W"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Đăng nhập qua</th><th>Ngày đăng ký</th></tr></thead><tbody>${recentRows}</tbody></table></div></div>`};

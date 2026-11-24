@@ -1,0 +1,15 @@
+# Gitleaks configuration for MIO / FoodSave Vietnam.
+# Extends the full built-in Gitleaks ruleset while allowlisting ONLY
+# Supabase browser publishable keys (`sb_publishable_*`), which are intentionally
+# public client identifiers protected by Row Level Security (never `sb_secret_*` or JWTs).
+
+title = "MIO / FoodSave Vietnam Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow Supabase public browser publishable keys (protected by RLS)"
+regexes = [
+  '''^sb_publishable_[A-Za-z0-9_-]{20,}$''',
+]

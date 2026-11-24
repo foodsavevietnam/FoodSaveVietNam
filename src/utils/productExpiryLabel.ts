@@ -44,8 +44,8 @@ export const foodGroupFromCategory = (category: string | null | undefined): Food
 
 export const priceForLabel = (originalPriceVnd: number, label: ProductLabel): number => {
   const raw = Math.max(0, originalPriceVnd) * (1 - LABEL_DISCOUNT_RATE[label]);
-  // Làm tròn tới 1.000đ cho dễ thanh toán; giá gốc nhỏ hơn 1.000đ thì giữ nguyên số lẻ
-  return originalPriceVnd >= 1000 ? Math.round(raw / 1000) * 1000 : Math.round(raw);
+  // Làm tròn tới 1.000đ cho dễ thanh toán; hàng bán có giá gốc >= 1.000đ luôn giữ sàn 1.000đ để không tròn xuống 0đ
+  return originalPriceVnd >= 1000 ? Math.max(1000, Math.round(raw / 1000) * 1000) : Math.round(raw);
 };
 
 // ===== Giờ mở cửa =====

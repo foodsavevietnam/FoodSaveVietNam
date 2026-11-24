@@ -118,7 +118,7 @@ export const customerReputationService = {
         recipientId: customerId,
         roleTarget: "customer",
         type: "red-label-banned",
-        title: "Bạn bị khóa mua hàng nhãn đỏ 30 ngày",
+        title: `Bạn bị khóa mua hàng nhãn đỏ ${RED_BAN_DAYS} ngày`,
         body: `Bạn đã vắng mặt ${status.no_show_count} lần trong ${NO_SHOW_WINDOW_DAYS} ngày. Khóa đến ${formatVnDate(until)}. Bạn vẫn mua được sản phẩm nhãn xanh và vàng.`,
         relatedType: "order",
         relatedId: orderId

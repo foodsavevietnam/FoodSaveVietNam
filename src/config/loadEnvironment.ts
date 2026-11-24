@@ -2,10 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 
-const PROJECT_ROOT = path.resolve(__dirname, "..", "..", "..");
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
-const BACKEND_ENV_FILE = path.join(BACKEND_ROOT, ".env");
-const ROOT_NEON_ENV_FILE = path.join(PROJECT_ROOT, ".env.local");
+const MAX_PARENT_ENV_SEARCH_LEVELS = 3;
 
 const isNonEmpty = (value: string | undefined): value is string => Boolean(value && value.trim());
 
@@ -21,6 +19,37 @@ const isNeonConnection = (value: string | undefined): value is string => {
   } catch {
     return false;
   }
+};
+
+/**
+ * Find the nearest `.env.local` in `MIO_ENV_DIR` (if set) or by walking up at most
+ * `maxParentLevels` parent directories above `backendRoot` (supporting `.worktrees/*`
+ * and `.release/*` layouts).
+ */
+export const findNearestEnvLocal = (
+  backendRoot: string = BACKEND_ROOT,
+  environment: NodeJS.ProcessEnv = process.env,
+  maxParentLevels: number = MAX_PARENT_ENV_SEARCH_LEVELS,
+): string | null => {
+  if (isNonEmpty(environment.MIO_ENV_DIR)) {
+    const explicitCandidate = path.join(path.resolve(environment.MIO_ENV_DIR.trim()), ".env.local");
+    if (fs.existsSync(explicitCandidate)) {
+      return explicitCandidate;
+    }
+  }
+
+  let currentDir = path.resolve(backendRoot);
+  for (let level = 1; level <= maxParentLevels; level += 1) {
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    const candidate = path.join(parentDir, ".env.local");
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    currentDir = parentDir;
+  }
+
+  return null;
 };
 
 /** Merge parsed environment sources without logging or returning their values. */
@@ -67,19 +96,40 @@ export const configureEnvironment = (
   }
 };
 
+export interface LoadEnvironmentOptions {
+  backendRoot?: string;
+  environment?: NodeJS.ProcessEnv;
+}
+
 /**
  * Load only the backend .env and the workspace Neon .env.local. Existing process
  * variables always win. Neon is kept separate from legacy Supabase Postgres so
  * merely adding a Neon URL cannot redirect seller-reputation writes.
  */
-export const loadEnvironment = (): void => {
-  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY) {
-    configureEnvironment(process.env, {}, {});
+export const loadEnvironment = (options: LoadEnvironmentOptions = {}): void => {
+  const environment = options.environment ?? process.env;
+  const backendRoot = path.resolve(options.backendRoot ?? BACKEND_ROOT);
+
+  if (environment.AWS_LAMBDA_FUNCTION_NAME || environment.NETLIFY) {
+    configureEnvironment(environment, {}, {});
     return;
   }
-  const localNeonValues = readEnvFile(path.join(BACKEND_ROOT, ".env.local"));
-  configureEnvironment(process.env, readEnvFile(BACKEND_ENV_FILE), {
-    ...readEnvFile(ROOT_NEON_ENV_FILE),
+
+  const explicitEnvDir = isNonEmpty(environment.MIO_ENV_DIR)
+    ? path.resolve(environment.MIO_ENV_DIR.trim())
+    : null;
+  const explicitBackendEnv = explicitEnvDir ? readEnvFile(path.join(explicitEnvDir, ".env")) : {};
+  const backendEnvValues = {
+    ...explicitBackendEnv,
+    ...readEnvFile(path.join(backendRoot, ".env")),
+  };
+
+  const ancestorNeonEnvPath = findNearestEnvLocal(backendRoot, environment, MAX_PARENT_ENV_SEARCH_LEVELS);
+  const rootNeonValues = ancestorNeonEnvPath ? readEnvFile(ancestorNeonEnvPath) : {};
+  const localNeonValues = readEnvFile(path.join(backendRoot, ".env.local"));
+
+  configureEnvironment(environment, backendEnvValues, {
+    ...rootNeonValues,
     ...localNeonValues,
   });
 };

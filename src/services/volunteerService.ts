@@ -400,7 +400,7 @@ export const volunteerService = {
     };
   },
 
-  // TNV tự sửa thông tin. KHÔNG cho sửa số điện thoại: chỉ tổ chức được đổi số.
+  // TNV tự sửa thông tin. KHÔNG cho sửa số điện thoại hoặc email đăng nhập: chỉ tổ chức được đổi qua PATCH /charity/volunteers/:id.
   async updateProfile(volunteerId: string, patch: VolunteerProfilePatch): Promise<unknown> {
     const { data: existing, error: loadError } = await supabaseAdmin.from("volunteers").select(PROFILE_SELECT).eq("id", volunteerId).maybeSingle();
     if (loadError) handleSupabaseError(loadError, "Failed to load volunteer profile");
@@ -409,9 +409,19 @@ export const volunteerService = {
       throw new AppError("Tài khoản tình nguyện viên đang bị tạm ngưng", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
     }
 
+    if (patch.email !== undefined) {
+      const currentEmail = typeof row.email === "string" ? normalizeEmail(row.email) : "";
+      if (normalizeEmail(patch.email) !== currentEmail) {
+        throw new AppError(
+          "Email đăng nhập là định danh OTP và do tổ chức quản lý; vui lòng liên hệ tổ chức để thay đổi",
+          HTTP_STATUS.FORBIDDEN,
+          ERROR_CODES.AUTH_FORBIDDEN
+        );
+      }
+    }
+
     const update: VolunteerProfilePatch = {};
     if (patch.full_name !== undefined) update.full_name = patch.full_name;
-    if (patch.email !== undefined) update.email = patch.email;
     if (patch.vehicle !== undefined) update.vehicle = patch.vehicle;
     if (patch.zones !== undefined) update.zones = patch.zones;
     if (patch.schedule !== undefined) update.schedule = patch.schedule;

@@ -1,6 +1,10 @@
 // Kiểm thử các hàm tính hạn của quy trình đơn hàng (không cần database).
 // Chạy: npm run build && node scripts/test-order-policy.js
 // Thử hệ số demo:  DEMO_MODE=true ORDER_POLICY_TIME_SCALE=0.05 node scripts/test-order-policy.js
+process.env.SUPABASE_URL ??= "http://127.0.0.1:9";
+process.env.SUPABASE_ANON_KEY ??= "x";
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= "x";
+process.env.CORS_ORIGINS ??= "http://localhost";
 const assert = require("assert");
 const p = require("../dist/constants/orderPolicy");
 

@@ -1,5 +1,5 @@
 import type { Server as HttpServer } from "http";
-import { Server as SocketIOServer } from "socket.io";
+import type { Server as SocketIOServer } from "socket.io";
 import { env } from "../config/env";
 import { supabaseAdmin, supabaseAuth } from "../config/supabase";
 import type { UserRole } from "../types/domain";
@@ -13,6 +13,9 @@ export const REALTIME_EVENTS = {
 } as const;
 
 let socketServer: SocketIOServer | null = null;
+
+const isServerlessRuntime = (): boolean =>
+  Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
 
 const sellerRoom = (sellerId: string): string => `seller:${sellerId}`;
 const userMapRoom = "users:map";
@@ -58,7 +61,10 @@ const canJoinSellerRoom = async (sellerId: string, userId: string, role: UserRol
 };
 
 export const initializeSocketServer = (httpServer: HttpServer): SocketIOServer => {
-  socketServer = new SocketIOServer(httpServer, {
+  // Nạp động socket.io chỉ khi chạy HTTP server thực (tránh nạp tĩnh nặng trên AWS Lambda / Netlify)
+  const { Server: SocketIOServerCtor } = require("socket.io") as typeof import("socket.io");
+
+  socketServer = new SocketIOServerCtor(httpServer, {
     cors: {
       origin: env.SOCKET_CORS_ORIGINS,
       methods: ["GET", "POST"],
@@ -129,6 +135,9 @@ export const getSocketServer = (): SocketIOServer => {
 
 export const emitStoreStatusChanged = (payload: StoreStatusChangedPayload): void => {
   if (!socketServer) {
+    if (isServerlessRuntime()) {
+      return;
+    }
     logger.warn("Socket.io server is not initialized; skipping STORE_STATUS_CHANGED emit", payload);
     return;
   }

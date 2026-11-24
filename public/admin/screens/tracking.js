@@ -1,5 +1,6 @@
 // Màn "Bản đồ theo dõi": vị trí đang chia sẻ của tình nguyện viên (xanh lá) và người mua (cam).
 // Bản đồ Leaflet nạp một lần từ CDN; nạp lỗi thì vẫn hiện danh sách. Làm mới 20 giây (lịch poll chung tự dừng khi tab ẩn/rảnh).
+import { isPollFailure } from '../core/poll.js';
 import { buildHash } from '../core/router.js';
 
 const REFRESH_MS = 20000;
@@ -201,7 +202,12 @@ export default {
         drawAll();
       } catch (err) {
         if (!alive() || mine !== seq || err?.name === 'AbortError') return;
-        if (rows && quiet) { failed = true; drawAll(); console.warn('[MIO] Không làm mới được vị trí:', err); return; }
+        if (quiet) {
+          if (rows) { failed = true; drawAll(); console.warn('[MIO] Không làm mới được vị trí:', err); }
+          else error(body, err, () => refresh());
+          if (isPollFailure(err)) throw err;
+          return;
+        }
         error(body, err, () => refresh());
       }
     }

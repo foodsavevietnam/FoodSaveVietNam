@@ -6,6 +6,7 @@ import { ERROR_CODES } from "./constants/errors";
 import { HTTP_STATUS } from "./constants/http";
 import { errorHandler } from "./middlewares/errorHandler";
 import { apiRateLimiter } from "./middlewares/rateLimiter";
+import { requestIdMiddleware } from "./middlewares/requestIdMiddleware";
 import { apiRoutes } from "./routes";
 import { AppError } from "./utils/appError";
 
@@ -13,6 +14,7 @@ export const app = express();
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+app.use(requestIdMiddleware);
 
 const isAllowedCorsOrigin = (origin: string | undefined): boolean => {
   if (!origin) return true;
@@ -31,13 +33,26 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type", "X-Requested-With"]
+  allowedHeaders: [
+    "Authorization",
+    "Content-Type",
+    "X-Requested-With",
+    "X-Request-Id",
+    "X-App-Version",
+    "X-Platform",
+    "X-Store-Id",
+    "Idempotency-Key"
+  ],
+  exposedHeaders: ["X-Request-Id"]
 }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(apiRateLimiter);
 
-app.use(env.API_BASE_PATH, apiRoutes);
+app.use(env.API_BASE_PATH, (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, private");
+  next();
+}, apiRoutes);
 
 app.use((_req, res) => {
   res.status(HTTP_STATUS.NOT_FOUND).json({

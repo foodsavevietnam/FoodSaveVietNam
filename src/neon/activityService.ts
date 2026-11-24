@@ -44,11 +44,24 @@ export const recordActivity = async (
   return result.rows[0] ?? null;
 };
 
+const isNeonActivityEnabled = (): boolean => {
+  try {
+    const { env } = require("../config/env") as { env?: { NEON_ACTIVITY_ENABLED?: boolean } };
+    if (env && typeof env.NEON_ACTIVITY_ENABLED === "boolean") {
+      return env.NEON_ACTIVITY_ENABLED;
+    }
+  } catch {
+    // Standalone Neon scripts may run without full Supabase environment variables.
+  }
+  return process.env.NEON_ACTIVITY_ENABLED?.trim().toLowerCase() !== "false";
+};
+
 /** Best-effort side effect for Supabase-backed business flows. Never fail their response. */
 export const recordActivityBestEffort = async (
   eventType: ActivityType,
   sourceId: string,
 ): Promise<void> => {
+  if (!isNeonActivityEnabled()) return;
   if (!process.env.NEON_DATABASE_URL) return;
   try {
     await recordActivity(eventType, sourceId);

@@ -128,6 +128,21 @@ const PROOF_BUCKET = "donation-proofs";
 const PROOF_IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const proofPublicPrefix = (donationId: string): string => env.SUPABASE_URL.replace(/\/+$/, "") + "/storage/v1/object/public/" + PROOF_BUCKET + "/proofs/" + donationId + "/";
 
+const DONATION_STATUS_TRANSITIONS: Record<string, string[]> = {
+  open: ["accepted", "rejected", "cancelled"],
+  accepted: ["in_route", "completed", "rejected", "cancelled"],
+  in_route: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+  rejected: []
+};
+
+const maskPickupCodeForRole = (donation: Donation, actorRole: UserRole): Donation => {
+  if (actorRole === "partner") return { ...donation, pickup_code: null };
+  if (actorRole === "admin" && donation.status !== "completed") return { ...donation, pickup_code: null };
+  return donation;
+};
+
 export const donationService = {
   async listDonations(actorId: string, actorRole: UserRole, query: DonationListQuery): Promise<PaginatedResponse<Donation>> {
     // Mặc định từ chối: role không được lọc bên dưới (người mua) sẽ thấy pickup_code và SĐT tình nguyện viên.
@@ -198,12 +213,14 @@ export const donationService = {
       });
     }
 
-    // Mã nhận hàng chỉ dành cho tổ chức và TNV; cửa hàng phải nhập mã do TNV đưa
+    // Mã nhận hàng chỉ dành cho tổ chức và TNV; cửa hàng phải nhập mã do TNV đưa; admin chỉ thấy sau khi đã hoàn tất bàn giao
     if (actorRole === "partner") {
       items = items.map((donation) => {
         const photos = ((donation as unknown as { donation_photos?: Array<{ status: string }> }).donation_photos ?? []).filter((photo) => photo.status === "approved" || photo.status === "auto_approved");
         return { ...donation, pickup_code: null, donation_photos: photos } as Donation;
       });
+    } else if (actorRole === "admin") {
+      items = items.map((donation) => maskPickupCodeForRole(donation, actorRole));
     }
 
     return {
@@ -299,7 +316,7 @@ export const donationService = {
       relatedId: donation.id
     });
 
-    return donation;
+    return maskPickupCodeForRole(donation, actorRole);
   },
 
   async createDonation(actorId: string, actorRole: UserRole, body: CreateDonationBody): Promise<Donation> {
@@ -328,7 +345,7 @@ export const donationService = {
       relatedId: donation.id
     });
 
-    return donation;
+    return maskPickupCodeForRole(donation, actorRole);
   },
 
   async acceptDonation(actorId: string, actorRole: UserRole, donationId: string, body: AcceptDonationBody): Promise<Donation> {
@@ -394,7 +411,7 @@ export const donationService = {
       relatedId: donation.id
     });
 
-    return donation;
+    return maskPickupCodeForRole(donation, actorRole);
   },
 
   // Link tạm để trình duyệt của tổ chức tự tải ảnh minh chứng lên (chỉ cho lô đã hoàn thành của chính tổ chức)
@@ -469,7 +486,7 @@ export const donationService = {
         body: donation.stores.name + " đồng ý. Hãy phân tình nguyện viên đến lấy hàng.",
         donationId
       });
-      return data as Donation;
+      return maskPickupCodeForRole(data as Donation, actorRole);
     }
 
     // Từ chối: lô quay lại hộp thư để tổ chức khác chọn
@@ -498,17 +515,17 @@ export const donationService = {
       body: donation.stores.name + " đã từ chối. Lô được mở lại cho tổ chức khác.",
       donationId
     });
-    return data as Donation;
+    return maskPickupCodeForRole(data as Donation, actorRole);
   },
 
   // Tổ chức phân tình nguyện viên: sinh mã nhận hàng
   async assignVolunteer(actorId: string, actorRole: UserRole, donationId: string, body: AssignVolunteerBody): Promise<Donation> {
-    return (await teamService.assignSingle(actorId, actorRole, donationId, body.volunteer_id, body.distribute_volunteer_id, body.portions)) as Donation;
+    return maskPickupCodeForRole((await teamService.assignSingle(actorId, actorRole, donationId, body.volunteer_id, body.distribute_volunteer_id, body.portions)) as Donation, actorRole);
   },
 
   // Tổ chức giao giai đoạn phát hàng: chọn người phát và nhập số suất (số suất dùng lại cho báo cáo ESG)
   async assignDistribution(actorId: string, actorRole: UserRole, donationId: string, body: AssignDistributionBody): Promise<Donation> {
-    return (await teamService.assignTeam(actorId, actorRole, donationId, { distribute: [{ volunteer_id: body.volunteer_id, share: body.portions }] })) as Donation;
+    return maskPickupCodeForRole((await teamService.assignTeam(actorId, actorRole, donationId, { distribute: [{ volunteer_id: body.volunteer_id, share: body.portions }] })) as Donation, actorRole);
   },
 
   // Cửa hàng báo đã đóng gói xong, chờ TNV
@@ -533,7 +550,7 @@ export const donationService = {
       body: donation.stores.name + " đã đóng gói. Tình nguyện viên có thể đến lấy.",
       donationId
     });
-    return data as Donation;
+    return maskPickupCodeForRole(data as Donation, actorRole);
   },
 
   // Cửa hàng nhập mã TNV đưa để xác nhận bàn giao
@@ -611,21 +628,50 @@ export const donationService = {
       throw new AppError("Việc bàn giao do cửa hàng xác nhận bằng mã nhận hàng của tình nguyện viên", HTTP_STATUS.FORBIDDEN, ERROR_CODES.AUTH_FORBIDDEN);
     }
 
+    if (actorRole === "partner" && body.status === "completed") {
+      throw new AppError(
+        "Cửa hàng phải xác nhận bàn giao bằng mã nhận hàng 6 ký tự qua /handover",
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.AUTH_FORBIDDEN
+      );
+    }
+
+    if (donation.status === "completed" || donation.status === "cancelled" || donation.status === "rejected") {
+      throw conflict("Lô quyên góp đã kết thúc, không thể thay đổi trạng thái");
+    }
+
+    if (body.status !== donation.status) {
+      const allowedNext = DONATION_STATUS_TRANSITIONS[donation.status] ?? [];
+      if (!allowedNext.includes(body.status)) {
+        throw conflict(`Không thể chuyển lô quyên góp từ "${donation.status}" sang "${body.status}"`);
+      }
+    }
+
+    if (body.assigned_volunteer_id) {
+      if (!donation.charity_id) {
+        throw new AppError("Lô này chưa có tổ chức nhận nên không thể phân tình nguyện viên", HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+      await loadCharityVolunteer(body.assigned_volunteer_id, donation.charity_id);
+    }
+
     const shouldRecordImpact = donation.status !== "completed" && body.status === "completed";
+    const updatePatch: Record<string, unknown> = {
+      status: body.status,
+      ...(body.assigned_volunteer_id !== undefined ? { assigned_volunteer_id: body.assigned_volunteer_id } : {}),
+      ...(body.note !== undefined ? { note: body.note } : {}),
+      ...(body.status === "completed" ? { completed_at: new Date().toISOString() } : {})
+    };
 
     const { data, error } = await supabaseAdmin
       .from("donations")
-      .update({
-        status: body.status,
-        assigned_volunteer_id: body.assigned_volunteer_id,
-        note: body.note,
-        completed_at: body.status === "completed" ? new Date().toISOString() : null
-      })
+      .update(updatePatch)
       .eq("id", donationId)
+      .eq("status", donation.status)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (error) handleSupabaseError(error, "Failed to update donation");
+    if (!data) throw conflict("Lô quyên góp vừa được cập nhật ở nơi khác, hãy tải lại");
 
     // Cửa hàng huỷ lô chưa ai nhận: trả phần đã giữ về kho bán
     if (donation.status === "open" && body.status === "cancelled" && donation.product_id && donation.quantity) {
@@ -650,6 +696,6 @@ export const donationService = {
         logger.warn("Failed to record eco impact for completed donation", { donationId, error: impactError });
       }
     }
-    return data as Donation;
+    return maskPickupCodeForRole(data as Donation, actorRole);
   }
 };

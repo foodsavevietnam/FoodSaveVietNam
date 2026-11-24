@@ -1,12 +1,19 @@
 // Lịch poll chung: dừng khi tab ẩn hoặc rảnh quá idleMs; thao tác lại thì làm mới ngay.
+// Lỗi liên tiếp (ví dụ 5xx): giãn nhịp backoff và tạm dừng job sau maxFailures lần liên tiếp cho tới khi chạy thành công hoặc người dùng bấm tiếp tục/chuyển tab.
 // Không chạm document/window ở cấp module (import được trong Node).
 const HEARTBEAT_MS = 5000;
+const DEFAULT_MAX_FAILURES = 3;
+
+export const isPollFailure = (err) => Boolean(
+  err && err.name !== 'AbortError' && (err.status >= 500 || err.code === 'NETWORK' || err.code === 'TIMEOUT'),
+);
 
 export function createPoll({
   now = Date.now,
   visible,
   idleMs = 900000,
   minGapMs = 10000,
+  maxFailures = DEFAULT_MAX_FAILURES,
   demo = false,
   onPaused = () => {},
 } = {}) {
@@ -24,15 +31,39 @@ export function createPoll({
     try { onPaused(value); } catch (error) { console.warn('[MIO] Lỗi khi đổi trạng thái tạm dừng:', error); }
   }
 
+  function recordFailure(job, error) {
+    job.failures += 1;
+    if (job.failures >= maxFailures) {
+      job.halted = true;
+      console.warn('[MIO] Tạm dừng làm mới do lỗi liên tiếp:', error);
+    } else {
+      console.warn('[MIO] Không làm mới được dữ liệu:', error);
+    }
+  }
+
+  function resetFailures() {
+    jobs.forEach((job) => { job.failures = 0; job.halted = false; });
+  }
+
   function run(job, t) {
-    if (job.running) return;
+    if (job.running || job.halted) return;
     job.last = t;
     let result;
-    try { result = job.fn(); } catch (error) { console.warn('[MIO] Không làm mới được dữ liệu:', error); return; }
+    try { result = job.fn(); } catch (error) { recordFailure(job, error); return; }
     if (result && typeof result.then === 'function') {
       job.running = true;
-      result.catch((error) => console.warn('[MIO] Không làm mới được dữ liệu:', error)).then(() => { job.running = false; });
+      result.then(
+        () => { job.failures = 0; job.halted = false; job.running = false; },
+        (error) => { recordFailure(job, error); job.running = false; },
+      );
+    } else {
+      job.failures = 0;
+      job.halted = false;
     }
+  }
+
+  function gapOf(baseMs, job) {
+    return job.failures > 0 ? baseMs * (2 ** job.failures) : baseMs;
   }
 
   function tick(resume = false) {
@@ -43,14 +74,18 @@ export function createPoll({
     const t = now();
     if (idle) {
       // Rảnh: chỉ job có idleMs riêng chạy thưa
-      jobs.forEach((job) => { if (job.idleMs && t - job.last >= job.idleMs) run(job, t); });
+      jobs.forEach((job) => { if (!job.halted && job.idleMs && t - job.last >= gapOf(job.idleMs, job)) run(job, t); });
       return;
     }
-    jobs.forEach((job) => { if (t - job.last >= (resume ? minGapMs : job.everyMs)) run(job, t); });
+    jobs.forEach((job) => {
+      if (job.halted) return;
+      const gap = resume ? minGapMs : gapOf(job.everyMs, job);
+      if (t - job.last >= gap) run(job, t);
+    });
   }
 
   function add(name, fn, { everyMs, idleMs: jobIdleMs = 0, immediate = false } = {}) {
-    jobs.set(name, { fn, everyMs, idleMs: jobIdleMs, last: immediate ? -Infinity : now(), running: false });
+    jobs.set(name, { fn, everyMs, idleMs: jobIdleMs, last: immediate ? -Infinity : now(), running: false, failures: 0, halted: false });
   }
 
   function remove(name) {
@@ -65,6 +100,7 @@ export function createPoll({
     manual = false;
     lastInteraction = now();
     if (wasPaused) {
+      resetFailures();
       setPaused(false);
       tick(true);
     }
@@ -72,7 +108,7 @@ export function createPoll({
 
   // pause() thủ công bị hủy khi người dùng thao tác (touch/resume)
   function pause() { manual = true; setPaused(true); }
-  function resume() { touch(); }
+  function resume() { resetFailures(); touch(); }
 
   function attach(doc) {
     if (!visible) isVisible = () => doc.visibilityState === 'visible';
@@ -82,6 +118,7 @@ export function createPoll({
       if (!isVisible()) return;
       lastInteraction = now();
       manual = false;
+      resetFailures();
       setPaused(false);
       tick(true);
     };

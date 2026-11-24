@@ -12,6 +12,7 @@
 import { ERROR_CODES } from "../constants/errors";
 import { HTTP_STATUS } from "../constants/http";
 import { MIN_WITHDRAWAL } from "../constants/orderPolicy";
+import { env } from "../config/env";
 import type { Order } from "../types/domain";
 import { AppError } from "../utils/appError";
 import { logger } from "../utils/logger";
@@ -19,6 +20,25 @@ import { createNotification } from "./notificationService";
 import { payoutAccountService } from "./payoutAccountService";
 import { getPayoutProvider } from "./payouts";
 import { handleSupabaseError, supabaseAdmin } from "./supabaseService";
+
+const MIGRATION_PENDING_CODES = new Set(["42883", "42P01", "PGRST202", "PGRST205"]);
+const warnedMissingRpcs = new Set<string>();
+
+const isMigrationPendingError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && MIGRATION_PENDING_CODES.has(code);
+};
+
+const warnMissingRpcOnce = (rpcName: string, error: unknown): void => {
+  if (warnedMissingRpcs.has(rpcName)) return;
+  warnedMissingRpcs.add(rpcName);
+  logger.warn(`RPC ${rpcName} chưa sẵn sàng (chưa áp dụng SQL 041); tự động chuyển về luồng JS dự phòng`, {
+    rpc: rpcName,
+    code: (error as { code?: string } | null)?.code,
+    message: (error as { message?: string } | null)?.message
+  });
+};
 
 export type SystemWallet = "external" | "escrow" | "platform_revenue" | "charity_pool";
 export type LedgerEntryType = "charge" | "release" | "refund" | "refund_clawback" | "withdraw" | "adjustment";
@@ -115,6 +135,22 @@ export const ledgerService = {
   /** Giải ngân: hoàn tất, hoặc hủy muộn / vắng mặt (lúc đó metadata.reason ghi rõ lý do) */
   async settleOrder(order: OrderMoney, reason: SettleReason): Promise<void> {
     const money = splitOrderMoney(order);
+    if (env.ORDER_ATOMIC_RPC_ENABLED) {
+      const { error } = await supabaseAdmin.rpc("fs_settle_order", {
+        p_order_id: order.id,
+        p_store_id: order.store_id,
+        p_store_cents: money.store,
+        p_fee_cents: money.fee,
+        p_donation_cents: money.donation,
+        p_reason: reason
+      });
+      if (!error) return;
+      if (isMigrationPendingError(error)) {
+        warnMissingRpcOnce("fs_settle_order", error);
+      } else {
+        handleSupabaseError(error, "Failed to settle order via atomic RPC");
+      }
+    }
     const escrow = await systemWallet("escrow");
     const meta = (part: string): Record<string, unknown> => ({ reason, part });
     await ledgerService.post(key(order.id, "release:store"), order.id, "release", escrow, await storeWallet(order.store_id), money.store, meta("store"));
@@ -128,17 +164,38 @@ export const ledgerService = {
    */
   async refundOrder(order: OrderMoney, options: { amount?: number; reason: string }): Promise<void> {
     const money = splitOrderMoney(order);
-    const external = await systemWallet("external");
     const keys = await existingKeys(order.id);
     const released = keys.has(key(order.id, "release:store")) || keys.has(key(order.id, "release:fee")) || keys.has(key(order.id, "release:donation"));
+    const amount = released
+      ? Math.min(money.total, Math.max(0, Math.round(options.amount ?? money.total)))
+      : money.total;
+    const parts = released ? splitRefund(money, amount) : { store: 0, fee: 0, donation: 0 };
+
+    if (env.ORDER_ATOMIC_RPC_ENABLED) {
+      const { error } = await supabaseAdmin.rpc("fs_refund_order", {
+        p_order_id: order.id,
+        p_store_id: order.store_id,
+        p_refund_cents: amount,
+        p_from_released: released,
+        p_fee_cents: parts.fee,
+        p_donation_cents: parts.donation,
+        p_reason: options.reason
+      });
+      if (!error) return;
+      if (isMigrationPendingError(error)) {
+        warnMissingRpcOnce("fs_refund_order", error);
+      } else {
+        handleSupabaseError(error, "Failed to refund order via atomic RPC");
+      }
+    }
+
+    const external = await systemWallet("external");
     const meta = { reason: options.reason };
 
     if (!released) {
       await ledgerService.post(key(order.id, "refund"), order.id, "refund", await systemWallet("escrow"), external, money.total, meta);
       return;
     }
-    const amount = Math.min(money.total, Math.max(0, Math.round(options.amount ?? money.total)));
-    const parts = splitRefund(money, amount);
     await ledgerService.post(key(order.id, "clawback:store"), order.id, "refund_clawback", await storeWallet(order.store_id), external, parts.store, { ...meta, part: "store" });
     await ledgerService.post(key(order.id, "clawback:fee"), order.id, "refund_clawback", await systemWallet("platform_revenue"), external, parts.fee, { ...meta, part: "fee" });
     await ledgerService.post(key(order.id, "clawback:donation"), order.id, "refund_clawback", await systemWallet("charity_pool"), external, parts.donation, { ...meta, part: "donation" });
@@ -274,10 +331,27 @@ export const ledgerService = {
     return data ?? [];
   },
 
-  async listAllWithdrawals(status?: string): Promise<unknown[]> {
-    let query = supabaseAdmin.from("withdrawals").select("*, stores(name)").order("requested_at", { ascending: false }).limit(100);
-    if (status) query = query.eq("status", status);
-    const { data, error } = await query;
+  async listAllWithdrawals(
+    filter?: string | { status?: string | undefined; store_id?: string | undefined; page?: number | undefined; limit?: number | undefined }
+  ): Promise<unknown[] | { items: unknown[]; total: number; page: number; limit: number }> {
+    const opts = typeof filter === "string" ? { status: filter } : (filter ?? {});
+    const hasPage = opts.page !== undefined;
+    const perPage = Math.min(Math.max(Number(opts.limit) || (hasPage ? 20 : 100), 1), 100);
+    let query = supabaseAdmin
+      .from("withdrawals")
+      .select("*, stores(name)", hasPage ? { count: "exact" } : undefined)
+      .order("requested_at", { ascending: false });
+    if (opts.status) query = query.eq("status", opts.status);
+    if (opts.store_id) query = query.eq("store_id", opts.store_id);
+    if (hasPage) {
+      const page = Math.max(1, Math.floor(Number(opts.page) || 1));
+      query = query.range((page - 1) * perPage, page * perPage - 1);
+      const { data, error, count } = await query;
+      if (error) handleSupabaseError(error, "Failed to list withdrawals");
+      const items = data ?? [];
+      return { items, total: count ?? items.length, page, limit: perPage };
+    }
+    const { data, error } = await query.limit(perPage);
     if (error) handleSupabaseError(error, "Failed to list withdrawals");
     return data ?? [];
   },
@@ -287,7 +361,7 @@ export const ledgerService = {
    * (hàm SQL fs_withdrawal_transition). Chỉ `pay` mới trừ ví thật (bút toán rút) và bắt buộc có mã giao dịch ngân hàng.
    * `start` gọi PayoutProvider.createPayout (thủ công: chỉ đánh dấu đang chi).
    */
-  async transitionWithdrawal(id: string, action: "approve" | "reject" | "start" | "pay" | "fail", adminId: string, options: { note?: string | undefined; bank_txn_ref?: string | undefined } = {}): Promise<Record<string, unknown>> {
+  async transitionWithdrawal(id: string, action: "approve" | "reject" | "start" | "pay" | "fail", adminId: string, options: { note?: string | undefined; bank_txn_ref?: string | undefined } = {}): Promise<Record<string, unknown> & { readonly changed?: boolean }> {
     const { data: before } = await supabaseAdmin.from("withdrawals").select("status,store_id,amount_cents").eq("id", id).maybeSingle();
     const prior = before as { status: string; store_id: string; amount_cents: number } | null;
     if (!prior) throw new AppError("Không tìm thấy lệnh rút", HTTP_STATUS.NOT_FOUND, ERROR_CODES.RESOURCE_NOT_FOUND);
@@ -320,7 +394,8 @@ export const ledgerService = {
 
     // Thông báo cho chủ cửa hàng khi trạng thái thật sự thay đổi (gọi lặp lại không thông báo lại)
     const target: Record<string, string> = { approve: "approved", reject: "rejected", start: "processing", pay: "paid", fail: "failed" };
-    if (prior.status !== target[action] && after.status === target[action]) {
+    const changed = prior.status !== target[action] && after.status === target[action];
+    if (changed) {
       const { data: store } = await supabaseAdmin.from("stores").select("owner_id").eq("id", prior.store_id).maybeSingle();
       const owner = (store as { owner_id: string } | null)?.owner_id;
       const amount = Number(prior.amount_cents).toLocaleString("vi-VN") + "đ";
@@ -333,7 +408,10 @@ export const ledgerService = {
       };
       if (owner) await createNotification({ recipientId: owner, roleTarget: "partner", type: "withdrawal-update", title: text[action]![0], body: text[action]![1] });
     }
-    return after;
+    // Gắn cờ `changed` không liệt kê (non-enumerable) để controller tránh ghi trùng audit log mà giữ nguyên JSON trả client
+    const out: Record<string, unknown> & { readonly changed?: boolean } = { ...after };
+    Object.defineProperty(out, "changed", { value: changed, enumerable: false, configurable: true });
+    return out;
   },
 
   async financeSummary(): Promise<Record<string, unknown>> {

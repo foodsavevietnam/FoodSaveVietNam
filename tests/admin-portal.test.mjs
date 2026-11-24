@@ -7,9 +7,11 @@ test('admin/index.html tồn tại và chỉ nạp script module ngoài', () => 
   assert.doesNotMatch(html, /<script(?![^>]*src=)[^>]*>[\s\S]*?import /u, 'không được có module nội tuyến');
   for (const id of ['app', 'sidebar', 'topbar', 'screen', 'drawer', 'modal', 'toasts', 'login', 'loginError']) assert.match(html, new RegExp(`id="${id}"`));
 });
-test('sw.js không cache /admin/ và đã lên mio-v5', () => {
+test('sw.js không cache /admin/ và đã lên mio-v5+', () => {
   const sw = readFileSync('public/sw.js', 'utf8');
-  assert.match(sw, /CACHE_VERSION = "mio-v5"/); assert.match(sw, /\/admin\//);
+  const m = sw.match(/CACHE_VERSION = "mio-v(\d+)"/);
+  assert.ok(m && Number(m[1]) >= 5, 'CACHE_VERSION phải >= mio-v5');
+  assert.match(sw, /\/admin\//);
 });
 
 // ---- Task 5: guard tĩnh + manifest, state, auth, tìm màn ----

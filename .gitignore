@@ -32,3 +32,8 @@ Check-token.js
 *.local.json
 playwright-report/
 test-results/
+
+# Temporary / AI workspace & backup artifacts
+.superpowers/
+_backup_*/
+Claude outputs/

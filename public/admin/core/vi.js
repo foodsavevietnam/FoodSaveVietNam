@@ -20,7 +20,11 @@ export const VI = {
   charityStatus: { active: ['Đang hoạt động', 'ok'], pending: ['Chờ duyệt', 'w'], suspended: ['Tạm ngưng', 'e'], rejected: ['Bị từ chối', 'm'] },
   volunteerStatus: { new: ['Mới', 'i'], active: ['Đang hoạt động', 'ok'], inactive: ['Tạm ngưng', 'm'] },
   donationStatus: { open: ['Đang mở', 'w'], accepted: ['Đã nhận', 'i'], in_route: ['Đang lấy hàng', 'i'], completed: ['Đã bàn giao', 'ok'], rejected: ['Từ chối', 'm'], cancelled: ['Đã hủy', 'm'] },
-  role: { customer: 'Người mua', partner: 'Cửa hàng', charity: 'Tổ chức từ thiện', admin: 'Quản trị viên' },
+  contactStatus: { open: ['Mới nhận', 'w'], in_review: ['Đang xử lý', 'i'], in_progress: ['Đang xử lý', 'i'], resolved: ['Đã giải quyết', 'ok'], closed: ['Đã đóng', 'ok'] },
+  applicationStatus: { pending: ['Chờ xem xét', 'w'], in_review: ['Đang thẩm định', 'i'], approved: ['Đã chấp thuận', 'ok'], rejected: ['Đã từ chối', 'm'], resolved: ['Đã xử lý', 'ok'] },
+  applicationType: { partner: ['Cửa hàng đối tác', 'i'], charity: ['Tổ chức từ thiện', 'p'] },
+  reviewVisibility: { visible: ['Đang hiển thị', 'ok'], hidden: ['Đã ẩn', 'e'] },
+  role: { customer: 'Người mua', partner: 'Cửa hàng', charity: 'Tổ chức từ thiện', admin: 'Quản trị viên', volunteer: 'Tình nguyện viên' },
 };
 
 export function badge(group, code) {
@@ -66,6 +70,23 @@ export const ACTIONS = {
   'charity.suspend': 'Tạm ngưng tổ chức',
   'charity.unsuspend': 'Mở lại tổ chức',
   'volunteer.status': 'Cập nhật trạng thái tình nguyện viên',
+  'order.cancel': 'Hủy đơn hàng',
+  'order.no_show': 'Đánh dấu khách vắng mặt',
+  'order.complete': 'Hoàn tất đơn hàng thay cửa hàng',
+  'order.note': 'Ghi chú nội bộ đơn hàng',
+  'donation.cancel': 'Hủy lô tặng',
+  'product.hide': 'Ẩn sản phẩm vi phạm',
+  'product.unhide': 'Hiện lại sản phẩm',
+  'review.hide': 'Ẩn đánh giá',
+  'review.unhide': 'Hiện lại đánh giá',
+  'admin.create': 'Tạo quản trị viên mới',
+  'admin.grant': 'Cấp quyền quản trị viên',
+  'admin.suspend': 'Tạm khóa quản trị viên',
+  'admin.unsuspend': 'Mở khóa quản trị viên',
+  'admin.revoke': 'Thu hồi quyền quản trị viên',
+  'notification.send': 'Gửi thông báo hệ thống',
+  'contact.update': 'Cập nhật tin nhắn liên hệ',
+  'application.update': 'Cập nhật đơn đăng ký đối tác',
 };
 
 // Action lạ (chưa có trong bảng) hiện nguyên văn; nơi dựng HTML tự escape qua tag `html`.

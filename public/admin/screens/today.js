@@ -1,4 +1,4 @@
-// Màn "Hôm nay": việc cần làm theo mức khẩn (Đỏ/Vàng/Xám) và 4 ô số.
+// Màn "Hôm nay": việc cần làm theo mức khẩn (Đỏ/Vàng/Xám), 4 ô số và bảng xu hướng 7/30 ngày theo yêu cầu.
 // Số việc lấy từ state.work do app tự làm mới (không gọi lại /admin/dashboard/work ở đây).
 import { vnd, stamp, monthVn } from '../core/format.js';
 import { isPollFailure } from '../core/poll.js';
@@ -51,11 +51,29 @@ export default {
         <div class="K" data-block="esg"></div>
         <div class="K" data-block="labels"></div>
       </div>
+      <section class="P" data-role="overview" aria-label="Xu hướng hoạt động">
+        <div class="P-h">
+          <span class="P-t">Xu hướng hoạt động</span>
+          <div class="P-a" data-role="overview-actions">
+            <button type="button" class="bt" data-act="overview-days" data-days="7">7 ngày</button>
+            <button type="button" class="bt" data-act="overview-days" data-days="30">30 ngày</button>
+          </div>
+        </div>
+        <div data-role="overview-body" style="padding:12px 16px">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:.8rem;color:var(--t3)">
+            <span>Chọn mốc 7 ngày hoặc 30 ngày để xem thống kê đơn hàng, doanh thu và người dùng mới.</span>
+            <button type="button" class="bt bt-p" data-act="overview-days" data-days="7" data-role="overview-open">Xem xu hướng 7 ngày</button>
+          </div>
+        </div>
+      </section>
       <section class="P" data-block="automation" aria-label="Tác vụ tự động"></section>
     </div>`;
     const root = container.firstElementChild;
     const q = (name) => root.querySelector(`[data-block="${name}"]`);
     const workBody = root.querySelector('[data-role="work-body"]');
+    const overviewSection = root.querySelector('[data-role="overview"]');
+    const overviewActions = root.querySelector('[data-role="overview-actions"]');
+    const overviewBody = root.querySelector('[data-role="overview-body"]');
     const alive = () => !signal.aborted && root.isConnected;
 
     // Khối nào cũng gồm: nơi vẽ, địa chỉ API, hàm vẽ. Lỗi/tải lại chỉ trong khối đó.
@@ -93,6 +111,64 @@ export default {
       },
     };
     const badgeOf = (code) => html`<span class="b b-${raw(VI.label[code][1])}">${VI.label[code][0]}</span>`;
+
+    // Khối xu hướng 7/30 ngày: chỉ tải khi bấm nút, KHÔNG nằm trong lịch poll định kỳ và tự ẩn êm nếu API lỗi/404.
+    let overviewSeq = 0;
+    function syncOverviewButtons(activeDays) {
+      overviewActions.querySelectorAll('[data-act="overview-days"]').forEach((btn) => {
+        const on = Number(btn.dataset.days) === activeDays;
+        btn.classList.toggle('bt-p', on);
+        if (on) btn.setAttribute('aria-pressed', 'true');
+        else btn.removeAttribute('aria-pressed');
+      });
+    }
+
+    function drawOverview(d) {
+      const t = d?.totals || {};
+      const series = Array.isArray(d?.series) ? d.series : [];
+      const mini = (key, label, value, note) => html`<div class="K" data-overview-kpi="${key}" style="padding:10px 12px">
+        <div class="K-l">${label}</div><div class="K-v" style="font-size:1.15rem">${value}</div><div class="K-n">${note}</div></div>`;
+      const summary = html`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+        ${raw(mini('orders', 'Đơn hàng', fmtNum(t.orders), `${fmtNum(t.orders_cancelled)} đã hủy · ${fmtNum(t.orders_no_show)} khách vắng mặt`))}
+        ${raw(mini('completed', 'Hoàn thành', fmtNum(t.orders_completed), 'đơn nhận hàng thành công'))}
+        ${raw(mini('gmv', 'Giá trị giao dịch', vnd(t.gmv_cents), 'tổng giá trị đơn hoàn thành'))}
+        ${raw(mini('donations', 'Lô tặng', fmtNum(t.donations), `${fmtNum(t.donations_completed)} đã bàn giao`))}
+        ${raw(mini('complaints', 'Khiếu nại', fmtNum(t.complaints), 'hồ sơ khiếu nại phát sinh'))}
+        ${raw(mini('new_users', 'Người dùng mới', fmtNum(t.new_users), 'tài khoản đăng ký mới'))}
+      </div>`;
+      const rows = series.map((r) => html`<tr>
+        <td>${r.date || '—'}</td>
+        <td>${fmtNum(r.orders)}</td>
+        <td>${vnd(r.gmv_cents)}</td>
+        <td>${fmtNum(r.donations)}</td>
+        <td>${fmtNum(r.complaints)}</td>
+        <td>${fmtNum(r.new_users)}</td>
+      </tr>`).join('');
+      const table = series.length
+        ? html`<div class="W"><table class="tbl" data-role="overview-table">
+          <thead><tr><th>Ngày</th><th>Đơn hàng</th><th>Giá trị giao dịch</th><th>Lô tặng</th><th>Khiếu nại</th><th>Người dùng mới</th></tr></thead>
+          <tbody>${raw(rows)}</tbody>
+        </table></div>`
+        : html`<div style="font-size:.8rem;color:var(--t3);padding:8px 0">Chưa có dữ liệu theo ngày trong khoảng này.</div>`;
+      overviewBody.innerHTML = summary + table;
+    }
+
+    async function loadOverview(daysInput) {
+      const days = Number(daysInput) === 30 ? 30 : 7;
+      const mine = ++overviewSeq;
+      syncOverviewButtons(days);
+      loading(overviewBody);
+      try {
+        const data = await api.get(`/admin/dashboard/overview?days=${days}`, { signal });
+        if (!alive() || mine !== overviewSeq) return;
+        overviewSection.hidden = false;
+        drawOverview(data);
+      } catch (err) {
+        if (!alive() || mine !== overviewSeq || err?.name === 'AbortError') return;
+        overviewSection.hidden = true;
+        overviewBody.innerHTML = '';
+      }
+    }
 
     const loaded = {}; // khối đã có dữ liệu tốt (làm mới nền thất bại thì giữ nguyên)
     async function loadBlock(name, { quiet = false } = {}) {
@@ -143,6 +219,7 @@ export default {
     function drawAll() { drawWork(); drawToday(); }
 
     delegate(root, 'click', '[data-act="go"]', (_e, el) => ctx.navigate(el.dataset.screen));
+    delegate(root, 'click', '[data-act="overview-days"]', (_e, el) => loadOverview(el.dataset.days));
 
     // Tải số việc: refreshWork của app nuốt lỗi (chỉ console.warn), nên thất bại = state.work vẫn chưa có
     async function loadWork() {

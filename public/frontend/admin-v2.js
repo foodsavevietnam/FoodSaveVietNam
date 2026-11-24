@@ -406,8 +406,6 @@
     }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:18px">Không có hồ sơ phù hợp.</td></tr>';
     return strip + dash + Pn('Danh sách tranh chấp' + (CMP.filter ? ' (đang lọc)' : ''), Tb(['Mã', 'Đơn', 'Người mua', 'Cửa hàng', 'Trạng thái', 'Lý do', 'Ưu tiên', 'Hạn / kết quả', ''], trs), '<button class="bt bt-s" onclick="CMP_RELOAD()">Tải lại</button>');
   };
-  // Số trên menu lấy từ dữ liệu thật ngay khi vào trang quản trị
-  setTimeout(function () { try { if (typeof foodsaveAdminSupabase !== 'undefined') cmpLoad(); } catch (e) {} }, 4000);
 
   var oldReputation = pg.reputation;
   pg.reputation = function () {

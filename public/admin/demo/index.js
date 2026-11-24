@@ -23,7 +23,7 @@ import * as fx_ledger from './fixtures/ledger.js';
 import * as fx_marketing from './fixtures/marketing.js';
 import * as fx_settings from './fixtures/settings.js';
 
-// Màn Đợt 2 tạm: mỗi file fixture tự khai báo routes (đường dẫn cố định) và resolve (đường dẫn động).
+// Mỗi file fixture tự khai báo routes (đường dẫn cố định) và resolve (đường dẫn động).
 const SCREEN_FIXTURES = [fx_customers, fx_stores, fx_charities, fx_orders, fx_donations, fx_tracking, fx_inventory, fx_ledger, fx_marketing, fx_settings];
 
 const ROUTES = {
@@ -45,11 +45,18 @@ for (const fx of SCREEN_FIXTURES) Object.assign(ROUTES, fx.routes || {});
 
 export function createDemoApi() {
   const saved = new Map(); // 'METHOD path' → body ghi gần nhất (chỉ giữ trong bộ nhớ)
+  const settingsResolve = typeof fx_settings.createSettingsResolver === 'function'
+    ? fx_settings.createSettingsResolver()
+    : fx_settings.resolve;
 
   async function request(method, rawPath, body) {
     const path = String(rawPath).split('?')[0];
     const key = `${method} ${path}`;
+    const settingsHit = typeof settingsResolve === 'function' ? settingsResolve(method, path, body, String(rawPath)) : undefined;
+    if (settingsHit !== undefined) return structuredClone(settingsHit);
+
     for (const fx of SCREEN_FIXTURES) {
+      if (fx === fx_settings) continue;
       const hit = typeof fx.resolve === 'function' ? fx.resolve(method, path, body, String(rawPath)) : undefined;
       if (hit !== undefined) return structuredClone(hit);
     }
@@ -62,7 +69,7 @@ export function createDemoApi() {
           query: q,
           accounts: (fx_customers.accounts || []).filter((a) => hit([a.full_name, a.email, a.phone])).slice(0, 5).map((a) => ({ id: a.id, full_name: a.full_name, role: a.role, status: a.status, email: a.email, phone: mask(a.phone) })),
           stores: (fx_stores.stores || []).filter((s) => hit([s.name, s.address])).slice(0, 5).map((s) => ({ id: s.id, name: s.name, district: s.district, city: s.city, status: s.status, is_verified: s.is_verified })),
-          charities: (fx_charities.charities || []).filter((c) => hit([c.name, c.address, c.phone])).slice(0, 5).map((c) => ({ id: c.id, name: c.name, district: c.district, city: c.city, status: c.status, phone: mask(c.phone) })),
+          charities: (fx_charities.charities || []).filter((c) => hit([c.name, c.address, c.phone])).slice(0, 5).map((c) => ({ id: sOrC(c), name: c.name, district: c.district, city: c.city, status: c.status, phone: mask(c.phone) })),
           orders: [],
           complaints: (Array.isArray(complaints) ? complaints : []).filter((c) => hit([c.issue, c.order_number])).slice(0, 5).map((c) => ({ id: c.id, order_id: c.order_id, status: c.status, priority: c.priority, issue: c.issue })),
         });
@@ -85,3 +92,5 @@ export function createDemoApi() {
     del: (path) => request('DELETE', path),
   };
 }
+
+function sOrC(c) { return c.id; }

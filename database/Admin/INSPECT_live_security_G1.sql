@@ -238,10 +238,10 @@ WITH checks AS (
     '(b) Hàm handle_new_user() không cấp admin & không ghi đè role',
     CASE
       WHEN to_regprocedure('public.handle_new_user()') IS NULL THEN 'THIẾU HÀM handle_new_user()'
-      WHEN pg_get_functiondef('public.handle_new_user()'::regprocedure) ~* '''customer''\s*,\s*''partner''\s*,\s*''charity''\s*,\s*''admin'''
+      WHEN pg_get_functiondef(to_regprocedure('public.handle_new_user()')) ~* '''customer''\s*,\s*''partner''\s*,\s*''charity''\s*,\s*''admin'''
         THEN 'NGUY HIỂM KHẨN CẤP (CÒN CHO ĐĂNG KÝ ADMIN QUA METADATA!)'
-      WHEN pg_get_functiondef('public.handle_new_user()'::regprocedure) ~* 'on\s+conflict\s*\(\s*id\s*\)\s*do\s+update[\s\S]*\brole\s*=\s*excluded\.role'
-        OR pg_get_functiondef('public.handle_new_user()'::regprocedure) ILIKE '%md5(random()%'
+      WHEN pg_get_functiondef(to_regprocedure('public.handle_new_user()')) ~* 'on\s+conflict\s*\(\s*id\s*\)\s*do\s+update[\s\S]*\brole\s*=\s*excluded\.role'
+        OR pg_get_functiondef(to_regprocedure('public.handle_new_user()')) ILIKE '%md5(random()%'
         THEN 'ĐÃ CHẶN ADMIN (014), CẦN CHẠY 039 ĐỂ GỘP CỘT 008 + TNV + SLUG XÁC ĐỊNH + BỎ GHI ĐÈ ROLE'
       ELSE 'ĐẠT (BẢN 039 ĐẦY ĐỦ)'
     END
@@ -304,7 +304,7 @@ WITH checks AS (
        AND NOT has_table_privilege('authenticated', 'public.order_items', 'INSERT')
        AND EXISTS (
          SELECT 1 FROM pg_trigger t
-         WHERE t.tgrelid = 'public.charity_profiles'::regclass
+         WHERE t.tgrelid = to_regclass('public.charity_profiles')
            AND t.tgname = 'protect_charity_approval_status'
            AND t.tgenabled <> 'D' AND NOT t.tgisinternal
        ) THEN 'ĐẠT (038 ĐÃ ÁP DỤNG)'
@@ -334,7 +334,7 @@ WITH checks AS (
       WHEN to_regclass('public.withdrawals_backup_035') IS NULL THEN 'ĐẠT (KHÔNG TỒN TẠI BẢNG SAO LƯU TẠM)'
       WHEN EXISTS (
         SELECT 1 FROM pg_class
-        WHERE oid = 'public.withdrawals_backup_035'::regclass
+        WHERE oid = to_regclass('public.withdrawals_backup_035')
           AND relrowsecurity = true
       ) THEN 'TỒN TẠI (ĐÃ BẬT RLS)'
       ELSE 'CẢNH BÁO: TỒN TẠI NHƯNG CHƯA BẬT RLS — CHẠY ALTER TABLE public.withdrawals_backup_035 ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.withdrawals_backup_035 FROM anon, authenticated;'
